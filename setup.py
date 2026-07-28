@@ -26,7 +26,7 @@ long_description = (
 + '\n')
 
 setup(
-    name = 'collective.googleauthenticator',
+    name = 'imio.googleauthenticator',
     version = version,
     description = "Two-step verification for Plone 4 using the Google Authenticator app.",
     long_description = long_description,
@@ -48,7 +48,7 @@ setup(
     license = 'GPL 2.0',
     packages = find_packages('src'),
     package_dir = {'': 'src'},
-    namespace_packages = ['collective', ],
+    namespace_packages = ['imio', ],
     include_package_data = True,
     zip_safe = False,
     install_requires = [
