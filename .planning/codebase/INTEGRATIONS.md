@@ -86,12 +86,28 @@
 - No containerization (Docker) in base package
 
 **CI Pipeline:**
-- None detected in codebase
-- buildout.cfg references `.travis.yml` (commit 025a549)
-- Travis CI integration likely configured separately
+- GitHub Actions: `.github/workflows/package-test.yml`, triggered on push, pull_request,
+  and workflow_dispatch
+- Delegates to iMio's reusable workflow
+  `IMIO/gha-workflows/.github/workflows/package-test-legacy.yml@v1` — the repo holds no
+  build steps of its own
+- Inputs: `buildout_config_file: test-4.3.cfg`, `requirements_file: requirements-4.3.txt`,
+  `runner_label: gha-runners-docs-py2` (self-hosted Python 2 runner),
+  `test_command: 'bin/test -t !robot'`
+- Single job (`tests-plone4`). No `tests-current` matrix and no coverage job: the
+  `package-test-coverage.yml` and `package-test-uv.yml` reusable workflows are uv/Python 3
+  based, with no Python 2.7 equivalent
+- The reusable workflow optionally posts to Mattermost via a `mattermost_webhook_url`
+  secret; this repo does not pass one
+- CI does **not** run `bin/code-analysis`, so the package's outstanding lint debt does not
+  fail the build
+- **Travis CI was removed** (`.travis.yml` deleted). The old pipeline also pushed coverage
+  to Coveralls and notified `irc.freenode.org#plone-testing`; neither survives.
 
 **Version Control:**
-- Git repository: https://github.com/collective/collective.googleauthenticator
+- Git remote: git@github.com:IMIO/imio.googleauthenticator.git (iMio fork)
+- `setup.py` metadata and README still point upstream at
+  https://github.com/collective/collective.googleauthenticator
 
 ## Environment Configuration
 

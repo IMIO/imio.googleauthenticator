@@ -29,16 +29,21 @@
 ## Code Style
 
 **Formatting:**
-- isort for import sorting (configured in `setup.cfg`)
-- Line length: 200 characters (per `setup.cfg` setting)
+- isort for import sorting (configured in `.isort.cfg`; `setup.cfg` no longer exists)
+- Line length: 120 characters (per `.isort.cfg`) — tightened from the old 200
 - Indentation: 4 spaces (Python standard)
 - No enforced formatter beyond isort
 
 **Linting:**
-- flake8 for code analysis
-- Run via: `bin/code-analysis` (buildout recipe)
-- Configuration in `buildout.cfg`: clean-lines enabled, multiprocessing enabled
-- No enforced flake8-ignore rules (empty list)
+- flake8 for code analysis, plus the `flake8-isort` extension
+- Run via: `bin/code-analysis` (plone.recipe.codeanalysis)
+- Configuration in `base.cfg` `[code-analysis]`: `return-status-codes = True`,
+  `pre-commit-hook = True`, `directory = src/collective/googleauthenticator`
+- `flake8-ignore = E123,E124,E501,E126,E127,E128,W391,C901,W503,W504`
+- **Currently failing** on ~40 pre-existing findings in `src/` (mostly `I001`/`I003`/`I004`
+  isort ordering, plus `F401` unused imports and `W292`/`W293` whitespace, concentrated in
+  `src/collective/googleauthenticator/tests/`). Because `pre-commit-hook` is enabled,
+  commits need `--no-verify` until that debt is cleared. CI does not run code-analysis.
 
 ## Import Organization
 
@@ -73,12 +78,12 @@ from collective.googleauthenticator.browser.controlpanel import IGoogleAuthentic
 
 **Path Aliases:**
 - None detected. Imports use absolute paths from `src/` root via package structure.
-- isort settings (from `setup.cfg`):
+- isort settings (from `.isort.cfg`):
   - `force_alphabetical_sort = True`
   - `force_single_line = True`
-  - `line_length = 200`
+  - `line_length = 120`
   - `lines_after_imports = 2`
-  - `not_skip = __init__.py`
+  - (`not_skip = __init__.py` was dropped along with `setup.cfg`)
 
 ## Error Handling
 

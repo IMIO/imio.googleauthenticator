@@ -15,7 +15,13 @@
 - Issue: Targets Plone 4 exclusively (from setup.py classifiers and imports like `Products.PluggableAuthService`)
 - Files: `setup.py`, all browser/plugin code
 - Impact: Cannot be used with Plone 5/6; Plone 4 is severely outdated
-- Fix approach: Add support for Plone 5+ while maintaining Plone 4 compatibility, then deprecate Plone 4
+- Reinforced by the buildout layout: only `test-4.3.cfg` / `requirements-4.3.txt` exist. The
+  scripts-buildout layout supports 5.2/6.0/6.1 side by side, but those configs were
+  deliberately not added
+- Fix approach: Add support for Plone 5+ while maintaining Plone 4 compatibility, then
+  deprecate Plone 4. Mechanically this means copying `test-6.x.cfg` /
+  `requirements-6.x.txt` from IMIO/scripts-buildout and adding the matching
+  `tests-current` matrix job to `.github/workflows/package-test.yml`
 
 **Deprecated Plone APIs:**
 - Issue: Uses deprecated private/internal APIs that may break between versions
@@ -45,6 +51,50 @@
 - Files: `helpers.py:310-312, 338-340` - `extract_request_data_from_query_string()` and `extract_request_data()`
 - Impact: May fail silently with certain payload characters; security implications unclear
 - Fix approach: Document why escaping happens and whether it's a security feature or bug; add tests for edge cases
+
+**Lint Debt Blocks the Pre-Commit Hook:**
+- Issue: `bin/code-analysis` exits 1 on ~40 pre-existing findings, and `base.cfg` sets
+  `pre-commit-hook = True` / `return-status-codes = True`, so buildout installs a git hook
+  that fails every commit
+- Files: mostly `src/collective/googleauthenticator/tests/` — `I001`/`I003`/`I004` isort
+  ordering, `F401` unused imports (`plone.testing.z2.Browser`, several
+  `plone.app.testing` constants in `test_security.py` and `test_pas_plugin.py`),
+  `W292`/`W293` whitespace, `E302`, `E271`
+- Impact: Every commit needs `--no-verify`, which trains contributors to bypass the hook
+  entirely — so genuinely new lint errors will also sail through. CI does not run
+  code-analysis, so nothing catches them
+- Fix approach: One mechanical `bin/isort --apply` + whitespace/unused-import sweep over
+  `src/`, in its own commit, then the hook becomes useful again
+
+**No Coverage Measurement in CI:**
+- Issue: The removed `.travis.yml` ran `bin/createcoverage` and uploaded to Coveralls.
+  `.github/workflows/package-test.yml` has no coverage job
+- Cause: `IMIO/gha-workflows` only ships `package-test-coverage.yml`, which is uv/Python 3
+  based (`.venv/bin/coverage`, default python 3.13) and has no Python 2.7 equivalent
+- Impact: Coverage is now measurable only locally via `bin/createcoverage`; regressions in
+  the (already thin) test suite go unnoticed. `.coveragerc` is still present and correct
+- Fix approach: Either run `bin/createcoverage` as a custom step against the py2 runner, or
+  accept local-only coverage until the Python 3 migration
+
+**CI Depends on a Self-Hosted Python 2 Runner:**
+- Issue: `.github/workflows/package-test.yml` requires `runner_label: gha-runners-docs-py2`
+- Impact: Not buildable on stock GitHub-hosted runners; if iMio retires that runner pool,
+  CI stops working with no fallback. Forks outside the iMio org cannot run CI at all
+- Fix approach: Nothing cheap — Python 2.7 is unavailable on current ubuntu-latest images.
+  Real fix is the Python 3 migration
+
+**Tests Violate Plone Test Isolation:**
+- Issue: `tests/base.py:_install()` drives a `plone.testing.z2.Browser` (quickinstaller
+  round-trip) inside an `IntegrationTesting` layer, which commits a transaction
+- Files: `tests/base.py`, `tests/test_generic.py`, `tests/test_pas_plugin.py`,
+  `tests/test_security.py`
+- Impact: Caps `plone.testing` at Plone 4.3's 4.1.3 — the pin cannot move to 5.0.0, whose
+  `TestIsolationBroken` guard makes all 6 browser tests error. Documented in `test-4.3.cfg`
+  and `.planning/codebase/TESTING.md`
+- Fix approach: Move those classes onto `COLLECTIVE_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING`,
+  already defined but unused in `src/collective/googleauthenticator/testing.py`. The
+  in-layer install workaround (see the comment in `base.py:16-17`) should also be replaced
+  by `applyProfile` in the layer's `setUpPloneSite`
 
 ## Known Bugs
 
@@ -172,10 +222,15 @@
 - Current alternatives: `base64.b32encode()` from stdlib (Python 3), or keep external package
 - Migration plan: Either add `base64` usage or upgrade to maintained fork; document why external dependency needed
 
-**ska>=1.1 (Open):**
-- Risk: Package version not pinned; could pull breaking changes
+**ska==1.7.5 (Pinned, at ceiling):**
+- Risk: 1.7.5 is the **last release supporting Python 2.7** — pinned in `test-4.3.cfg`
+  `[versions]`. There is no upgrade path while the package stays on 2.7: 1.8.x+ dropped the
+  Python 2 classifiers and 1.11.x requires `setuptools>=61` (PEP 517), which cannot install
+  under 2.7. `setup.py` still declares the loose `ska>=1.1`, so the buildout pin is the only
+  thing preventing a broken install
 - Current alternatives: None (custom signing not worth it)
-- Migration plan: Pin to specific version (e.g., `ska==1.4.2`); add security audit before upgrading
+- Migration plan: Unblocked only by the Python 3 migration; audit ska's signing behaviour
+  for changes between 1.7.5 and current before lifting the pin
 
 **py2-ipaddress>2.0.1:**
 - Risk: Backport for Python 2; not needed for Python 3

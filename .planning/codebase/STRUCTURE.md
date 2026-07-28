@@ -24,9 +24,23 @@
 │           ├── *.py               # Core modules
 │           └── __init__.py        # Package initialization
 ├── docs/                          # Sphinx documentation
-├── examples/                      # Example Plone instance
-└── [buildout config files]        # Setup and build configuration
+├── examples/simple/               # Example Plone instance (own, unrelated buildout)
+├── .github/workflows/             # CI — package-test.yml (delegates to IMIO/gha-workflows)
+├── Makefile                       # Task entry point (setup / buildout / test / vcn)
+├── test-4.3.cfg                   # Buildout entry point: Plone 4.3 pins + extra eggs
+├── base.cfg                       # Shared buildout parts (instance, test, code-analysis, ...)
+├── checkouts.cfg                  # mr.developer remotes + [sources]
+├── requirements-4.3.txt           # pip bootstrap for the virtualenv
+├── .isort.cfg                     # Import sorting rules
+├── .coveragerc                    # Coverage scope
+├── setup.py                       # Package definition
+└── CLAUDE.md                      # Claude Code guidance
 ```
+
+**Not present** (removed in the buildout migration): `buildout.cfg`, `bootstrap.py`,
+`setup.cfg`, `.travis.yml`. Root config now follows the multi-file
+[IMIO/scripts-buildout](https://github.com/IMIO/scripts-buildout) layout, one file per
+Plone version — and only 4.3 exists here.
 
 ## Directory Purposes
 
@@ -88,7 +102,10 @@
 **`examples/simple/`:**
 - Purpose: Example Plone buildout configuration for testing locally
 - Contains: Buildout config files and bootstrap script
-- Key files: `buildout.cfg`, `bootstrap.py`
+- Key files: `buildout-plone4.cfg`, `buildout-base.cfg`, `buildout-dvl.cfg`,
+  `buildout-sources.cfg`, `versions.cfg`, `bootstrap.py`
+- Independent of the root buildout — untouched by the scripts-buildout migration, and still
+  uses the old `bootstrap.py` flow
 
 ## Key File Locations
 
