@@ -1318,9 +1318,16 @@ each was executed or read from source on this machine.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+All four were resolved at planning time. The authoritative resolution table — with the owning plan
+for each — is the "RESEARCH Open Questions — resolution for the plan set" section of `01-01-PLAN.md`.
+Nothing below is left for an executor to decide; the inline markers name where each resolution lands.
 
 1. **Does `en/LC_MESSAGES/*.po` (D-18) actually render, or does Plone short-circuit to the msgid?**
+   - **RESOLVED (Q1, owner plan 01-02):** implement both as D-18 locks and add the recommended
+     assertion — `test_corrected_msgid_renders_in_english`, plan 01-02 task 2 step 5. It passes
+     whichever path resolves, so the question no longer needs answering.
    - What we know: `registerTranslations` registers an `en` catalogue like any other, and
      `TranslationDomain` resolves by negotiated language. So the file *will* be registered.
    - What's unclear: whether Plone's language negotiation for a default-English site routes through
@@ -1332,6 +1339,8 @@ each was executed or read from source on this machine.
      fixes either way.
 
 2. **Should the `MANIFEST.in` rewrite carry Phase 7's deletions early?**
+   - **RESOLVED (Q2, owner plan 01-03):** no — keep the patterns. The recommendation below was
+     adopted verbatim; plan 01-03 task 2 states the reason in its action and accepts the warning.
    - What we know: the template includes `recursive-include …/skins *` and `*.cpt`/`*.metadata`
      patterns for files Phase 7 deletes (COEX-02, COEX-05).
    - What's unclear: nothing technical — leaving them is harmless (`recursive-include` on a
@@ -1340,6 +1349,9 @@ each was executed or read from source on this machine.
      scope, and the warning is a useful reminder. Phase 7 drops the lines with the directories.
 
 3. **How is `git clean -xdf src/` sequenced relative to `git mv`?**
+   - **RESOLVED (Q3, owner plan 01-01):** `git mv` then `git clean`, in that order, in one commit.
+     Adopted verbatim; encoded in plan 01-01 task 1's commit-1 paragraph and asserted by
+     `test ! -d src/collective`.
    - What we know: both orders work. After `git mv src/collective src/imio`, the untracked `.pyc`
      tree remains at `src/collective/` and is still under `src/`, so `git clean -xdf src/` still
      reaches it and removes the now-empty directory.
@@ -1347,6 +1359,9 @@ each was executed or read from source on this machine.
      `test ! -d src/collective` then holds at commit time and is directly assertable.
 
 4. **What is the corrected QUAL-06 baseline, and does Phase 8 still fit?**
+   - **RESOLVED (Q4, owner plan 01-03):** 318, recorded now. Plan 01-03 task 3 writes it to
+     `CLAUDE.md` *and* appends it to STATE.md Blockers/Concerns. How many findings `bin/isort` can
+     fix mechanically stays Phase 8's question, deliberately out of scope here.
    - What we know: 318 findings, not ~40 (C-6); 184 are isort findings that this rename perturbs.
    - What's unclear: how many of the 318 `bin/isort` can fix mechanically. Likely most of the 184
      isort ones plus `E251`'s 78 (`keyword = value` spacing, mechanically fixable).

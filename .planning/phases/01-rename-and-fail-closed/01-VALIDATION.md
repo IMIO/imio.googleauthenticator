@@ -5,7 +5,7 @@ slug: rename-and-fail-closed
 # audit-milestone §5.5 distinguishes NOT-VALIDATED (draft) from PARTIAL (validated + nyquist_compliant: false) (#2117)
 status: draft
 nyquist_compliant: false
-wave_0_complete: false
+wave_0_complete: false   # no Wave 0 item has landed — the tree still has src/collective/
 created: 2026-07-28
 ---
 
@@ -13,7 +13,9 @@ created: 2026-07-28
 
 > Per-phase validation contract for feedback sampling during execution.
 > Seeded from `01-RESEARCH.md` `## Validation Architecture`. The Per-Task
-> Verification Map is filled by `/gsd-validate-phase` once task IDs exist.
+> Verification Map is filled from the PLAN files (task IDs are final). The
+> sign-off boxes and the `status` / `nyquist_compliant` flags stay
+> `/gsd-validate-phase`'s to set.
 
 ---
 
@@ -52,26 +54,36 @@ An `ImportError` between those two points is expected, not a rename bug.
 
 ## Per-Task Verification Map
 
-*Filled by `/gsd-validate-phase` once PLAN task IDs exist. Requirement → command mapping is
-already fixed in `01-RESEARCH.md` `## Validation Architecture` → "Phase Requirements → Test Map".*
+Filled from the four PLAN files now that task IDs are final. One row per phase requirement (13),
+each pointing at the task that owns it. **Automated Command** holds the clause of that task's
+`<automated>` chain that proves *this* requirement, copied verbatim from the plan — the full chain
+(which covers several requirements at once) lives in the task named in **Task ID**.
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | TBD | RENAME-01 | — | N/A | unit | `bin/test -t test_imio_is_a_pkg_resources_namespace` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | RENAME-02 | — | N/A | integration | `bin/test -t '!robot'` (layer setup loads all ZCML) | ✅ | ⬜ pending |
-| TBD | TBD | TBD | RENAME-03 | — | N/A | integration | `bin/test -t test_control_panel_is_translated_nl` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | RENAME-04 | T-1-03 | Plugin present after `applyProfile`, so 2FA runs on a fresh site | integration | `bin/test -t test_plugin_is_registered_for_authentication` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | RENAME-05 | — | N/A | integration | `bin/test -t test_resources_are_registered` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | RENAME-06 | — | N/A | build check | `bin/python setup.py sdist && tar tzf dist/*.tar.gz \| grep -E 'locales/.*\.pot\|profiles/default/'` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | RENAME-07 | — | N/A | build check | `grep defaults .installed.cfg \| grep imio` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | RENAME-08 | T-1-04 | No duplicate namespace load / ambiguous plugin registration | build check | `test ! -d src/collective && ! find src -name '*.pyc' \| grep -q .` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | RENAME-09 | — | N/A | integration | `bin/test -t '!robot'` + `test ! -d src/imio/googleauthenticator/upgrades` | ✅ | ⬜ pending |
-| TBD | TBD | TBD | RENAME-10 | — | Exactly one `meta_type` registered | integration | `bin/test -t '!robot'` (`z2.installProduct` → `RuntimeError` on duplicate) | ✅ | ⬜ pending |
-| TBD | TBD | TBD | RENAME-11 | T-1-01 | Plugin exception → 500, never a password-only login via `source_users` | integration | `bin/test -t test_plugin_exception_is_not_swallowed` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | RENAME-12 | T-1-02 | `google_auth` present for `IAuthenticationPlugin` — catches a `Broken` object | integration | `bin/test -t test_plugin_is_registered_for_authentication` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | DOC-04 | — | N/A | manual-only | Read `CHANGES.rst`; `bin/python -c "import setup"` | ❌ W0 | ⬜ pending |
+| 01-01 T2 | 01-01 | 1 | RENAME-01 | — | N/A | unit | `bin/test -t '!robot' -t test_imio_is_a_pkg_resources_namespace` | ❌ W0 | ⬜ pending |
+| 01-01 T1 | 01-01 | 1 | RENAME-02 | — | N/A | integration | `bin/test -t '!robot'` (layer setup loads all ZCML) | ✅ | ⬜ pending |
+| 01-02 T1, T2 | 01-02 | 2 | RENAME-03 | T-1-07 | A malformed catalogue registers zero messages behind a single warning line | integration + parse gate | `bin/test -t '!robot' -t test_control_panel_is_translated_nl`; plus, per catalogue, `PGT=$(grep -o "'[^']*python_gettext[^']*'" bin/test \| tr -d "'")` then `PYTHONPATH="$PGT" bin/python -c "import sys;from pythongettext.msgfmt import Msgfmt;Msgfmt(open(sys.argv[1]),sys.argv[1]).get()" <po>` | ❌ W0 | ⬜ pending |
+| 01-01 T2 | 01-01 | 1 | RENAME-04 | T-1-03 | Plugin present after `applyProfile`, so 2FA runs on a fresh site | integration | `bin/test -t '!robot' -t test_plugin_is_registered_for_authentication` | ❌ W0 | ⬜ pending |
+| 01-01 T2 | 01-01 | 1 | RENAME-05 | — | N/A | integration | `bin/test -t '!robot' -t test_resources_are_registered` | ❌ W0 | ⬜ pending |
+| 01-03 T2 | 01-03 | 3 | RENAME-06 | — | N/A | build check | `rm -rf dist && bin/python setup.py sdist > /tmp/sdist.log 2>&1 && tar tzf dist/*.tar.gz > /tmp/sdist.list && grep -q 'locales/imio.googleauthenticator.pot' /tmp/sdist.list && grep -q 'profiles/default/registry.xml' /tmp/sdist.list` | ❌ W0 | ⬜ pending |
+| 01-01 T1 | 01-01 | 1 | RENAME-07 | — | N/A | build check | `grep defaults .installed.cfg \| grep -q imio.googleauthenticator` (followed through in 01-02 T1 for `rebuild_i18n.sh` and 01-03 T3 for `.coveragerc` / `cleanup.sh`) | ✅ | ⬜ pending |
+| 01-01 T1 | 01-01 | 1 | RENAME-08 | T-1-04 | No duplicate namespace load / ambiguous plugin registration | build check | `test ! -d src/collective && test -z "$(find src -name '*.pyc')"` | ✅ | ⬜ pending |
+| 01-01 T1 | 01-01 | 1 | RENAME-09 | — | N/A | integration | `test ! -d src/imio/googleauthenticator/upgrades && bin/test -t '!robot'` | ✅ | ⬜ pending |
+| 01-04 T1 | 01-04 | 4 | RENAME-10 | — | Exactly one `meta_type` registered | integration | `grep -q "meta_type = 'iMio Google Authenticator PAS'" src/imio/googleauthenticator/pas_plugin.py && bin/test -t '!robot'` (`z2.installProduct` → `RuntimeError` on duplicate) | ✅ | ⬜ pending |
+| 01-04 T2 | 01-04 | 4 | RENAME-11 | T-1-01 | Plugin exception → 500, never a password-only login via `source_users` | integration | `bin/test -t '!robot' -t test_plugin_exception_is_not_swallowed` | ❌ W0 | ⬜ pending |
+| 01-01 T2 | 01-01 | 1 | RENAME-12 | T-1-02 | `google_auth` present for `IAuthenticationPlugin` — catches a `Broken` object | integration | `bin/test -t '!robot' -t test_plugin_is_registered_for_authentication` (re-asserted in 01-04 T2 after the `meta_type` change) | ❌ W0 | ⬜ pending |
+| 01-03 T1 | 01-03 | 3 | DOC-04 | — | N/A | manual-only + build check | `test "$(bin/python setup.py --long-description \| wc -c)" -gt 5000 && grep -q "1.0.0 (unreleased)" CHANGES.rst` — the prose half is manual (see Manual-Only Verifications) | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+
+**`File Exists`** is about the assertion, not the requirement: ✅ means the check runs against the
+tree as it stands (the existing 8-test suite, or a shell assertion needing no new test), ❌ W0 means
+it depends on a Wave 0 test method that does not exist yet. Every row is `⬜ pending` because no plan
+in this phase has executed — the tree still has `src/collective/`.
+
+**Not in this map, by design:** `bin/code-analysis`. See Sampling Rate — 318 findings, exit 1, not a
+gate until Phase 8, and every commit here uses `git commit --no-verify`.
 
 ---
 
@@ -102,12 +114,28 @@ already fixed in `01-RESEARCH.md` `## Validation Architecture` → "Phase Requir
 
 ## Validation Sign-Off
 
+`/gsd-validate-phase` owns these boxes and owns flipping `status` and `nyquist_compliant` in the
+frontmatter. The planner does not tick them; an honest `draft` is better than a premature `true`.
+What the planner *can* record is the evidence measured against the four PLAN files as they stand —
+each note below is a fact about the plans, not a sign-off:
+
 - [ ] All tasks have `<automated>` verify or Wave 0 dependencies
+      — measured: all 8 tasks across 01-01…01-04 carry an `<automated>` block; no `MISSING` marker
+      remains anywhere in the set.
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify
       (commit-1 / commit-2 are the known exception — see Sampling Rate)
+      — measured: the longest run without a `bin/test` invocation is the pure-move / buildout pair
+      inside 01-01 T1, which is the documented exception.
 - [ ] Wave 0 covers all MISSING references
+      — measured: the six Wave 0 items below name every test method the map marks `❌ W0`.
 - [ ] No watch-mode flags
+      — measured: no `--watch`, `-w` or equivalent in any `<automated>` block; `bin/test` has no
+      watch mode.
 - [ ] Feedback latency < 10s
+      — measured: ~7 s full suite, ~2 s single module (RESEARCH `## Environment Availability`).
 - [ ] `nyquist_compliant: true` set in frontmatter
+      — deliberately still `false`. `/gsd-validate-phase` sets it.
 
-**Approval:** pending
+**Approval:** pending — `/gsd-validate-phase` has not run. `status: draft`,
+`nyquist_compliant: false` and `wave_0_complete: false` are all current and correct as of this
+revision; none is the planner's to flip.
