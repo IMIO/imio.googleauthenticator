@@ -50,7 +50,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `python setup.py sdist` produces an archive containing `profiles/`, `locales/` and the templates — the only way to prove `MANIFEST.in`'s eight hardcoded paths were all updated, since a develop-egg reads `src/` directly and hides the breakage until release.
   4. The Dutch translation still renders in the UI: `locales/*.pot` and `locales/nl/**` were `git mv`-ed to the new domain filenames and stale `.mo` files deleted. The i18n domain comes from the filenames, not from `i18n_domain`, so renaming `MessageFactory` alone silently deletes the translation.
   5. `_dont_swallow_my_exceptions = True` is set on the plugin class, and a test asserts a deliberately raised plugin exception yields a 500 rather than authenticating on password alone via `source_users`.
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Move the package, regenerate the buildout, rename every dotted reference and GenericSetup identity; suite green again plus the namespace, plugin-registration and resource assertions
+- [ ] 01-02-PLAN.md — i18n domain filenames, a Dutch-renders assertion, the three defective msgids, and new French and English catalogues
+- [ ] 01-03-PLAN.md — MANIFEST.in rewrite verified by a real sdist, distribution metadata, CHANGES.rst with DOC-04, build tooling, docs and the developer purge target
+- [ ] 01-04-PLAN.md — PAS `meta_type`/title rename in an isolated commit, then `_dont_swallow_my_exceptions` with its fail-closed test
 
 **Phase notes:**
 - **Do NOT rename `PAS_ID`** (`google_auth`). It is already namespace-neutral, and renaming it creates a second plugin on any existing ZODB. Rename `PAS_TITLE` and `meta_type` only, and put `meta_type` in its own commit so `registerMultiPlugin`'s duplicate-meta_type `RuntimeError` stays interpretable as "stale artefact" rather than "rename bug".
@@ -199,7 +205,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Rename and Fail-Closed | 0/TBD | Not started | - |
+| 1. Rename and Fail-Closed | 0/4 | Not started | - |
 | 2. Registry Seeding and Import-Step Ordering | 0/TBD | Not started | - |
 | 3. Encrypted Seeds and Local QR | 0/TBD | Not started | - |
 | 4. PAS Boundary | 0/TBD | Not started | - |
