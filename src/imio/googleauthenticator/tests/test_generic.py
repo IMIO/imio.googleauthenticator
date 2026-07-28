@@ -55,3 +55,29 @@ class TestGeneric(unittest.TestCase, BaseTest):
     #
     #     self.assertEqual(browser.headers.get('status'), '200 Ok', 'HTTP response was not 200 Ok')
     #
+
+    def test_imio_is_a_pkg_resources_namespace(self):
+        """Catches: empty src/imio/__init__.py, a pkgutil-style declaration, and a
+        missing namespace_packages=['imio'] in setup.py. No new dependency needed --
+        this proves this package's own namespace declaration, not agreement with a
+        second imio.* egg in the same process (that residual gap is accepted, see
+        RESEARCH Adjudication A-1)."""
+        import pkg_resources
+        import imio.googleauthenticator  # noqa
+        self.assertIn('imio', pkg_resources._namespace_packages)
+        dist = pkg_resources.get_distribution('imio.googleauthenticator')
+        self.assertEqual(
+            dist.get_metadata('namespace_packages.txt').split(), ['imio'])
+
+    def test_resources_are_registered(self):
+        """This single assertion is what makes the four files that must agree --
+        the resourceDirectory name in browser/configure.zcml, the two
+        jsregistry.xml ids, the cssregistry.xml id, and the skins.xml
+        directory-view prefix -- verifiable, because a mismatch is otherwise a
+        404 on the asset and nothing else."""
+        portal_javascripts = getToolByName(self.portal, 'portal_javascripts')
+        portal_css = getToolByName(self.portal, 'portal_css')
+        js_ids = portal_javascripts.getResourceIds()
+        css_ids = portal_css.getResourceIds()
+        self.assertIn('++resource++imio.googleauthenticator/main.js', js_ids)
+        self.assertIn('++resource++imio.googleauthenticator/main.css', css_ids)

@@ -1,4 +1,5 @@
 from Products.CMFCore.utils import getToolByName
+from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 import unittest2 as unittest
 from plone.testing.z2 import Browser
 from plone import api
@@ -28,3 +29,14 @@ class TestPas(unittest.TestCase, BaseTest):
         """
         installed = self.pas.objectIds()
         self.assertIn(PAS_ID, installed)
+
+    def test_plugin_is_registered_for_authentication(self):
+        """objectIds() (test_plugin_is_installed, above) cannot catch this: a
+        Broken object still appears there. PluginRegistry.listPlugins filters
+        on _satisfies() and logs the miss at debug level, so a Broken plugin --
+        or a marker-file mismatch that never added it -- is invisible without
+        this assertion. This is the acceptance test for the marker-file
+        invariant (RENAME-04) as well as for RENAME-12."""
+        registered = [pid for pid, _p
+                      in self.pas.plugins.listPlugins(IAuthenticationPlugin)]
+        self.assertIn(PAS_ID, registered)
