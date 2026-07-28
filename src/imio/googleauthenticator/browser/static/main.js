@@ -1,7 +1,7 @@
 /*
     Document   : main.js
     Description:
-        Auxiliary scripts for `collective.googleauthenticator`.
+        Auxiliary scripts for `imio.googleauthenticator`.
 */
 
 ;

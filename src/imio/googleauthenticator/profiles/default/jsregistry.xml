@@ -20,10 +20,10 @@
 
     <javascript cacheable="True" compression="none" cookable="True"
                 enabled="True" expression=""
-                id="++resource++collective.googleauthenticator/main.js" inline="False"/>
+                id="++resource++imio.googleauthenticator/main.js" inline="False"/>
 
     <javascript cacheable="True" compression="none" cookable="True"
                 enabled="True" expression=""
-                id="++resource++collective.googleauthenticator/plone_ecmascript/popupforms.js" inline="False"/>
+                id="++resource++imio.googleauthenticator/plone_ecmascript/popupforms.js" inline="False"/>
 
 </object>

@@ -15,16 +15,16 @@ from plone.z3cform.layout import wrap_form
 
 from Products.statusmessages.interfaces import IStatusMessage
 
-from collective.googleauthenticator.helpers import drop_login_failed_msg
-from collective.googleauthenticator.helpers import extract_request_data
-from collective.googleauthenticator.helpers import validate_token
-from collective.googleauthenticator.helpers import validate_user_data
+from imio.googleauthenticator.helpers import drop_login_failed_msg
+from imio.googleauthenticator.helpers import extract_request_data
+from imio.googleauthenticator.helpers import validate_token
+from imio.googleauthenticator.helpers import validate_user_data
 
-logger = logging.getLogger('collective.googleauthenticator')
+logger = logging.getLogger('imio.googleauthenticator')
 
 DEBUG = False
 
-_ = MessageFactory('collective.googleauthenticator')
+_ = MessageFactory('imio.googleauthenticator')
 PMF = MessageFactory('plone')
 
 

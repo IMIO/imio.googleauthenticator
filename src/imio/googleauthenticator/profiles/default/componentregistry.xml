@@ -3,7 +3,7 @@
   <utilities>
     <utility
       interface="plone.app.users.userdataschema.IUserDataSchemaProvider"
-      factory="collective.googleauthenticator.userdataschema.UserDataSchemaProvider"
+      factory="imio.googleauthenticator.userdataschema.UserDataSchemaProvider"
     />
   </utilities>
 </componentregistry>

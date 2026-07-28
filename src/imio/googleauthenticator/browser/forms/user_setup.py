@@ -15,11 +15,11 @@ from plone.z3cform.layout import wrap_form
 from Products.statusmessages.interfaces import IStatusMessage
 from zope.schema import TextLine
 
-from collective.googleauthenticator.helpers import get_token_description, validate_token
+from imio.googleauthenticator.helpers import get_token_description, validate_token
 
-logger = logging.getLogger('collective.googleauthenticator')
+logger = logging.getLogger('imio.googleauthenticator')
 
-_ = MessageFactory('collective.googleauthenticator')
+_ = MessageFactory('imio.googleauthenticator')
 
 
 class ISetupForm(form.Schema):

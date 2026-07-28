@@ -4,11 +4,11 @@ from zope.i18nmessageid import MessageFactory
 
 from Products.PluggableAuthService.PluggableAuthService import registerMultiPlugin
 
-from collective.googleauthenticator.pas_plugin import (
+from imio.googleauthenticator.pas_plugin import (
     GoogleAuthenticatorPlugin, addGoogleAuthenticatorPlugin, manage_addGoogleAuthenticatorPluginForm
     )
 
-_ = MessageFactory('collective.googleauthenticator')
+_ = MessageFactory('imio.googleauthenticator')
 
 def initialize(context):
     """

@@ -4,11 +4,11 @@ from plone import api
 
 from Products.Five import BrowserView
 
-from collective.googleauthenticator.helpers import (
+from imio.googleauthenticator.helpers import (
     is_two_factor_authentication_globally_enabled, has_enabled_two_factor_authentication
     )
 
-_ = MessageFactory('collective.googleauthenticator')
+_ = MessageFactory('imio.googleauthenticator')
 
 class SettingsHelper(BrowserView):
     """

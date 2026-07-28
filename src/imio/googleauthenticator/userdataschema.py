@@ -13,9 +13,9 @@ from plone.app.users.browser.personalpreferences import UserDataPanel
 from Products.PluggableAuthService.interfaces.authservice import IBasicUser
 from Products.PluggableAuthService.interfaces.events import IPrincipalCreatedEvent
 
-logger = logging.getLogger("collective.googleauthenticator")
+logger = logging.getLogger("imio.googleauthenticator")
 
-_ = MessageFactory('collective.googleauthenticator')
+_ = MessageFactory('imio.googleauthenticator')
 
 class CustomizedUserDataPanel(UserDataPanel):
     """
@@ -84,7 +84,7 @@ def userCreatedHandler(principal, event):
     the ``setMemberProperties`` method defined (that's why we obtain the user
     using `plone.api`, 'cause that one has it).
     """
-    from collective.googleauthenticator.helpers import (
+    from imio.googleauthenticator.helpers import (
         is_two_factor_authentication_globally_enabled, get_or_create_secret
         )
     user = api.user.get(username=principal.getId())

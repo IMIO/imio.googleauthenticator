@@ -5,14 +5,14 @@ from plone.app.testing import quickInstallProduct
 from plone.app.testing import SITE_OWNER_NAME, SITE_OWNER_PASSWORD, TEST_USER_NAME, TEST_USER_PASSWORD
 from plone import api
 
-from collective.googleauthenticator.testing import \
-    COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
-from collective.googleauthenticator.tests.base import BaseTest
+from imio.googleauthenticator.testing import \
+    IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+from imio.googleauthenticator.tests.base import BaseTest
 
 
 class TestGeneric(unittest.TestCase, BaseTest):
 
-    layer = COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 
     def setUp(self):
         self.app = self.layer['app']

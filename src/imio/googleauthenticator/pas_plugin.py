@@ -24,12 +24,12 @@ from Products.PluggableAuthService.utils import classImplements
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 from Products.PageTemplates.PageTemplateFile import PageTemplateFile
 
-from collective.googleauthenticator.adapter import ICameFrom
-from collective.googleauthenticator.helpers import is_whitelisted_client
-from collective.googleauthenticator.helpers import sign_user_data
+from imio.googleauthenticator.adapter import ICameFrom
+from imio.googleauthenticator.helpers import is_whitelisted_client
+from imio.googleauthenticator.helpers import sign_user_data
 
 
-logger = logging.getLogger("collective.googleauthenticator")
+logger = logging.getLogger("imio.googleauthenticator")
 
 manage_addGoogleAuthenticatorPluginForm = PageTemplateFile(
     './www/add_google_authenticator_form',

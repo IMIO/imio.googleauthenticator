@@ -2,17 +2,17 @@ from uuid import uuid4
 
 from zope.i18nmessageid import MessageFactory
 
-from collective.googleauthenticator.helpers import get_app_settings
-from collective.googleauthenticator.pas_plugin import GoogleAuthenticatorPlugin
+from imio.googleauthenticator.helpers import get_app_settings
+from imio.googleauthenticator.pas_plugin import GoogleAuthenticatorPlugin
 
-_ = MessageFactory('collective.googleauthenticator')
+_ = MessageFactory('imio.googleauthenticator')
 
 PAS_TITLE = 'Google Authenticator plugin (collective.googleauthenticator)'
 PAS_ID = 'google_auth'
 
 def _add_plugin(pas, pluginid=PAS_ID):
     """
-    Install and activate collective.googleauthenticator PAS plugin
+    Install and activate imio.googleauthenticator PAS plugin
     """
     installed = pas.objectIds()
     if pluginid in installed:
@@ -35,7 +35,7 @@ def _setup_secret_key(portal):
     Generate secret key
     """
     portal.portal_setup.runImportStepFromProfile(
-        'profile-collective.googleauthenticator:default',
+        'profile-imio.googleauthenticator:default',
         'plone.app.registry'
         )
 
@@ -50,7 +50,7 @@ def setupVarious(context):
 
     # We check from our GenericSetup context whether we are running
     # add-on installation for your product or any other proudct
-    if context.readDataFile('collective.googleauthenticator.marker.txt') is None:
+    if context.readDataFile('imio.googleauthenticator.marker.txt') is None:
         # Not your add-on
         return
 

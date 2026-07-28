@@ -23,11 +23,11 @@ from ska import sign_url, validate_signed_request_data
 import ipaddress
 import rebus
 
-from collective.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
+from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 
-_ = MessageFactory('collective.googleauthenticator')
+_ = MessageFactory('imio.googleauthenticator')
 
-logger = logging.getLogger("collective.googleauthenticator")
+logger = logging.getLogger("imio.googleauthenticator")
 
 # ******************************************
 

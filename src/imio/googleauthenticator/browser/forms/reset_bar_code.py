@@ -14,11 +14,11 @@ from plone.z3cform.layout import wrap_form
 from Products.statusmessages.interfaces import IStatusMessage
 from zope.schema import TextLine
 
-from collective.googleauthenticator.helpers import get_token_description, validate_token, validate_user_data
+from imio.googleauthenticator.helpers import get_token_description, validate_token, validate_user_data
 
-logger = logging.getLogger('collective.googleauthenticator')
+logger = logging.getLogger('imio.googleauthenticator')
 
-_ = MessageFactory('collective.googleauthenticator')
+_ = MessageFactory('imio.googleauthenticator')
 
 
 class IResetBarCodeForm(form.Schema):

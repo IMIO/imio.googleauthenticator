@@ -6,7 +6,7 @@
     xmlns:zcml="http://namespaces.zope.org/zcml"
     xmlns:browser="http://namespaces.zope.org/browser"
     xmlns:i18n="http://namespaces.zope.org/i18n"
-    i18n_domain="collective.googleauthenticator">
+    i18n_domain="imio.googleauthenticator">
 
     <i18n:registerTranslations directory="locales" />
 
@@ -19,7 +19,6 @@
     <includeDependencies package="." />
 
     <include package=".browser" />
-    <include package=".upgrades" />
 
     <utility
         provides=".userdataschema.IEnhancedUserDataSchema"
@@ -30,7 +29,7 @@
         name="default"
         title="Google Authenticator Plone"
         directory="profiles/default"
-        description="Forms for collective.googleauthenticator"
+        description="Forms for imio.googleauthenticator"
         provides="Products.GenericSetup.interfaces.EXTENSION"
         />
 
@@ -43,10 +42,10 @@
         />
 
     <genericsetup:importStep
-        name="collective.googleauthenticator"
-        title="collective.googleauthenticator install steps"
+        name="imio.googleauthenticator"
+        title="imio.googleauthenticator install steps"
         description=""
-        handler="collective.googleauthenticator.setuphandlers.setupVarious"
+        handler="imio.googleauthenticator.setuphandlers.setupVarious"
         />
 
     <!-- -*- extra stuff goes here -*- -->

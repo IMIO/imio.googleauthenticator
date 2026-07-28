@@ -9,37 +9,37 @@ from plone.testing import z2
 from zope.configuration import xmlconfig
 
 
-class CollectivegoogleauthenticatorLayer(PloneSandboxLayer):
+class ImiogoogleauthenticatorLayer(PloneSandboxLayer):
 
     defaultBases = (PLONE_FIXTURE,)
 
     def setUpZope(self, app, configurationContext):
         # Load ZCML
-        import collective.googleauthenticator
+        import imio.googleauthenticator
         xmlconfig.file(
             'configure.zcml',
-            collective.googleauthenticator,
+            imio.googleauthenticator,
             context=configurationContext
         )
 
         # Install products that use an old-style initialize() function
-        z2.installProduct(app, 'collective.googleauthenticator')
+        z2.installProduct(app, 'imio.googleauthenticator')
 
 #    def tearDownZope(self, app):
 #        # Uninstall products installed above
-#        z2.uninstallProduct(app, 'collective.googleauthenticator')
+#        z2.uninstallProduct(app, 'imio.googleauthenticator')
 
 
-COLLECTIVE_GOOGLEAUTHENTICATOR_FIXTURE = CollectivegoogleauthenticatorLayer()
-COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING = IntegrationTesting(
-    bases=(COLLECTIVE_GOOGLEAUTHENTICATOR_FIXTURE,),
-    name="CollectivegoogleauthenticatorLayer:Integration"
+IMIO_GOOGLEAUTHENTICATOR_FIXTURE = ImiogoogleauthenticatorLayer()
+IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING = IntegrationTesting(
+    bases=(IMIO_GOOGLEAUTHENTICATOR_FIXTURE,),
+    name="ImiogoogleauthenticatorLayer:Integration"
 )
-COLLECTIVE_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING = FunctionalTesting(
-    bases=(COLLECTIVE_GOOGLEAUTHENTICATOR_FIXTURE, z2.ZSERVER_FIXTURE),
-    name="CollectivegoogleauthenticatorLayer:Functional"
+IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING = FunctionalTesting(
+    bases=(IMIO_GOOGLEAUTHENTICATOR_FIXTURE, z2.ZSERVER_FIXTURE),
+    name="ImiogoogleauthenticatorLayer:Functional"
 )
-COLLECTIVE_GOOGLEAUTHENTICATOR_ROBOT_TESTING = FunctionalTesting(
-    bases=(COLLECTIVE_GOOGLEAUTHENTICATOR_FIXTURE, REMOTE_LIBRARY_BUNDLE_FIXTURE, z2.ZSERVER_FIXTURE),
-    name="CollectivegoogleauthenticatorLayer:Robot"
+IMIO_GOOGLEAUTHENTICATOR_ROBOT_TESTING = FunctionalTesting(
+    bases=(IMIO_GOOGLEAUTHENTICATOR_FIXTURE, REMOTE_LIBRARY_BUNDLE_FIXTURE, z2.ZSERVER_FIXTURE),
+    name="ImiogoogleauthenticatorLayer:Robot"
 )

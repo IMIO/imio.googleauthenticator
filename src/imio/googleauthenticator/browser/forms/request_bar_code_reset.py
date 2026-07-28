@@ -17,11 +17,11 @@ from Products.CMFCore.utils import getToolByName
 
 from ska import Signature, RequestHelper
 
-from collective.googleauthenticator.helpers import get_ska_secret_key
+from imio.googleauthenticator.helpers import get_ska_secret_key
 
-logger = logging.getLogger('collective.googleauthenticator')
+logger = logging.getLogger('imio.googleauthenticator')
 
-_ = MessageFactory('collective.googleauthenticator')
+_ = MessageFactory('imio.googleauthenticator')
 
 
 class IRequestBarCodeResetForm(form.Schema):

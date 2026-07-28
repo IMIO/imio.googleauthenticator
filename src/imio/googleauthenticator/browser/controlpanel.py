@@ -16,9 +16,9 @@ from z3c.form import form, button
 
 from Products.statusmessages.interfaces import IStatusMessage
 
-logger = logging.getLogger("collective.googleauthenticator")
+logger = logging.getLogger("imio.googleauthenticator")
 
-_ = MessageFactory('collective.googleauthenticator')
+_ = MessageFactory('imio.googleauthenticator')
 
 
 class IGoogleAuthenticatorSettings(Interface):
@@ -96,7 +96,7 @@ class GoogleAuthenticatorSettingsEditForm(AutoExtensibleForm, form.EditForm):
         """
         Update properties of all users.
         """
-        from collective.googleauthenticator.helpers import (
+        from imio.googleauthenticator.helpers import (
             enable_two_factor_authentication_for_users, disable_two_factor_authentication_for_users
             )
         data, errors = self.extractData()

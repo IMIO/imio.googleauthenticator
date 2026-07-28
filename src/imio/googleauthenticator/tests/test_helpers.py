@@ -1,17 +1,17 @@
 import unittest2 as unittest
 
-from collective.googleauthenticator.testing import \
-    COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
-from collective.googleauthenticator.tests.base import BaseTest
+from imio.googleauthenticator.testing import \
+    IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+from imio.googleauthenticator.tests.base import BaseTest
 
-from collective.googleauthenticator.helpers import get_ip_ranges
+from imio.googleauthenticator.helpers import get_ip_ranges
 from ipaddress import IPv4Network
 from ipaddress import IPv4Address
 
 
 class TestIPWhitelisting(unittest.TestCase, BaseTest):
 
-    layer = COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 
     def test_get_ip_ranges_always_returns_networks_and_accepts_single_ip(self):
         ranges = get_ip_ranges(['127.0.0.1', '192.168.0.0/16'])

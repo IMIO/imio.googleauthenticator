@@ -3,13 +3,13 @@ import logging
 from zope.interface import Interface, implements
 
 from plone.app.users.browser.personalpreferences import UserDataPanelAdapter
-from collective.googleauthenticator.helpers import extract_next_url_from_referer
+from imio.googleauthenticator.helpers import extract_next_url_from_referer
 
 logger = logging.getLogger(__file__)
 
 class EnhancedUserDataPanelAdapter(UserDataPanelAdapter):
     """
-    Adapter for `collective.googleauthenticator.userdataschema.IEnhancedUserDataSchema`.
+    Adapter for `imio.googleauthenticator.userdataschema.IEnhancedUserDataSchema`.
     """
     # ****************************************************
     # ******* ``enable_two_step_verification`` *******
@@ -79,8 +79,8 @@ class CameFromAdapter(object):
     :example:
     >>> from zope.interface import implements
     >>> from plone import api
-    >>> from collective.googleauthenticator.helpers import extract_next_url_from_referer
-    >>> from collective.googleauthenticator.adapter import ICameFrom
+    >>> from imio.googleauthenticator.helpers import extract_next_url_from_referer
+    >>> from imio.googleauthenticator.adapter import ICameFrom
     >>> 
     >>> class CameFromAdapter(object):
     >>>     implements(ICameFrom)

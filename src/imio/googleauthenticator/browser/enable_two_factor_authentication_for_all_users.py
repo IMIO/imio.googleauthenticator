@@ -5,9 +5,9 @@ from plone import api
 from Products.Five import BrowserView
 from Products.statusmessages.interfaces import IStatusMessage
 
-from collective.googleauthenticator.helpers import enable_two_factor_authentication_for_users
+from imio.googleauthenticator.helpers import enable_two_factor_authentication_for_users
 
-_ = MessageFactory('collective.googleauthenticator')
+_ = MessageFactory('imio.googleauthenticator')
 
 class EnableTwoFactorAuthenticationForAllUsers(BrowserView):
     """

@@ -3,16 +3,16 @@ import unittest2 as unittest
 from plone.testing.z2 import Browser
 from plone import api
 from plone.app.testing import quickInstallProduct
-from collective.googleauthenticator.setuphandlers import PAS_ID
+from imio.googleauthenticator.setuphandlers import PAS_ID
 
-from collective.googleauthenticator.testing import \
-    COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
-from collective.googleauthenticator.tests.base import BaseTest
+from imio.googleauthenticator.testing import \
+    IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+from imio.googleauthenticator.tests.base import BaseTest
 
 
 class TestPas(unittest.TestCase, BaseTest):
 
-    layer = COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 
     def setUp(self):
         self.app = self.layer['app']

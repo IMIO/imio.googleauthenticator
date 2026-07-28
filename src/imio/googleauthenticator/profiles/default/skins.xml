@@ -2,7 +2,7 @@
 <object name="portal_skins">
  <object name="googleauthenticator_custom"
     meta_type="Filesystem Directory View"
-    directory="collective.googleauthenticator:skins/googleauthenticator_custom"/>
+    directory="imio.googleauthenticator:skins/googleauthenticator_custom"/>
  <skin-path name="*">
   <layer name="googleauthenticator_custom"
      insert-after="custom"/>

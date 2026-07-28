@@ -22,8 +22,8 @@ class BaseTest(object):
             form.action, '{0}/portal_quickinstaller/installProducts'.format(self.portal.absolute_url()),
             u'Install form not found')
         products_list = form.getControl(name='products:list')
-        if "collective.googleauthenticator" in products_list.options:
-            products_list.value = (u"collective.googleauthenticator",)
+        if "imio.googleauthenticator" in products_list.options:
+            products_list.value = (u"imio.googleauthenticator",)
             form.getControl(label='Activate').click()
         browser.open(self.portal.absolute_url() + '/logout')
 

@@ -1,7 +1,7 @@
 <configure
     xmlns="http://namespaces.zope.org/zope"
     xmlns:browser="http://namespaces.zope.org/browser"
-    i18n_domain="collective.googleauthenticator">
+    i18n_domain="imio.googleauthenticator">
 
     <adapter
       provides=".userdataschema.IEnhancedUserDataSchema"

@@ -4,7 +4,7 @@
 <object name="portal_css">
 
     <stylesheet title=""
-                id="++resource++collective.googleauthenticator/main.css"
+                id="++resource++imio.googleauthenticator/main.css"
                 media="screen" rel="stylesheet" rendering="import"
                 cacheable="True" compression="safe" cookable="True"
                 enabled="1" expression=""/>
