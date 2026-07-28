@@ -24,6 +24,7 @@ failure mode has no error page and no log line.
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
@@ -41,24 +42,39 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 1: Rename and Fail-Closed
+
 **Goal**: The package is `imio.googleauthenticator` everywhere — on disk, in the egg, in the i18n domain, in the GenericSetup profile and its marker file — and any exception inside the PAS plugin becomes a 500 rather than a silent fallthrough to password-only authentication.
 **Depends on**: Nothing (first phase)
 **Requirements**: RENAME-01, RENAME-02, RENAME-03, RENAME-04, RENAME-05, RENAME-06, RENAME-07, RENAME-08, RENAME-09, RENAME-10, RENAME-11, RENAME-12, DOC-04
 **Success Criteria** (what must be TRUE):
+
   1. From a fresh clone, `bin/instance` starts and a new Plone site installs the add-on with the PAS plugin present — and `collective.googleauthenticator` is importable from nowhere, all 27 orphan `.pyc` files and the stale `.egg-info` having been purged.
   2. A test asserts `google_auth` is registered for `IAuthenticationPlugin`. This one test catches both a half-done rename and a `Broken`-object ZODB, whose shared failure mode is 2FA silently not running with no error page.
   3. `python setup.py sdist` produces an archive containing `profiles/`, `locales/` and the templates — the only way to prove `MANIFEST.in`'s eight hardcoded paths were all updated, since a develop-egg reads `src/` directly and hides the breakage until release.
   4. The Dutch translation still renders in the UI: `locales/*.pot` and `locales/nl/**` were `git mv`-ed to the new domain filenames and stale `.mo` files deleted. The i18n domain comes from the filenames, not from `i18n_domain`, so renaming `MessageFactory` alone silently deletes the translation.
   5. `_dont_swallow_my_exceptions = True` is set on the plugin class, and a test asserts a deliberately raised plugin exception yields a 500 rather than authenticating on password alone via `source_users`.
+
 **Plans**: 4 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 01-01-PLAN.md — Move the package, regenerate the buildout, rename every dotted reference and GenericSetup identity; suite green again plus the namespace, plugin-registration and resource assertions
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 01-02-PLAN.md — i18n domain filenames, a Dutch-renders assertion, the three defective msgids, and new French and English catalogues
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 01-03-PLAN.md — MANIFEST.in rewrite verified by a real sdist, distribution metadata, CHANGES.rst with DOC-04, build tooling, docs and the developer purge target
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 01-04-PLAN.md — PAS `meta_type`/title rename in an isolated commit, then `_dont_swallow_my_exceptions` with its fail-closed test
 
 **Phase notes:**
+
 - **Do NOT rename `PAS_ID`** (`google_auth`). It is already namespace-neutral, and renaming it creates a second plugin on any existing ZODB. Rename `PAS_TITLE` and `meta_type` only, and put `meta_type` in its own commit so `registerMultiPlugin`'s duplicate-meta_type `RuntimeError` stays interpretable as "stale artefact" rather than "rename bug".
 - `git clean -xdf src/` belongs in the first rename commit; `git mv` moves only tracked files and every `.pyc` is git-ignored.
 - `PYTHONDONTWRITEBYTECODE=1` in the test/instance environment, plus `cleanup.sh` updated.
@@ -67,35 +83,43 @@ Plans:
 - `bin/code-analysis` is NOT clean until Phase 8, so the buildout's pre-commit hook fails in this and every intervening phase. Accepted cost of cleaning ~40 findings after the code stops moving rather than in files Phases 3–7 rewrite; commits here pass the hook only with `--no-verify`.
 
 ### Phase 2: Registry Seeding and Import-Step Ordering
+
 **Goal**: Creating a new Plone site with the add-on selected completes without the `ska_secret_key ... no record` error, and the import-step ordering that makes it complete is asserted in the suite rather than left to CPython 2.7 string-hash order.
 **Depends on**: Phase 1
 **Requirements**: REG-01, REG-02, REG-03, REG-04, REG-05, BUG-04
 **Success Criteria** (what must be TRUE):
+
   1. Creating a new Plone site with the add-on selected completes with no `IGoogleAuthenticatorSettings defines a field ska_secret_key, for which there is no record` in `var/log/instance.log`.
   2. A test asserts `getSortedImportSteps()` places this package's step after `plone.app.registry`. **The assertion is the control, not the rename** — the rename changes the step id's hash and can make the error vanish without fixing anything, and it would return the first time any other add-on adds or removes an import step.
   3. `grep -r runImportStepFromProfile src/` returns nothing, and `ska_secret_key` is minted by a lazy accessor on first use rather than by a nested profile import.
   4. A test applies the default profile **twice** and asserts `ska_secret_key` is unchanged, so signed URLs in flight are not invalidated by a reinstall. (A retained value that no longer validates is silently replaced by the default `u''`, with only an INFO log line.)
   5. A test asserts the derived `ska` key separates its components: two different component tuples that share the same bare concatenation produce different keys.
+
 **Plans**: TBD
 
 **Phase notes:**
+
 - The fix is `<depends name="plone.app.registry"/>` on the import step plus deleting the nested `runImportStepFromProfile`. **Never** silence the error with `forInterface(check=False)`.
 - Must precede Phase 3: the encryption key is read on a code path this bug destabilises, and a `KeyError` from `get_app_settings()` is one of PAS's swallowable exceptions — i.e. a bypass.
 - Which of the four nested-`runImportStepFromProfile` mechanisms fires on the site-creation path is a carried-forward MEDIUM. Settle it with one command (`getSortedImportSteps()` + `grep "Cannot find registry" var/log/instance.log`) rather than guessing; the recommended fix does not depend on the answer.
 
 ### Phase 3: Encrypted Seeds and Local QR
+
 **Goal**: A TOTP seed is unreadable from the ZODB, never transmitted to an external service, and never silently downgraded to plaintext — and adding `cryptography` cannot break every login on the site through `ipaddress` module shadowing.
 **Depends on**: Phase 2
 **Requirements**: SEC-01, SEC-02, SEC-03, SEC-04, SEC-05, SEC-06, SEC-07, SEC-08, BUG-02, BUG-03, BUG-05, DOC-03
 **Success Criteria** (what must be TRUE):
+
   1. A newly enrolled user's seed memberdata property reads as `v1$<fernet-token>`. No plaintext base32 seed appears in the ZODB, in a log line, or in an exception message — and the key appears in none of those either, nor in the registry (QuickInstaller snapshots `portal_setup` before *and* after every install).
   2. Two tests assert login is **refused** with the key unset and refused again with the key set to garbage, at both enrollment and validation — never downgraded to plaintext and never to password-only. Fail-closed is the one mistake that silently undoes the entire phase.
   3. The enrollment QR renders in-process via `qrcode == 6.1`: no request reaches `chart.googleapis.com`, and no subprocess argv carries the seed (the reason `imio.helpers` + zint was rejected — `--data=otpauth://...secret=<SEED>` is readable in `ps` by any local user).
   4. A user enrolls with a real authenticator app and logs in end to end, against a seed that is 160 bits of `os.urandom` (RFC 4226 §4 R6 requires ≥128; `b32encode(str(uuid4()))` gave ~122).
   5. `py2-ipaddress` is gone and `ipaddress == 1.0.23` pinned, with `unicode` coercion at `helpers.py:459` and `:496`; a login from a whitelisted CIDR still succeeds. Both distributions install a top-level `ipaddress` module, so without this the site works on a dev box and every login fails on a Puppet-built one, decided by egg ordering.
+
 **Plans**: TBD
 
 **Phase notes:**
+
 - **Same commit, non-negotiable:** Fernet + fail-closed + local QR + the `ipaddress` swap (SEC-01/03/05 + BUG-05). Fail-closed silently undoes encryption; a QR posted to Google makes encryption worthless; `cryptography` forces the `ipaddress` swap.
 - **Placed here, third, deliberately.** `parallelization: false`, so this runs as an ordinary sequential phase rather than the "parallel workstream" the research describes. It is still early because its one out-of-repo dependency has the longest lead time in the milestone: the encryption-key `concat::fragment` lives in the separate **`industrialisation` repo** and is not one of this roadmap's commits. Code lands and is tested here (tests set the env var themselves); the feature is not *deployable* until that Puppet change ships. **Do not let this fall through.**
 - **The key goes in four places, not one** (SEC-07): `[instance]`, `[testenv]` (obviously-fake value), the CI workflow, and the Puppet fragment. It is per-ZEO-client, not per-database — one client with a stale fragment yields non-deterministic `InvalidToken` depending on which client the load balancer picked, with no ZODB-side evidence. DOC-03 documents exactly this failure mode.
@@ -105,18 +129,22 @@ Plans:
 - BUG-02 (`UnboundLocalError` on `redirect_url` at `user_setup.py:96`) rides here because enrollment is being rewritten in this phase anyway.
 
 ### Phase 4: PAS Boundary
+
 **Goal**: A user with 2FA enabled cannot obtain a session without the second factor via any credentials extractor, the refusal leaks no protected content, and the challenge fires on both the `Unauthorized` path and the HTTP-200 login POST.
 **Depends on**: Phase 1 (which sets the plugin id and `meta_type` the ordering assertion keys on). Sequenced after Phase 3.
 **Requirements**: MFA-01, MFA-02, MFA-03, MFA-04, COEX-08, DOC-01, DOC-02
 **Success Criteria** (what must be TRUE):
+
   1. One veto test per credentials extractor — an `__ac_name`/`__ac_password` form POST and an `Authorization: Basic` request — each asserting a 2FA-enabled user is granted **no session**. PAS 1.11.3 accumulates every authenticator's result and returns the first success, so `return None` vetoes nothing; wiping the shared credentials dict is the only veto the 22 plugin interfaces offer.
   2. A test asserts the refusal serves no response body: the protected resource does not render inside the 302. `response.redirect(lock=1)` sets a status and a header but neither clears the body nor stops publishing, so today a request without `-L` reads the page out of the redirect.
   3. A test asserts this package's plugin is **first** among `IAuthenticationPlugin`, with ordering set explicitly by `movePluginsTop` rather than by `movePluginsDown(iface, listPlugins(iface)[:-1])` incidentally bubbling it to position 0. The entire second factor rests on this ordering, so the test is the security control.
   4. The challenge fires on both paths, each with its own test: `IChallengePlugin` for requests ending in `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which returns HTTP 200 and never raises. One hook does not cover both.
   5. An exception inside `authenticateCredentials` wipes the credentials dict and refuses the login rather than falling through to `source_users`; and DOC-01 (Zope-root admins architecturally out of reach) and DOC-02 (the basic-auth consequence, naming the service-account alternative for scripts, WebDAV, FTP and XML-RPC) are written.
+
 **Plans**: TBD
 
 **Phase notes:**
+
 - **Open Decision to settle here, not assume:** whether to deactivate the `credentials_basic_auth` extractor outright. It is the only genuinely order-independent fix, at the cost of site-wide WebDAV/FTP/XML-RPC password auth. **Check `imio.dms.mail` and `server.dmsmail` for basic-auth dependence FIRST**, then choose and record the choice.
 - **Open Decision to settle here:** none other; the `ajax_load` question belongs to Phase 7.
 - The design is decision/redirect/grant split: `authenticateCredentials` **decides only** — whitelist check, 2FA check, first-factor verification, wipe the dict, set `request['_2fa_pending']`, return `None`. It never touches `RESPONSE` and **never writes to the ZODB**. Move the credentials wipe to the top of the 2FA branch so it also runs on the exception path.
@@ -124,18 +152,22 @@ Plans:
 - Worth a one-line comment: PAS's `_extractUserIds` calls `ZCacheable_get`. Plone 4.3 puts no cache manager on `acl_users` by default, but a cached 2FA bypass is catastrophic if one is ever added.
 
 ### Phase 5: Drift, Replay and Lockout
+
 **Goal**: A code from the previous time step still works, a code already used never works again, and brute-forcing the second factor stops after N attempts — with counters that survive the request they are written in.
 **Depends on**: Phase 4 (which establishes which code paths commit)
 **Requirements**: MFA-05, MFA-06, MFA-07, MFA-08, MFA-09, MFA-10, MFA-11, MFA-12, MFA-13
 **Success Criteria** (what must be TRUE):
+
   1. A test asserts a code from the immediately preceding time step is accepted (RFC 6238 §6), and another asserts a code already consumed is rejected on reuse (RFC 6238 §5.2 MUST NOT). **Both land in one commit** — they are the same six lines on `get_hotp(secret, intervals_no=i)`, and splitting them produces drift-accepted-but-replay-undetected, which is strictly worse than today.
   2. A test asserts the replay rejection is logged, and that the log line carries no plaintext username (ASVS 2.8.4/2.8.5).
   3. A test asserts 5 consecutive failures lock the account for 900 seconds; that the lock is evaluated **before** the token, so a locked account answers identically for a valid and an invalid code and is not an oracle; and that the lock expires on its own with no admin action.
   4. A test asserts a successful second factor resets the failure counter, and that only exactly-6-digit input is treated as a candidate token (`_is_possible_token` currently accepts `"1"` and `"123"`). N and the duration are editable in the control panel, defaulting to 5 and 900.
   5. Every new memberdata property has a `memberdata_properties.xml` entry and a `setMemberProperties()` → `getProperty()` round-trip test; and a test asserts the failure counter still increments after a request that ends in `Unauthorized`, proving the write lives in the token form view and not on an aborted path.
+
 **Plans**: TBD
 
 **Phase notes:**
+
 - **MFA-12 is the invariant this phase is built around:** no second-factor state write in the PAS plugin or a challenge plugin, ever. `ZPublisher/Publish.py`'s `finally: transactions_manager.abort()` discards every write on any request ending in an exception, and `Unauthorized` *is* such an exception (`zpublisher_exception_hook` renders the view then re-raises). A lockout counter written in the plugin is a security control that does not work and looks like it does. The token form POST returns 200/302 → `PubBeforeCommit` → `commit()`, and a failed second factor is by definition submitted to the token form.
 - **MFA-13 exists because the failure is silent:** `MutablePropertySheet.setProperties` **pops** keys not declared in the sheet, with no error. A forgotten `memberdata_properties.xml` entry means the counter never persists and nothing appears in the log.
 - **Open Decision to settle here:** `memberdata_properties.xml` types for the new counters. Smoke-test the GenericSetup import (`float` and `lines` behaviour for these fields was never executed — carried-forward MEDIUM) and prefer an `int` epoch over `float`/`date` to avoid `DateTime` round-tripping.
@@ -144,36 +176,44 @@ Plans:
 - N=5 / 900 s ≈ 1042 days expected time-to-hit for a 6-digit code; NIST SP 800-63B §5.2.2's 100 attempts is a ceiling, not a target.
 
 ### Phase 6: Recovery Codes
+
 **Goal**: A user who loses their authenticator device recovers access themselves, once per code, and that path is throttled exactly like the TOTP path.
 **Depends on**: Phase 5 (the shared lockout counter, and the single dispatch point in the token form)
 **Requirements**: RECOV-01, RECOV-02, RECOV-03, RECOV-04, RECOV-05, RECOV-06, RECOV-07
 **Success Criteria** (what must be TRUE):
+
   1. Enrollment issues 10 single-use codes of 80 bits each (`os.urandom(10)` → 16 base32 characters), displayed exactly once and never redisplayed; a test asserts the plaintext codes appear nowhere in the ZODB, only a per-user-salted hash.
   2. A test asserts a recovery code is accepted in place of a TOTP token, is consumed on use, and is rejected on a second use.
   3. A test asserts a failed recovery-code attempt increments the **same** counter as a failed TOTP attempt. Without this, recovery codes are the unthrottled brute-force path and Phase 5's lockout is decorative.
   4. The user can regenerate the whole set, and a test asserts every previously issued code stops working.
   5. The user is warned when 3 or fewer codes remain.
+
 **Plans**: TBD
 
 **Phase notes:**
+
 - **Open Decision to settle here:** PBKDF2 iteration count. Any value in 20k–200k is defensible and it is not load-bearing — the codes are 80-bit random values with no dictionary to walk, so iterations are insurance. Timings behind the 100k suggestion were measured on one machine and scale linearly on a slower host (carried-forward MEDIUM).
 - **One salt per user, not per code** (PROJECT.md decision). A per-code salt forces N PBKDF2 runs per attempt (10 × 0.113 s ≈ 1.1 s) on a login-adjacent endpoint — a DoS lever. A per-user salt still defeats cross-user rainbow tables, which is all a salt does here.
 - Out of scope and staying out: redisplaying codes, emailing codes, emailing on recovery-code use (v2 NOTF-02).
 
 ### Phase 7: Coexistence with imio.dms.mail
+
 **Goal**: This package and `imio.dms.mail` install alongside each other in either order and both keep working, with no vendored JavaScript, no skin layer, no resource we do not own being mutated, and no open redirect.
 **Depends on**: Phase 4 (so the overlay is only ever exercised against the final redirect mechanism)
 **Requirements**: COEX-01, COEX-02, COEX-03, COEX-04, COEX-05, COEX-06, COEX-07, COEX-09, BUG-01, BUG-06
 **Success Criteria** (what must be TRUE):
+
   1. Clicking the header **"Log in" link** — not POSTing to `login_form` — reaches the token form inside Plone's stock overlay and completes the login, with `id = 'login_form'` on `TokenForm` as the only mechanism. A direct-POST testbrowser test passes while the real UI is dead, so the link is the test. 507 vendored lines (`login_form.cpt` 310 + `popupforms.js` 197), `skins.xml`, `registerDirectory` and `skins/` are all gone.
   2. Installing this package and `imio.dms.mail` in **both orders** leaves both working and `popupforms.js` registered exactly once. The `remove="True"` line that permanently unregisters Plone's own resource is deleted — it is a global mutation with no uninstall counterpart, and it is why the collision flips on install order.
   3. Uninstalling the package restores everything the install profile changed, via a real `profiles/uninstall/` with `jsregistry.xml` and `cssregistry.xml` — so uninstalling no longer leaves the whole site without `popupforms.js`.
   4. A test asserts an off-site `next_url` is refused and an on-site one honoured, with query-string values URL-encoded on the way in. **Same commit as the `login_form.cpt` deletion**: the stale copy deleted Plone 4.3.20's `came_from` hidden input, which is the only reason `CameFromAdapter` exists, so removing the copy restores the field and changes what `ICameFrom` sees.
   5. `control_panel_extra.html` and `request_bar_code_reset_email.pt` still render, converted to `ViewPageTemplateFile`, with no `restrictedTraverse` into a skin left in the package.
+
 **Plans**: TBD
 **UI hint**: yes
 
 **Phase notes:**
+
 - **Open Decision to settle here:** whether `ska` tolerates the `ajax_load` parameter the overlay injects. `pb.add_ajax_load` prepends a hidden `ajax_load=<timestamp>` input and `pb.ajax_click` appends it to the GET. It *should* be ignored (`validate_signed_request_data` reads named keys), but a signature failure here is **silent from the user's side**. One browser test settles it.
 - Also confirm in the same browser test that `common_content_filter` reaches the wrapped z3c.form — `plone.z3cform.layout`'s `wrap_form` renders inside `#content` and `el.find()` is a descendant search, so it should be reachable.
 - COEX-04 is the trap: `control_panel_extra.html` (`controlpanel.py:84`) and `request_bar_code_reset_email.pt` (`request_bar_code_reset.py:90`) are reached by `restrictedTraverse` and are **not** overrides. Deleting `skins/` deletes two live templates; convert both in the same commit. The email path has zero test coverage, so CI will not notice.
@@ -181,18 +221,22 @@ Plans:
 - **UI hint** is set because this is the one phase with real frontend surface (login overlay, resource registries, templates). Phases 5 and 6 touch z3c.forms and a control panel but carry no visual design latitude, so they are deliberately unannotated.
 
 ### Phase 8: Coverage Instrument and Test Layers
+
 **Goal**: The build fails when tests fail, the coverage figure reflects package code actually exercised, branch coverage clears 90% against that corrected figure, and `bin/code-analysis` exits 0 so the pre-commit hook stops training contributors to use `--no-verify`.
 **Depends on**: Phase 7
 **Requirements**: QUAL-01, QUAL-02, QUAL-03, QUAL-04, QUAL-05, QUAL-06, QUAL-07
 **Success Criteria** (what must be TRUE):
+
   1. **First commit of the phase, before any new test is written:** `.coveragerc` declares `[run] source`, `omit = */tests/*` and `branch = True`, and the `bin/test-coverage` template has `set -e`. The `set -e` fix is proven with a deliberately failing test showing a red build, not by inspection — today a failing test plus ≥90% coverage is a **green build**.
   2. Branch coverage is above 90% against the corrected instrument, enforced in CI. **The number is expected to drop sharply when the instrument is fixed, and the drop is the truth rather than a regression** — `[report] include` never added un-executed modules to the denominator, test modules were inside it, and statement coverage over-reports badly because Plone executes every import/def/class line at ZCML time. Re-baseline against the corrected report; do not tune `.coveragerc` until 90% appears.
   3. Browser tests run on a ZSERVER-free `FunctionalTesting(bases=(FIXTURE,))` layer, and the in-layer quickinstaller commit in `tests/base.py:_install()` is replaced by `applyProfile` in `setUpPloneSite`, so the suite stops leaking state across tests.
   4. Installedness is asserted through things this package controls — plugin registered for `IAuthenticationPlugin`, registry records present, browser layer active — not through `portal_quickinstaller`. `applyProfile` does not call `installProduct`, so `test_product_is_installed` can fail on an otherwise-correct change.
   5. `bin/code-analysis` exits 0 (~40 pre-existing findings), the `[coverage]` and `[test-coverage]` buildout parts are enabled with `coverage == 5.5` pinned, and the redundant `createcoverage` part and pin are dropped.
+
 **Plans**: TBD
 
 **Phase notes:**
+
 - **Budget for revealed failures, do not treat them as regressions.** `plone.testing 4.1.3` has no isolation guard, so today's in-layer quickinstaller commit leaks state into every later test in the layer and **some tests currently pass because of that leak**. Fixing the layer will surface them. Those are real, pre-existing bugs being revealed, not caused by this phase.
 - `coverage == 5.5` uses a SQLite data file — delete any stale 4.x `.coverage` once.
 - **QUAL-04's 90% gate is a firm project requirement**, measured on branch coverage against the corrected instrument. The post-fix baseline is genuinely unknown and cannot be estimated before `[run] source` lands, so do not commit to an intermediate number.
@@ -257,9 +301,11 @@ boundary that exists for a reason:
 - **Merging Phase 1 into Phase 2** would let "the `ska_secret_key` error disappeared" read as
   evidence the bug is fixed. It is not — the rename changes the import-step id's hash and can flip
   an unspecified ordering. Separate phases keep the ordering assertion as its own gate.
+
 - **Merging Phase 4 into Phase 5** would blur exactly the boundary Phase 4 exists to establish:
   which code paths commit. Phase 5's counters are correct only because Phase 4 already answered
   that.
+
 - **Merging Phase 6 into Phase 5** would produce a 16-requirement phase whose two halves have
   distinct user-observable outcomes.
 
