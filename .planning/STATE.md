@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 1
-current_phase_name: Rename and Fail-Closed
+current_phase: 01
+current_phase_name: rename-and-fail-closed
 status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-07-28T14:20:16.009Z"
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-07-28T14:40:10.901Z"
 last_activity: 2026-07-28
-last_activity_desc: Roadmap created; 71 v1 requirements mapped across 8 phases
+last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
+  completed_plans: 1
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-28)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 1 — Rename and Fail-Closed
+**Current focus:** Phase 01 — rename-and-fail-closed
 
 ## Current Position
 
-Phase: 1 of 8 (Rename and Fail-Closed)
-Plan: — of TBD in current phase
+Phase: 01 (rename-and-fail-closed) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-07-28 — Roadmap created; 71 v1 requirements mapped across 8 phases
+Last activity: 2026-07-28 — Phase 01 execution started
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 25%
 
 ## Performance Metrics
 
@@ -54,6 +54,11 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 01 P01 | 10min | 2 tasks | 40 files |
 
 ## Accumulated Context
 
@@ -66,6 +71,9 @@ Recent decisions affecting current work:
 - [Roadmap]: `_dont_swallow_my_exceptions = True` lands in Phase 1, not the encryption phase — it converts every later phase's mistakes from silent 2FA bypasses into 500s.
 - [Roadmap]: PROJECT.md reversed the QR decision to `qrcode == 6.1`, so `imio.helpers` is no longer pulled into `install_requires`. Phase 1 carries the research-named substitute: an explicit two-package import check for the `imio` namespace declaration.
 - [Roadmap]: 71 v1 requirements, not 61 — REQUIREMENTS.md's coverage count was a miscount and has been corrected.
+- [Phase ?]: 01-01: Three-commit shape for the move (pure move / buildout regen / content rename), per CONTEXT.md commit-shape decision
+- [Phase ?]: 01-01: PAS_ID, meta_type, PAS_TITLE left untouched — plan 01-04 owns them in an isolated commit
+- [Phase ?]: 01-01: locales/** filenames and rebuild_i18n.sh I18NDOMAIN left untouched — plan 01-02 owns D-15
 
 ### Pending Todos
 
@@ -92,6 +100,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-28T12:05:40.849Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-rename-and-fail-closed/01-CONTEXT.md
+Last session: 2026-07-28T14:40:10.890Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: None

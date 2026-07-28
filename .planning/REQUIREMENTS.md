@@ -11,18 +11,18 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 
 ### Rename (RENAME)
 
-- [ ] **RENAME-01**: Package is `imio.googleauthenticator` on disk (`src/imio/googleauthenticator/`), in `setup.py`, and in the egg name, with `namespace_packages=['imio']` and a `declare_namespace` boilerplate `src/imio/__init__.py`
-- [ ] **RENAME-02**: All dotted references updated — `configure.zcml`, `overrides.zcml`, the registry interface path, `MessageFactory`, logger names, and the `IUserDataSchemaProvider` registration
+- [x] **RENAME-01**: Package is `imio.googleauthenticator` on disk (`src/imio/googleauthenticator/`), in `setup.py`, and in the egg name, with `namespace_packages=['imio']` and a `declare_namespace` boilerplate `src/imio/__init__.py`
+- [x] **RENAME-02**: All dotted references updated — `configure.zcml`, `overrides.zcml`, the registry interface path, `MessageFactory`, logger names, and the `IUserDataSchemaProvider` registration
 - [ ] **RENAME-03**: Dutch translation survives the rename — `locales/*.pot` and `locales/nl/**` are `git mv`-ed to the new domain filenames and stale `.mo` files deleted, because the i18n domain is taken from the filenames rather than from `i18n_domain`
-- [ ] **RENAME-04**: GenericSetup profile marker file is renamed alongside the string it is compared to, so `setupVarious` does not silently return and skip PAS plugin installation
-- [ ] **RENAME-05**: `++resource++` prefixes in `jsregistry.xml` and `cssregistry.xml` match the new package name
+- [x] **RENAME-04**: GenericSetup profile marker file is renamed alongside the string it is compared to, so `setupVarious` does not silently return and skip PAS plugin installation
+- [x] **RENAME-05**: `++resource++` prefixes in `jsregistry.xml` and `cssregistry.xml` match the new package name
 - [ ] **RENAME-06**: `MANIFEST.in`'s eight hardcoded `src/collective/...` paths updated, verified by building an sdist and confirming it contains `profiles/`, `locales/` and templates
-- [ ] **RENAME-07**: Build and tooling config updated — `.coveragerc`, `base.cfg` (`package-name`, `[code-analysis] directory`), `cleanup.sh`, and `testing.py`'s `installProduct` string and layer constants
-- [ ] **RENAME-08**: Stale artefacts purged — all 27 git-ignored `.pyc` files under the old namespace and the `collective.googleauthenticator.egg-info` directory, so the old namespace is no longer importable from an orphan `.pyc`
-- [ ] **RENAME-09**: `upgrades/` is deleted, having only ever applied to sites installed at ≤0.3.0
+- [x] **RENAME-07**: Build and tooling config updated — `.coveragerc`, `base.cfg` (`package-name`, `[code-analysis] directory`), `cleanup.sh`, and `testing.py`'s `installProduct` string and layer constants
+- [x] **RENAME-08**: Stale artefacts purged — all 27 git-ignored `.pyc` files under the old namespace and the `collective.googleauthenticator.egg-info` directory, so the old namespace is no longer importable from an orphan `.pyc`
+- [x] **RENAME-09**: `upgrades/` is deleted, having only ever applied to sites installed at ≤0.3.0
 - [ ] **RENAME-10**: PAS plugin `meta_type` and `PAS_TITLE` renamed; `PAS_ID` (`google_auth`) deliberately unchanged
 - [ ] **RENAME-11**: `_dont_swallow_my_exceptions = True` on the plugin class, so a plugin exception becomes a 500 rather than a silent fallthrough to password-only authentication
-- [ ] **RENAME-12**: A test asserts the plugin is registered for `IAuthenticationPlugin`, catching both a broken rename and a `Broken`-object ZODB
+- [x] **RENAME-12**: A test asserts the plugin is registered for `IAuthenticationPlugin`, catching both a broken rename and a `Broken`-object ZODB
 
 ### Site creation and registry (REG)
 
@@ -159,18 +159,18 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RENAME-01 | Phase 1 | Pending |
-| RENAME-02 | Phase 1 | Pending |
+| RENAME-01 | Phase 1 | Complete |
+| RENAME-02 | Phase 1 | Complete |
 | RENAME-03 | Phase 1 | Pending |
-| RENAME-04 | Phase 1 | Pending |
-| RENAME-05 | Phase 1 | Pending |
+| RENAME-04 | Phase 1 | Complete |
+| RENAME-05 | Phase 1 | Complete |
 | RENAME-06 | Phase 1 | Pending |
-| RENAME-07 | Phase 1 | Pending |
-| RENAME-08 | Phase 1 | Pending |
-| RENAME-09 | Phase 1 | Pending |
+| RENAME-07 | Phase 1 | Complete |
+| RENAME-08 | Phase 1 | Complete |
+| RENAME-09 | Phase 1 | Complete |
 | RENAME-10 | Phase 1 | Pending |
 | RENAME-11 | Phase 1 | Pending |
-| RENAME-12 | Phase 1 | Pending |
+| RENAME-12 | Phase 1 | Complete |
 | REG-01 | Phase 2 | Pending |
 | REG-02 | Phase 2 | Pending |
 | REG-03 | Phase 2 | Pending |
@@ -232,6 +232,7 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | DOC-04 | Phase 1 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 71 total
 - Mapped to phases: 71
 - Unmapped: 0 (every v1 requirement maps to exactly one phase)
@@ -259,6 +260,7 @@ requirement was added, removed or reworded during roadmapping.
   login-POST path) sits in **Phase 4**, not the coexistence phase. It is the two-hook redirect
   design, which the research delivers in the PAS-boundary phase; Phase 7's overlay work is verified
   *against* it rather than building it.
+
 - **MFA-12** (no second-factor state written from the PAS plugin or a challenge plugin) sits in
   **Phase 5**, not Phase 4. Phase 4 establishes the token form as the sole grant point, but the
   invariant only becomes assertable once Phase 5 introduces state to write.
