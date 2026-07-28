@@ -154,17 +154,119 @@ Deliberately deferred to the phase that can settle them with evidence, rather th
 
 ## Traceability
 
-Populated during roadmap creation.
+Populated during roadmap creation. Ordered by category so cross-checking against the requirement
+lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (pending roadmap) | — | Pending |
+| RENAME-01 | Phase 1 | Pending |
+| RENAME-02 | Phase 1 | Pending |
+| RENAME-03 | Phase 1 | Pending |
+| RENAME-04 | Phase 1 | Pending |
+| RENAME-05 | Phase 1 | Pending |
+| RENAME-06 | Phase 1 | Pending |
+| RENAME-07 | Phase 1 | Pending |
+| RENAME-08 | Phase 1 | Pending |
+| RENAME-09 | Phase 1 | Pending |
+| RENAME-10 | Phase 1 | Pending |
+| RENAME-11 | Phase 1 | Pending |
+| RENAME-12 | Phase 1 | Pending |
+| REG-01 | Phase 2 | Pending |
+| REG-02 | Phase 2 | Pending |
+| REG-03 | Phase 2 | Pending |
+| REG-04 | Phase 2 | Pending |
+| REG-05 | Phase 2 | Pending |
+| SEC-01 | Phase 3 | Pending |
+| SEC-02 | Phase 3 | Pending |
+| SEC-03 | Phase 3 | Pending |
+| SEC-04 | Phase 3 | Pending |
+| SEC-05 | Phase 3 | Pending |
+| SEC-06 | Phase 3 | Pending |
+| SEC-07 | Phase 3 | Pending |
+| SEC-08 | Phase 3 | Pending |
+| MFA-01 | Phase 4 | Pending |
+| MFA-02 | Phase 4 | Pending |
+| MFA-03 | Phase 4 | Pending |
+| MFA-04 | Phase 4 | Pending |
+| MFA-05 | Phase 5 | Pending |
+| MFA-06 | Phase 5 | Pending |
+| MFA-07 | Phase 5 | Pending |
+| MFA-08 | Phase 5 | Pending |
+| MFA-09 | Phase 5 | Pending |
+| MFA-10 | Phase 5 | Pending |
+| MFA-11 | Phase 5 | Pending |
+| MFA-12 | Phase 5 | Pending |
+| MFA-13 | Phase 5 | Pending |
+| RECOV-01 | Phase 6 | Pending |
+| RECOV-02 | Phase 6 | Pending |
+| RECOV-03 | Phase 6 | Pending |
+| RECOV-04 | Phase 6 | Pending |
+| RECOV-05 | Phase 6 | Pending |
+| RECOV-06 | Phase 6 | Pending |
+| RECOV-07 | Phase 6 | Pending |
+| COEX-01 | Phase 7 | Pending |
+| COEX-02 | Phase 7 | Pending |
+| COEX-03 | Phase 7 | Pending |
+| COEX-04 | Phase 7 | Pending |
+| COEX-05 | Phase 7 | Pending |
+| COEX-06 | Phase 7 | Pending |
+| COEX-07 | Phase 7 | Pending |
+| COEX-08 | Phase 4 | Pending |
+| COEX-09 | Phase 7 | Pending |
+| BUG-01 | Phase 7 | Pending |
+| BUG-02 | Phase 3 | Pending |
+| BUG-03 | Phase 3 | Pending |
+| BUG-04 | Phase 2 | Pending |
+| BUG-05 | Phase 3 | Pending |
+| BUG-06 | Phase 7 | Pending |
+| QUAL-01 | Phase 8 | Pending |
+| QUAL-02 | Phase 8 | Pending |
+| QUAL-03 | Phase 8 | Pending |
+| QUAL-04 | Phase 8 | Pending |
+| QUAL-05 | Phase 8 | Pending |
+| QUAL-06 | Phase 8 | Pending |
+| QUAL-07 | Phase 8 | Pending |
+| DOC-01 | Phase 4 | Pending |
+| DOC-02 | Phase 4 | Pending |
+| DOC-03 | Phase 3 | Pending |
+| DOC-04 | Phase 1 | Pending |
 
 **Coverage:**
-- v1 requirements: 61 total
-- Mapped to phases: 0
-- Unmapped: 61 ⚠️
+- v1 requirements: 71 total
+- Mapped to phases: 71
+- Unmapped: 0 (every v1 requirement maps to exactly one phase)
+
+**Count correction:** this section previously read "61 total". That was a miscount. The actual total
+is 71: RENAME 12 + REG 5 + SEC 8 + MFA 13 + RECOV 7 + COEX 9 + BUG 6 + QUAL 7 + DOC 4 = 71. No
+requirement was added, removed or reworded during roadmapping.
+
+**Per-phase distribution:**
+
+| Phase | Requirements | Count |
+|-------|--------------|-------|
+| 1 - Rename and Fail-Closed | RENAME-01..12, DOC-04 | 13 |
+| 2 - Registry Seeding and Import-Step Ordering | REG-01..05, BUG-04 | 6 |
+| 3 - Encrypted Seeds and Local QR | SEC-01..08, BUG-02, BUG-03, BUG-05, DOC-03 | 12 |
+| 4 - PAS Boundary | MFA-01..04, COEX-08, DOC-01, DOC-02 | 7 |
+| 5 - Drift, Replay and Lockout | MFA-05..13 | 9 |
+| 6 - Recovery Codes | RECOV-01..07 | 7 |
+| 7 - Coexistence with imio.dms.mail | COEX-01..07, COEX-09, BUG-01, BUG-06 | 10 |
+| 8 - Coverage Instrument and Test Layers | QUAL-01..07 | 7 |
+
+**Two cross-category placements worth noting:**
+
+- **COEX-08** (the challenge fires on both the `IChallengePlugin` path and the `IPubBeforeCommit`
+  login-POST path) sits in **Phase 4**, not the coexistence phase. It is the two-hook redirect
+  design, which the research delivers in the PAS-boundary phase; Phase 7's overlay work is verified
+  *against* it rather than building it.
+- **MFA-12** (no second-factor state written from the PAS plugin or a challenge plugin) sits in
+  **Phase 5**, not Phase 4. Phase 4 establishes the token form as the sole grant point, but the
+  invariant only becomes assertable once Phase 5 introduces state to write.
+
+**Where the four Open Decisions land:** Phase 4 (`credentials_basic_auth` deactivation), Phase 5
+(`memberdata_properties.xml` counter types), Phase 6 (PBKDF2 iterations), Phase 7 (`ska` vs
+`ajax_load`). Each is an explicit task in its phase, not an assumption.
 
 ---
 *Requirements defined: 2026-07-28*
-*Last updated: 2026-07-28 after initial definition*
+*Last updated: 2026-07-28 after roadmap creation (traceability populated, coverage count corrected 61 -> 71)*
