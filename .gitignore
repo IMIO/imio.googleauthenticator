@@ -39,3 +39,14 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+# Buildout environment
+.plone-version
+.plone*
+.python-version
+pyvenv.cfg
+downloads
+include
+share
+local
+checkversion*.html
