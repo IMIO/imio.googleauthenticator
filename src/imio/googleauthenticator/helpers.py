@@ -396,7 +396,7 @@ def has_enabled_two_factor_authentication(user):
     return user.getProperty('enable_two_factor_authentication', False)
 
 
-def enable_two_factor_authentication_for_users(users=[]):
+def enable_two_factor_authentication_for_users(users=None):
     """
     Enable two-factor authentication for the list of users given.
     """
@@ -413,7 +413,7 @@ def enable_two_factor_authentication_for_users(users=[]):
             logger.debug(str(e))
 
 
-def disable_two_factor_authentication_for_users(users=[]):
+def disable_two_factor_authentication_for_users(users=None):
     """
     Disable two-factor authentication for the list of users given.
     """
