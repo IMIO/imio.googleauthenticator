@@ -1,6 +1,6 @@
 #!/bin/sh
-I18NDUDE="../../../../../bin/i18ndude"
-I18NDOMAIN="collective.googleauthenticator"
+I18NDUDE="../../../bin/i18ndude"
+I18NDOMAIN="imio.googleauthenticator"
 
 # Synchronise the templates and scripts with the .pot.
 # All on one line normally:

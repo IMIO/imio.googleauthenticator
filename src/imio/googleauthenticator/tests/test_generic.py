@@ -4,7 +4,9 @@ from plone.testing.z2 import Browser
 from plone.app.testing import quickInstallProduct
 from plone.app.testing import SITE_OWNER_NAME, SITE_OWNER_PASSWORD, TEST_USER_NAME, TEST_USER_PASSWORD
 from plone import api
+from zope.i18n import translate
 
+from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 from imio.googleauthenticator.testing import \
     IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
@@ -55,6 +57,33 @@ class TestGeneric(unittest.TestCase, BaseTest):
     #
     #     self.assertEqual(browser.headers.get('status'), '200 Ok', 'HTTP response was not 200 Ok')
     #
+
+    def test_control_panel_is_translated_nl(self):
+        """Domain-level proof that the i18n domain rename holds: translating
+        the control-panel schema label with target language ``nl`` must
+        resolve through the catalogue now registered under the renamed
+        ``locales/`` filenames, not silently fall back to the English msgid.
+        Uses ``translate()`` directly rather than a browser-level render of
+        the settings view with a language query parameter, because that
+        alternative additionally depends on Dutch being among
+        ``portal_languages``'s supported languages in the test site, which
+        this phase does not configure.
+
+        Deviation from the plan text: the plan names the expected value
+        ``Google Authenticator instellingen`` (msgid ``Google Authenticator
+        settings``), but that msgid has no corresponding ``_(...)`` call
+        anywhere in current source -- it is a stale catalogue entry left
+        over from an earlier upstream revision (confirmed by grep). Task 2's
+        ``i18ndude rebuild-pot`` step extracts msgids from live source only,
+        so keeping that msgid would make this assertion pass after task 1
+        and then silently break after task 2's regeneration drops it. The
+        ``ska_secret_key`` field's title (``Secret Key`` -> ``Geheime
+        Sleutel``) is used instead: it is live in source, its Dutch differs
+        from its English so the assertion discriminates, and it is not one
+        of the three msgids task 2 rewrites.
+        """
+        title = IGoogleAuthenticatorSettings['ska_secret_key'].title
+        self.assertEqual(translate(title, target_language='nl'), u'Geheime Sleutel')
 
     def test_imio_is_a_pkg_resources_namespace(self):
         """Catches: empty src/imio/__init__.py, a pkgutil-style declaration, and a
