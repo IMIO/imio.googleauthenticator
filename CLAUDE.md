@@ -4,13 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Naming: repo vs. package
 
-The git repository is `imio.googleauthenticator`, but the distribution and Python
-package are **`collective.googleauthenticator`** (`src/collective/googleauthenticator/`).
-Use the `collective.*` name in `setup.py`, buildout config, i18n domains, GenericSetup
-profile ids, and test selectors. The repo name appears nowhere in the code.
+The git repository and the distribution/Python package now agree: both are
+`imio.googleauthenticator` (`src/imio/googleauthenticator/`). Use the `imio.*` name in
+`setup.py`, buildout config, i18n domains, GenericSetup profile ids, and test selectors.
 
-This is a fork of the upstream `collective/collective.googleauthenticator`; README and
-`setup.py` metadata still point at the upstream project.
+This is a fork of the upstream `collective/collective.googleauthenticator`; `AUTHORS.txt`,
+`CHANGES.rst`, `LICENSE.txt` and the README's "Forked from" line retain the attribution.
 
 ## Stack
 
@@ -38,9 +37,12 @@ make vcn               # report newer available eggs -> checkversion-n-4.3.html
 `make setup` records the version in `.plone-version`; later `make` calls read it, so the
 `plone=` argument is only needed for `setup`. Never edit `bin/*` — buildout regenerates it.
 
-Buildout installs a **git pre-commit hook** that runs `bin/code-analysis`. Since the
-existing `src/` has ~40 unfixed isort/flake8 findings, commits need `--no-verify` until
-that debt is cleaned up. CI does not run code-analysis, so this does not turn the build red.
+Buildout installs a **git pre-commit hook** that runs `bin/code-analysis`. The existing
+`src/` has 318 unfixed findings (`I001` 126, `E251` 78, `I004` 45, `I003` 13, `E302` 13,
+`F401` 12, plus smaller ones; 184 of the 318 are isort findings, and the rename actively
+perturbs their alphabetical ordering), so commits need `--no-verify` until that debt is
+cleaned up in Phase 8 (QUAL-06), which must be planned against 318, not the ~40 this file
+previously claimed. CI does not run code-analysis, so this does not turn the build red.
 
 `test_robot.py` needs a real browser and is excluded everywhere (`make test` and the CI
 `test_command` both pass `-t !robot`).
@@ -98,7 +100,7 @@ PAS plugin are thin wrappers over it — put new behaviour there and unit-test i
 `adapter.EnhancedUserDataPanelAdapter`.
 
 **Install** (`setuphandlers.setupVarious`, gated on the
-`collective.googleauthenticator.marker.txt` data file) generates the `ska_secret_key` if
+`imio.googleauthenticator.marker.txt` data file) generates the `ska_secret_key` if
 empty and registers the PAS plugin as `google_auth`, then reorders the plugin list — plugin
 ordering matters, because this plugin must see credentials only after the password-checking
 plugins have run.
