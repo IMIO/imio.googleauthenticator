@@ -82,8 +82,9 @@ class SetupForm(form.SchemaForm):
                     'info'
                     )
                 redirect_url = "{0}/@@personal-information".format(self.context.absolute_url())
-            except Exception as e:
-                reason = _(str(e))
+            except Exception:
+                logger.exception("Two-step verification setup failed")
+                reason = _("An unexpected error occurred.")
         else:
             reason = _("Invalid token or token expired.")
 
