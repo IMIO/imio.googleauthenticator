@@ -65,3 +65,27 @@ class TestIPWhitelisting(unittest.TestCase, BaseTest):
         request = {'REMOTE_ADDR': '127.0.0.1',
                    'HTTP_X_FORWARDED_FOR': 'not-an-ip'}
         self.assertIsNone(extract_ip_address_from_request(request=request))
+
+    def test_extract_ip_address_does_not_treat_public_172_216_as_private(self):
+        """WR-01 regression: the old '172.'/'192.' string-prefix match swept
+        up all of 172.0.0.0/8 and 192.0.0.0/8 (only 172.16.0.0/12 and
+        192.168.0.0/16 are actually RFC1918 private), so a client whose real
+        address happened to start with one of these prefixes -- e.g.
+        Google's public 172.217.0.0/16 -- got silently skipped in favour of
+        the next, attacker-controlled hop in the chain.
+        """
+        request = {'REMOTE_ADDR': '10.0.0.1',
+                   'HTTP_X_FORWARDED_FOR': '172.217.0.1, 172.16.0.1'}
+        self.assertEqual(
+            IPv4Address(u'172.217.0.1'),
+            extract_ip_address_from_request(request=request))
+
+    def test_extract_ip_address_still_strips_real_private_hops(self):
+        """Companion to the above: genuinely private hops (172.16.0.0/12)
+        are still stripped so the first public hop in the chain is used.
+        """
+        request = {'REMOTE_ADDR': '10.0.0.1',
+                   'HTTP_X_FORWARDED_FOR': '172.16.0.1, 8.8.8.8'}
+        self.assertEqual(
+            IPv4Address(u'8.8.8.8'),
+            extract_ip_address_from_request(request=request))

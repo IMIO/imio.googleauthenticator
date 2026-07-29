@@ -441,15 +441,24 @@ def extract_ip_address_from_request(request=None):
     if not request:
         request = getRequest()
 
-    PRIVATE_IPS_PREFIX = ('10.', '172.', '192.', )
     ip = request.get('REMOTE_ADDR')
     x_forwarded_for = request.get('HTTP_X_FORWARDED_FOR')
 
     if x_forwarded_for:
         proxies = [proxy.strip() for proxy in x_forwarded_for.split(',')]
 
-        # Remove the private ips from the beginning
-        while (len(proxies) > 0 and proxies[0].startswith(PRIVATE_IPS_PREFIX)):
+        # Remove the private/reserved hops from the beginning. Uses
+        # ipaddress' own notion of "private" rather than a string-prefix
+        # match (WR-01: '172.' / '192.' as prefixes wrongly swept up public
+        # ranges like 172.217.0.0/16 and 192.0.2.0/24). A hop that doesn't
+        # even parse as an IP stops the strip -- it's left in place for the
+        # ip_address() call below (CR-02) to reject.
+        while proxies:
+            try:
+                if not ipaddress.ip_address(proxies[0]).is_private:
+                    break
+            except ValueError:
+                break
             proxies.pop(0)
 
         # Take the first ip which is not a private one (of a proxy)
