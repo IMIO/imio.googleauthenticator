@@ -50,3 +50,5 @@ include
 share
 local
 checkversion*.html
+# GSD researcher web-fetch cache
+.planning/research/.cache/

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# collective.googleauthenticator documentation build configuration file, created by
+# imio.googleauthenticator documentation build configuration file, created by
 # sphinx-quickstart on Wed Jan 9 16:56:20 2014.
 #
 # This file is execfile()d with the current directory set to its
@@ -47,7 +47,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'collective.googleauthenticator'
+project = u'imio.googleauthenticator'
 copyright = u'2014, Goldmund, Wyldebeast & Wunderliebe'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -180,7 +180,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'collective.googleauthenticatordoc'
+htmlhelp_basename = 'imio.googleauthenticatordoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -263,13 +263,13 @@ texinfo_documents = [
 # -- Options for Epub output ----------------------------------------------
 
 # Bibliographic Dublin Core info.
-epub_title = u'collective.googleauthenticator'
+epub_title = u'imio.googleauthenticator'
 epub_author = u'Goldmund, Wyldebeast & Wunderliebe'
 epub_publisher = u'Goldmund, Wyldebeast & Wunderliebe'
 epub_copyright = u'2014, Goldmund, Wyldebeast & Wunderliebe'
 
 # The basename for the epub file. It defaults to the project name.
-#epub_basename = u'collective.googleauthenticator'
+#epub_basename = u'imio.googleauthenticator'
 
 # The HTML theme for the epub output. Since the default themes are not optimized
 # for small screen space, using the same theme for HTML and epub output is

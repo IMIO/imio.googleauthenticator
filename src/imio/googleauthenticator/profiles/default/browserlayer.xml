@@ -1,0 +1,6 @@
+<layers>
+    <layer
+        name="imio.googleauthenticator"
+         interface="imio.googleauthenticator.interfaces.IGoogleAuthenticatorLayer"
+         />
+</layers>

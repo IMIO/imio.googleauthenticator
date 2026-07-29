@@ -1,2 +1,2 @@
 [report]
-include = src/collective/googleauthenticator/*
+include = src/imio/googleauthenticator/*

@@ -71,6 +71,12 @@ test: oneof-plone bin/buildout  ## run bin/test without robot
 cleanall:  ## Cleans all installed buildout files
 	rm -fr bin include lib local share develop-eggs downloads eggs parts .installed.cfg .mr.developer.cfg .python-version pyvenv.cfg
 
+.PHONY: purge
+purge:  ## DESTRUCTIVE: removes stale post-rename .pyc, the old egg-info, and the local database
+	find src/collective -name '*.pyc' -delete 2>/dev/null || true
+	rm -rf src/collective.googleauthenticator.egg-info
+	rm -rf var/filestorage/Data.fs var/blobstorage
+
 .PHONY: backup
 backup:  ## Backups db files
 	@if [ '$(old_plone)' != '' ] && [ -f var/filestorage/Data.fs ]; then mv var/filestorage/Data.fs var/filestorage/Data.fs.$(old_plone); mv var/blobstorage var/blobstorage.$(old_plone); fi

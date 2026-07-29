@@ -1,6 +1,8 @@
-================================================
-collective.googleauthenticator
-================================================
+========================
+imio.googleauthenticator
+========================
+Forked from `collective.googleauthenticator <https://github.com/collective/collective.googleauthenticator>`_.
+
 `Two-step verification <http://en.wikipedia.org/wiki/Two-step_verification>`_ for Plone 4
 with use of `Google Authenticator <http://en.wikipedia.org/wiki/Google_Authenticator>`_
 app. This app allows users to enable the two-step verification for their Plone accounts.
@@ -113,10 +115,10 @@ Buildout
 ------------------------------------------------
 >>> [instance]
 >>> eggs +=
->>>     collective.googleauthenticator
+>>>     imio.googleauthenticator
 
 >>> zcml +=
->>>     collective.googleauthenticator
+>>>     imio.googleauthenticator
 
 ZMI
 ------------------------------------------------
@@ -126,7 +128,7 @@ Choose "Google Authenticator Plone" and install it.
 
 ZMI -> acl_users
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-1. Choose "google_auth (Google Authenticator plugin (collective.googleauthenticator))".
+1. Choose "google_auth (Google Authenticator plugin (imio.googleauthenticator))".
 
 2. Make sure the "Active plugins" section of "Authentication" has the following plugins in
    the given order ("google_auth" should come as first - critical!):
@@ -208,8 +210,7 @@ Documentation
 ================================================
 See the documentation at:
 
-- http://collectivegoogleauthenticator.readthedocs.org/en/latest/
-- http://pythonhosted.org/collective.googleauthenticator/
+- https://github.com/IMIO/imio.googleauthenticator
 
 Troubleshooting
 ================================================
@@ -239,6 +240,6 @@ Authors listed in alphabetic order (by name):
 
 TODOs and Roadmap
 ================================================
-See `TODOS.rst <https://raw.github.com/collective/collective.googleauthenticator/master/TODOS.rst>`_
+See `TODOS.rst <https://raw.github.com/IMIO/imio.googleauthenticator/master/TODOS.rst>`_
 file for the list of TODOs.
 

@@ -1,6 +1,12 @@
-Authors are listed in alphabetic order (by name):
+Original authors
+=================
 
 - Artur Barseghyan
 - Kim Chee Leong
 - Pawel Lewicki
 - Peter Uittenbroek
+
+Current maintainer
+===================
+
+- iMio
