@@ -493,9 +493,11 @@ def get_ip_addresses_whitelist(request=None):
 
     if ip_addresses_whitelist:
         try:
-            ip_addresses_whitelist = ip_addresses_whitelist.split('\n')
-            ip_addresses_whitelist = [ip_address.strip() for ip_address
-                                      in ip_addresses_whitelist]
+            ip_addresses_whitelist = [
+                ip_address.strip()
+                for ip_address in ip_addresses_whitelist.split('\n')
+                if ip_address.strip()
+            ]
         except Exception as e:
             logger.debug(str(e))
             ip_addresses_whitelist = []
@@ -511,7 +513,13 @@ def get_ip_ranges(list_of_networks):
     :param list list_of_networks:
     :return list: A list of IPv4Network or IPv6Network objects.
     """
-    return [ipaddress.ip_network(net) for net in list_of_networks]
+    ranges = []
+    for net in list_of_networks:
+        try:
+            ranges.append(ipaddress.ip_network(net))
+        except ValueError:
+            logger.debug("Skipping invalid whitelist entry %r", net)
+    return ranges
 
 
 def is_whitelisted_client(request=None):
