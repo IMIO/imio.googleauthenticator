@@ -42,7 +42,7 @@ class IGoogleAuthenticatorSettings(Interface):
         )
     ip_addresses_whitelist = Text(
         title = _("White-listed IP addresses"),
-        description = _("Two-step verification will be ommit for users that log in from white "
+        description = _("Two-step verification will be omitted for users that log in from white "
                         "listed addresses."),
         required = False,
         default = u'',

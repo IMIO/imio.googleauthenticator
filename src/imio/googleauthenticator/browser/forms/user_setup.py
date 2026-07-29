@@ -34,7 +34,7 @@ class ISetupForm(form.Schema):
         required=False
     )
     token = TextLine(
-        title=_(u'2. Enter the verification code to activate two-step verification '),
+        title=_(u'2. Enter the verification code to activate two-step verification'),
         description=_(u'The Google Authenticator app generates a verification code, '
                       u'enter the code below'),
         required=True
