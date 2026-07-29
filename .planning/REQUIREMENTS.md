@@ -11,18 +11,18 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 
 ### Rename (RENAME)
 
-- [x] **RENAME-01**: Package is `imio.googleauthenticator` on disk (`src/imio/googleauthenticator/`), in `setup.py`, and in the egg name, with `namespace_packages=['imio']` and a `declare_namespace` boilerplate `src/imio/__init__.py`
-- [x] **RENAME-02**: All dotted references updated — `configure.zcml`, `overrides.zcml`, the registry interface path, `MessageFactory`, logger names, and the `IUserDataSchemaProvider` registration
-- [x] **RENAME-03**: Dutch translation survives the rename — `locales/*.pot` and `locales/nl/**` are `git mv`-ed to the new domain filenames and stale `.mo` files deleted, because the i18n domain is taken from the filenames rather than from `i18n_domain`
-- [x] **RENAME-04**: GenericSetup profile marker file is renamed alongside the string it is compared to, so `setupVarious` does not silently return and skip PAS plugin installation
-- [x] **RENAME-05**: `++resource++` prefixes in `jsregistry.xml` and `cssregistry.xml` match the new package name
-- [x] **RENAME-06**: `MANIFEST.in`'s eight hardcoded `src/collective/...` paths updated, verified by building an sdist and confirming it contains `profiles/`, `locales/` and templates
-- [x] **RENAME-07**: Build and tooling config updated — `.coveragerc`, `base.cfg` (`package-name`, `[code-analysis] directory`), `cleanup.sh`, and `testing.py`'s `installProduct` string and layer constants
-- [x] **RENAME-08**: Stale artefacts purged — all 27 git-ignored `.pyc` files under the old namespace and the `collective.googleauthenticator.egg-info` directory, so the old namespace is no longer importable from an orphan `.pyc`
-- [x] **RENAME-09**: `upgrades/` is deleted, having only ever applied to sites installed at ≤0.3.0
-- [x] **RENAME-10**: PAS plugin `meta_type` and `PAS_TITLE` renamed; `PAS_ID` (`google_auth`) deliberately unchanged
-- [x] **RENAME-11**: `_dont_swallow_my_exceptions = True` on the plugin class, so a plugin exception becomes a 500 rather than a silent fallthrough to password-only authentication
-- [x] **RENAME-12**: A test asserts the plugin is registered for `IAuthenticationPlugin`, catching both a broken rename and a `Broken`-object ZODB
+- [ ] **RENAME-01**: Package is `imio.googleauthenticator` on disk (`src/imio/googleauthenticator/`), in `setup.py`, and in the egg name, with `namespace_packages=['imio']` and a `declare_namespace` boilerplate `src/imio/__init__.py`
+- [ ] **RENAME-02**: All dotted references updated — `configure.zcml`, `overrides.zcml`, the registry interface path, `MessageFactory`, logger names, and the `IUserDataSchemaProvider` registration
+- [ ] **RENAME-03**: Dutch translation survives the rename — `locales/*.pot` and `locales/nl/**` are `git mv`-ed to the new domain filenames and stale `.mo` files deleted, because the i18n domain is taken from the filenames rather than from `i18n_domain`
+- [ ] **RENAME-04**: GenericSetup profile marker file is renamed alongside the string it is compared to, so `setupVarious` does not silently return and skip PAS plugin installation
+- [ ] **RENAME-05**: `++resource++` prefixes in `jsregistry.xml` and `cssregistry.xml` match the new package name
+- [ ] **RENAME-06**: `MANIFEST.in`'s eight hardcoded `src/collective/...` paths updated, verified by building an sdist and confirming it contains `profiles/`, `locales/` and templates
+- [ ] **RENAME-07**: Build and tooling config updated — `.coveragerc`, `base.cfg` (`package-name`, `[code-analysis] directory`), `cleanup.sh`, and `testing.py`'s `installProduct` string and layer constants
+- [ ] **RENAME-08**: Stale artefacts purged — all 27 git-ignored `.pyc` files under the old namespace and the `collective.googleauthenticator.egg-info` directory, so the old namespace is no longer importable from an orphan `.pyc`
+- [ ] **RENAME-09**: `upgrades/` is deleted, having only ever applied to sites installed at ≤0.3.0
+- [ ] **RENAME-10**: PAS plugin `meta_type` and `PAS_TITLE` renamed; `PAS_ID` (`google_auth`) deliberately unchanged
+- [ ] **RENAME-11**: `_dont_swallow_my_exceptions = True` on the plugin class, so a plugin exception becomes a 500 rather than a silent fallthrough to password-only authentication
+- [ ] **RENAME-12**: A test asserts the plugin is registered for `IAuthenticationPlugin`, catching both a broken rename and a `Broken`-object ZODB
 
 ### Site creation and registry (REG)
 
@@ -105,7 +105,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [ ] **DOC-01**: The Zope-root limitation is documented — MFA covers users and site admins inside the Plone site; root `acl_users` admins are architecturally out of reach for an in-site PAS plugin
 - [ ] **DOC-02**: The basic-auth consequence is documented, naming the supported alternative for scripts and API consumers
 - [ ] **DOC-03**: The required encryption-key environment variable is documented for deployment, including the failure mode when a single ZEO client has a stale value
-- [x] **DOC-04**: `CHANGES.txt` records the rename and that existing databases are discarded rather than migrated
+- [ ] **DOC-04**: `CHANGES.txt` records the rename and that existing databases are discarded rather than migrated
 
 ## v2 Requirements
 
@@ -159,18 +159,18 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RENAME-01 | Phase 1 | Complete |
-| RENAME-02 | Phase 1 | Complete |
-| RENAME-03 | Phase 1 | Complete |
-| RENAME-04 | Phase 1 | Complete |
-| RENAME-05 | Phase 1 | Complete |
-| RENAME-06 | Phase 1 | Complete |
-| RENAME-07 | Phase 1 | Complete |
-| RENAME-08 | Phase 1 | Complete |
-| RENAME-09 | Phase 1 | Complete |
-| RENAME-10 | Phase 1 | Complete |
-| RENAME-11 | Phase 1 | Complete |
-| RENAME-12 | Phase 1 | Complete |
+| RENAME-01 | Phase 1 | Gaps Found |
+| RENAME-02 | Phase 1 | Gaps Found |
+| RENAME-03 | Phase 1 | Gaps Found |
+| RENAME-04 | Phase 1 | Gaps Found |
+| RENAME-05 | Phase 1 | Gaps Found |
+| RENAME-06 | Phase 1 | Gaps Found |
+| RENAME-07 | Phase 1 | Gaps Found |
+| RENAME-08 | Phase 1 | Gaps Found |
+| RENAME-09 | Phase 1 | Gaps Found |
+| RENAME-10 | Phase 1 | Gaps Found |
+| RENAME-11 | Phase 1 | Gaps Found |
+| RENAME-12 | Phase 1 | Gaps Found |
 | REG-01 | Phase 2 | Pending |
 | REG-02 | Phase 2 | Pending |
 | REG-03 | Phase 2 | Pending |
@@ -229,7 +229,7 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | DOC-01 | Phase 4 | Pending |
 | DOC-02 | Phase 4 | Pending |
 | DOC-03 | Phase 3 | Pending |
-| DOC-04 | Phase 1 | Complete |
+| DOC-04 | Phase 1 | Gaps Found |
 
 **Coverage:**
 
