@@ -29,7 +29,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [x] **REG-01**: Creating a new Plone site with the add-on selected completes without the `ska_secret_key ... no record` error
 - [x] **REG-02**: The `<depends name="plone.app.registry"/>` declaration makes the import-step ordering explicit rather than dependent on Python 2 `set` iteration order
 - [x] **REG-03**: A test asserts `getSortedImportSteps()` places this package's step after `plone.app.registry` — the ordering assertion, not the rename, is the control
-- [x] **REG-04**: The nested `runImportStepFromProfile` call is gone; `ska_secret_key` is minted by a lazy accessor on first use
+- [x] **REG-04**: The nested `runImportStepFromProfile` call is gone; `ska_secret_key` is seeded reliably at install time (revised after CR-02 code review: a lazy-accessor mint on first use was tried first, but it wrote registry state from a request path that `transaction.abort()`s on `Unauthorized`, discarding the mint — see `02-01-SUMMARY.md` "Post-review revision")
 - [x] **REG-05**: Re-applying the default profile leaves an existing `ska_secret_key` unchanged, so signed URLs in flight are not invalidated
 
 ### Secret handling (SEC)
