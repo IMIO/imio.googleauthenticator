@@ -99,9 +99,13 @@ class TokenForm(form.SchemaForm):
         # self.context.plone_log(token)
 
         if valid_token:
-            # We should login the user here
+            # We should login the user here. `username` is typically unicode
+            # (from self.request.get('auth_user', '')); str(username) would
+            # implicitly encode as ASCII in Python 2 and raise
+            # UnicodeEncodeError for any non-ASCII character (WR-03).
+            # _setupSession accepts unicode directly on this stack.
             self.context.acl_users.session._setupSession(
-                str(username), self.context.REQUEST.RESPONSE)
+                username, self.context.REQUEST.RESPONSE)
 
             # TODO: Is there a nicer way of resolving the
             # "@@google_authenticator_token_form" URL?
