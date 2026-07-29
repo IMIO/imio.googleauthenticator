@@ -97,6 +97,11 @@ class GoogleAuthenticatorPlugin(BasePlugin):
             return None
 
         user = api.user.get(username=login)
+        if user is None:
+            # Unmatched username (mistyped, or a bot probing usernames).
+            # Fall through so the next auth plugin / PAS can report a normal
+            # login failure instead of crashing on user.getUserName() below.
+            return None
 
         logger.debug("Found user: {0}".format(user.getUserName()))
 

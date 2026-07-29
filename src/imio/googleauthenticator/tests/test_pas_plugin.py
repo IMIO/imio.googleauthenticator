@@ -68,6 +68,20 @@ class TestPas(unittest.TestCase, BaseTest):
         finally:
             pas_plugin.is_whitelisted_client = original
 
+    def test_unmatched_username_does_not_crash(self):
+        """CR-01 regression: api.user.get() returns None for a login that
+        does not match any account (mistyped username, a bot probing
+        usernames). Before the fix, the very next line called
+        user.getUserName() unconditionally, raising AttributeError -- one of
+        PAS's _SWALLOWABLE_PLUGIN_EXCEPTIONS -- which _dont_swallow_my_exceptions
+        (RENAME-11) then lets propagate as an uncaught HTTP 500 instead of a
+        normal 'Login failed'.
+        """
+        plugin = self.pas[PAS_ID]
+        result = plugin.authenticateCredentials(
+            {'login': 'no-such-user', 'password': 'whatever'})
+        self.assertIsNone(result)
+
     def test_plugin_exception_is_swallowed_without_the_flag(self):
         """Counterfactual documenting exactly what the flag above buys: with
         _dont_swallow_my_exceptions removed, the same injected ValueError is
