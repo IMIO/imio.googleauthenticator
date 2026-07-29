@@ -227,7 +227,15 @@ def get_browser_hash(request=None):
 
 def get_ska_secret_key(request=None, user=None, use_browser_hash=True):
     """
-    Gets the `secret_key` to be used in `ska` package.
+    Gets the `secret_key` to be used in `ska` package. A pure read -- this
+    function does NOT mint or persist `ska_secret_key` (CR-02): seeding
+    happens once, reliably, at install time
+    (`setuphandlers._setup_secret_key`), because a write performed here would
+    be reachable from `sign_user_data()` inside
+    `GoogleAuthenticatorPlugin.authenticateCredentials()`, a request path
+    that ends in `transaction.abort()` on `Unauthorized` and would discard
+    the mint after a signed URL using it had already been handed to the
+    browser.
 
     - Value of the ``two_factor_authentication_secret`` (from users' profile).
     - Browser info (hash of)
@@ -249,8 +257,16 @@ def get_ska_secret_key(request=None, user=None, use_browser_hash=True):
 
     ska_secret_key = settings.ska_secret_key
     if not ska_secret_key:
-        ska_secret_key = unicode(uuid4())
-        settings.ska_secret_key = ska_secret_key
+        # Fail closed (CR-02): install-time seeding should already guarantee
+        # a non-empty key. An empty value here means installation was
+        # skipped or the registry record was cleared out-of-band -- signing
+        # with an empty/weak key would silently degrade the 2FA guarantee,
+        # so raise instead of minting one. Not caught anywhere: RENAME-11's
+        # _dont_swallow_my_exceptions = True turns this into a 500 on the
+        # PAS plugin path rather than a swallowed exception falling through
+        # to password-only login.
+        raise ValueError(
+            'ska_secret_key is not set; (re)install imio.googleauthenticator')
 
     user_secret = user.getProperty('two_factor_authentication_secret')
 
