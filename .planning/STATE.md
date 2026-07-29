@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: rename-and-fail-closed
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-07-29T07:25:49.624Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-07-29T07:40:24.085Z"
 last_activity: 2026-07-29
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 ## Current Position
 
 Phase: 01 (rename-and-fail-closed) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-07-29 — Phase 01 execution started
 
-Progress: [█████░░░░░] 50%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [█████░░░░░] 50%
 |------|----------|-------|-------|
 | Phase 01 P01 | 10min | 2 tasks | 40 files |
 | Phase 01 P02 | 35min | 2 tasks | 9 files |
+| Phase 01 P03 | 30min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 01-01: locales/** filenames and rebuild_i18n.sh I18NDOMAIN left untouched — plan 01-02 owns D-15
 - [Phase ?]: 01-02: Used the live ska_secret_key schema field's title (Secret Key -> Geheime Sleutel) for test_control_panel_is_translated_nl instead of the plan's suggested stale 'Google Authenticator settings' msgid, which has no corresponding _(...) call in current source and would have been dropped by i18ndude's rebuild-pot.
 - [Phase ?]: 01-02: Dutch translations completed only for the three msgids this plan's own source corrections invalidated (D-19 scope); ~19 pre-existing untranslated msgids the rebuild-pot surfaced are documented as a deferred gap, not silently filled or ignored.
+- [Phase ?]: 01-03: Task 1's first commit (92fef48) silently dropped its content edits due to an atomic multi-path git add failure; corrected with a follow-up commit (9dc6317) rather than an amend.
+- [Phase ?]: 01-03: profiles/default/site_properties.xml left in place (dead per RESEARCH O-3) -- tied to no requirement, recorded as a Phase 8 observation.
 
 ### Pending Todos
 
@@ -104,6 +107,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-29T07:25:49.615Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-07-29T07:40:24.074Z
+Stopped at: Completed 01-03-PLAN.md
 Resume file: None

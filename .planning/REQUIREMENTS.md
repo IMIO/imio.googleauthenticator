@@ -16,7 +16,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [x] **RENAME-03**: Dutch translation survives the rename — `locales/*.pot` and `locales/nl/**` are `git mv`-ed to the new domain filenames and stale `.mo` files deleted, because the i18n domain is taken from the filenames rather than from `i18n_domain`
 - [x] **RENAME-04**: GenericSetup profile marker file is renamed alongside the string it is compared to, so `setupVarious` does not silently return and skip PAS plugin installation
 - [x] **RENAME-05**: `++resource++` prefixes in `jsregistry.xml` and `cssregistry.xml` match the new package name
-- [ ] **RENAME-06**: `MANIFEST.in`'s eight hardcoded `src/collective/...` paths updated, verified by building an sdist and confirming it contains `profiles/`, `locales/` and templates
+- [x] **RENAME-06**: `MANIFEST.in`'s eight hardcoded `src/collective/...` paths updated, verified by building an sdist and confirming it contains `profiles/`, `locales/` and templates
 - [x] **RENAME-07**: Build and tooling config updated — `.coveragerc`, `base.cfg` (`package-name`, `[code-analysis] directory`), `cleanup.sh`, and `testing.py`'s `installProduct` string and layer constants
 - [x] **RENAME-08**: Stale artefacts purged — all 27 git-ignored `.pyc` files under the old namespace and the `collective.googleauthenticator.egg-info` directory, so the old namespace is no longer importable from an orphan `.pyc`
 - [x] **RENAME-09**: `upgrades/` is deleted, having only ever applied to sites installed at ≤0.3.0
@@ -105,7 +105,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [ ] **DOC-01**: The Zope-root limitation is documented — MFA covers users and site admins inside the Plone site; root `acl_users` admins are architecturally out of reach for an in-site PAS plugin
 - [ ] **DOC-02**: The basic-auth consequence is documented, naming the supported alternative for scripts and API consumers
 - [ ] **DOC-03**: The required encryption-key environment variable is documented for deployment, including the failure mode when a single ZEO client has a stale value
-- [ ] **DOC-04**: `CHANGES.txt` records the rename and that existing databases are discarded rather than migrated
+- [x] **DOC-04**: `CHANGES.txt` records the rename and that existing databases are discarded rather than migrated
 
 ## v2 Requirements
 
@@ -164,7 +164,7 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | RENAME-03 | Phase 1 | Complete |
 | RENAME-04 | Phase 1 | Complete |
 | RENAME-05 | Phase 1 | Complete |
-| RENAME-06 | Phase 1 | Pending |
+| RENAME-06 | Phase 1 | Complete |
 | RENAME-07 | Phase 1 | Complete |
 | RENAME-08 | Phase 1 | Complete |
 | RENAME-09 | Phase 1 | Complete |
@@ -229,7 +229,7 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | DOC-01 | Phase 4 | Pending |
 | DOC-02 | Phase 4 | Pending |
 | DOC-03 | Phase 3 | Pending |
-| DOC-04 | Phase 1 | Pending |
+| DOC-04 | Phase 1 | Complete |
 
 **Coverage:**
 
