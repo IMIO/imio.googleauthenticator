@@ -182,3 +182,47 @@ None - no external service configuration required.
 ## Self-Check: PASSED
 
 All created files and both task commit hashes verified present on disk / in git log.
+
+## Post-review revision
+
+Code review (`02-REVIEW.md`, CR-02) found that lazy-minting `ska_secret_key` inside
+`get_ska_secret_key()` (D-05) — reached with no install-time seeding fallback (D-04) —
+writes registry state from `sign_user_data()` inside
+`GoogleAuthenticatorPlugin.authenticateCredentials()`, a request path that ends in
+`transaction.abort()` on `Unauthorized`. That discards the mint after a signed URL
+using it was already redirected to, leaving a 2FA-enabled user's first login stuck in
+a permanently-invalid-signature loop with no self-recovery. This is exactly the class
+of hazard `.claude/CLAUDE.md` names ("all state writes in the token form view").
+
+**D-04 and D-05 are revised** (with the user's explicit authorisation to reopen locked
+decisions):
+
+- Install-time seeding is restored in `setuphandlers._setup_secret_key()`, called from
+  `setupVarious`. D-04's actual intent — no nested `runImportStepFromProfile` re-entry —
+  is kept intact: the restored seeding is a direct `get_app_settings()` call, relying on
+  the REG-02 `<depends name="plone.app.registry"/>` declaration to guarantee the registry
+  records already exist by the time `setupVarious` runs.
+- `get_ska_secret_key()` is a pure read again: the `if not ska_secret_key:` mint branch
+  is removed and replaced with a fail-closed `raise ValueError(...)` if the key is
+  unexpectedly empty at read time (not caught anywhere — surfaces as a 500 via
+  RENAME-11's `_dont_swallow_my_exceptions = True`, never a silent password-only
+  fallthrough).
+
+Also fixed in the same review pass: CR-01 (a falsy/`None`
+`two_factor_authentication_secret` crashed `get_ska_secret_key()` with `TypeError`;
+coerced with `or ''`), and WR-03 (`test_setupVarious`'s five bundled assertion groups
+split into five separately-named test methods).
+
+**Requirement status after revision:**
+
+- REG-01, REG-02, REG-03 — unaffected, still hold as originally verified (import-step
+  ordering and registry-records-exist are untouched by this revision).
+- REG-04 — revised. "No install-time seeding path remains" no longer holds by design;
+  it is superseded by the fix for CR-02. The parts of REG-04 that still hold: no nested
+  `runImportStepFromProfile` re-entry exists anywhere in `src/`, and `ska_secret_key` is
+  guaranteed non-empty (now seeded at install rather than lazily minted).
+- REG-05 — still holds; re-verified against the revised code (the double-apply guard
+  test is unchanged in intent, only relocated into its own method).
+- BUG-04 — still holds; the netstring-style separation is untouched by this revision.
+
+See `02-REVIEW-FIX.md` for the fix-by-fix disposition and `bin/test` results.
