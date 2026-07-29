@@ -456,6 +456,16 @@ def extract_ip_address_from_request(request=None):
         if len(proxies) > 0:
             ip = proxies[0]
 
+    if not ip:
+        # No REMOTE_ADDR (seen with the IntegrationTesting test browser, and
+        # possibly with a misconfigured front end): there is no client IP to
+        # check against the whitelist. `ipaddress.ip_address('')` raises
+        # ValueError, which -- now that RENAME-11 stops that being swallowed --
+        # would 500 on every single request. Returning None here, and treating
+        # it as "not whitelisted" in is_whitelisted_client, keeps the whitelist
+        # fail-closed instead of fail-crashed.
+        return None
+
     return ipaddress.ip_address(ip)
 
 
@@ -507,6 +517,9 @@ def is_whitelisted_client(request=None):
     whitelisted_ranges = get_ip_ranges(ip_addresses_whitelist)
 
     ip_address = extract_ip_address_from_request(request=request)
+    if ip_address is None:
+        return False
+
     return any(ip_address in ip_range for ip_range in whitelisted_ranges)
 
 

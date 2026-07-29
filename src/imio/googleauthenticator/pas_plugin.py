@@ -59,6 +59,17 @@ class GoogleAuthenticatorPlugin(BasePlugin):
     meta_type = 'iMio Google Authenticator PAS'
     security = ClassSecurityInfo()
 
+    # RENAME-11. PAS's _SWALLOWABLE_PLUGIN_EXCEPTIONS (NameError, AttributeError,
+    # KeyError, TypeError, ValueError) otherwise make any bug here a silent
+    # fallthrough to source_users -- i.e. authentication on password alone, logged
+    # only at DEBUG. reraise() (PluggableAuthService.py:88-93) reads this attribute
+    # off the plugin instance it is handed, so it is scoped to us: later plugins
+    # still get their post-credentials-wipe KeyError swallowed (below), which the
+    # veto this plugin performs depends on. The plugin's own inner delegation loop
+    # (which calls reraise() on the *other* plugins) is deliberately left alone --
+    # Phase 4 owns that boundary rework.
+    _dont_swallow_my_exceptions = True
+
     def __init__(self, id, title=None):
         self._setId(id)
         self.title = title
@@ -87,7 +98,7 @@ class GoogleAuthenticatorPlugin(BasePlugin):
 
         user = api.user.get(username=login)
 
-        logger.debug("Found user: {0}".format(user.getProperty('username')))
+        logger.debug("Found user: {0}".format(user.getUserName()))
 
         two_factor_authentication_enabled = user.getProperty(
             'enable_two_factor_authentication')
