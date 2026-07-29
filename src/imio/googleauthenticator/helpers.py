@@ -248,6 +248,9 @@ def get_ska_secret_key(request=None, user=None, use_browser_hash=True):
     settings = get_app_settings()
 
     ska_secret_key = settings.ska_secret_key
+    if not ska_secret_key:
+        ska_secret_key = unicode(uuid4())
+        settings.ska_secret_key = ska_secret_key
 
     user_secret = user.getProperty('two_factor_authentication_secret')
 

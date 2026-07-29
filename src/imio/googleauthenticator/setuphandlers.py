@@ -1,8 +1,5 @@
-from uuid import uuid4
-
 from zope.i18nmessageid import MessageFactory
 
-from imio.googleauthenticator.helpers import get_app_settings
 from imio.googleauthenticator.pas_plugin import GoogleAuthenticatorPlugin
 
 _ = MessageFactory('imio.googleauthenticator')
@@ -30,19 +27,6 @@ def _add_plugin(pas, pluginid=PAS_ID):
             [x[0] for x in pas.plugins.listPlugins(interface)[:-1]],
         )
 
-def _setup_secret_key(portal):
-    """
-    Generate secret key
-    """
-    portal.portal_setup.runImportStepFromProfile(
-        'profile-imio.googleauthenticator:default',
-        'plone.app.registry'
-        )
-
-    settings = get_app_settings()
-    if not settings.ska_secret_key:
-        settings.ska_secret_key = unicode(uuid4())
-
 def setupVarious(context):
     """
     @param context: Products.GenericSetup.context.DirectoryImportContext instance
@@ -55,8 +39,6 @@ def setupVarious(context):
         return
 
     portal = context.getSite()
-
-    _setup_secret_key(portal)
 
     pas = portal.acl_users
     _add_plugin(pas)
