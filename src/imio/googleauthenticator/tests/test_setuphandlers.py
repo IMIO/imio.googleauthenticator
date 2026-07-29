@@ -3,6 +3,7 @@ import unittest2 as unittest
 from Products.CMFCore.utils import getToolByName
 
 from plone import api
+from plone.app.testing import applyProfile
 
 from imio.googleauthenticator.helpers import get_app_settings
 from imio.googleauthenticator.helpers import get_ska_secret_key
@@ -47,6 +48,13 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         - LAZY MINT (REG-04): the first call to get_ska_secret_key() mints
           and persists a non-empty key; a second call returns that same key
           rather than re-rolling it.
+        - REG-05 REGRESSION GUARD, not a live bug fix: ska_secret_key is
+          TextLine(required=False, default=u''), so an existing non-empty
+          unicode value revalidates cleanly on profile re-import today, and
+          the "bare <records interface=...> replaces the value with the
+          field default on re-import" hole does not fire. It would fire the
+          day someone adds required=True or a constraint to that field,
+          which is what this group guards against.
         """
         portal_setup = getToolByName(self.portal, 'portal_setup')
 
@@ -83,3 +91,15 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         self.assertEqual(
             minted, get_app_settings().ska_secret_key,
             'REG-04: second get_ska_secret_key() call must not re-mint the key')
+
+        # REG-05 regression guard: a profile re-apply must not replace an
+        # existing ska_secret_key with the field default. Not a live bug fix
+        # (see docstring) -- the assertion is equality against the same known
+        # literal set below, not mere non-emptiness, which would pass against
+        # a fresh re-mint and prove nothing.
+        known_value = u'known-test-value-for-reg-05'
+        get_app_settings().ska_secret_key = known_value
+        applyProfile(self.portal, 'imio.googleauthenticator:default')
+        self.assertEqual(
+            known_value, get_app_settings().ska_secret_key,
+            'REG-05: re-applying the default profile must not reset ska_secret_key')
