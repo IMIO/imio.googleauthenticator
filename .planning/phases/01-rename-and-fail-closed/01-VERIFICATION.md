@@ -1,63 +1,28 @@
 ---
 phase: 01-rename-and-fail-closed
-verified: 2026-07-29T08:13:52Z
-status: gaps_found
-score: 5/6 must-haves verified
+verified: 2026-07-29T09:15:00Z
+status: passed
+score: 6/6 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
-gaps:
-  - truth: "Ordinary, non-malicious inputs reaching the PAS plugin (unknown username, malformed X-Forwarded-For, trailing blank line in the IP whitelist) do not crash login with an unhandled 500 -- the whitelist/lookup logic this phase touched is fail-closed, not fail-crashed, exactly as its own inline comment claims."
-    status: failed
-    reason: >
-      _dont_swallow_my_exceptions = True (commit 60f377f) makes every unhandled exception
-      inside authenticateCredentials propagate as a 500 instead of being silently swallowed
-      by PAS. The commit audited and fixed exactly the two call sites its own new tests
-      exercise, but left three other paths in the same method/call graph unguarded. All
-      three are confirmed still present on disk (not hypothetical, not fixed by a later
-      commit in this phase):
-        - pas_plugin.py:99-101 -- api.user.get(username=login) returns None for any
-          username that does not match an account; the very next line calls
-          user.getUserName() unconditionally, raising AttributeError. This is the single
-          most common failed-login shape (a typo) and now 500s instead of showing "Login
-          failed".
-        - helpers.py extract_ip_address_from_request (~line 465) -- guards only the empty
-          IP case ("if not ip: return None"); a non-empty malformed X-Forwarded-For value
-          still reaches ipaddress.ip_address(ip) unguarded and raises ValueError. Client-
-          controllable via a proxy header.
-        - helpers.py get_ip_addresses_whitelist / get_ip_ranges (~lines 472-508) -- splits
-          the whitelist Text field on '\n' without dropping empty entries; a trailing blank
-          line (an entirely ordinary textarea edit) produces '' in the list, and
-          ipaddress.ip_network('') raises ValueError, uncaught, from the first statement of
-          authenticateCredentials -- crashing login for every user on the site the moment an
-          admin saves a whitelist with a trailing newline.
-      These are the same three findings independently confirmed in 01-REVIEW.md (CR-01,
-      CR-02, CR-03) and verified directly against the current source in this pass -- none
-      has been fixed since the review ran. The phase's own code comment at
-      helpers.py (added in 60f377f) states the intended outcome in these exact words: "keeps
-      the whitelist fail-closed instead of fail-crashed" -- the implementation delivers that
-      only for the empty-string case, not for the two remaining paths, one of which (CR-03)
-      is a site-wide login outage triggered by routine admin configuration, not an attack.
-    artifacts:
-      - path: "src/imio/googleauthenticator/pas_plugin.py"
-        issue: "Lines 99-101: api.user.get() result used without a None check (CR-01)"
-      - path: "src/imio/googleauthenticator/helpers.py"
-        issue: "extract_ip_address_from_request: non-empty malformed IP unguarded (CR-02); get_ip_addresses_whitelist/get_ip_ranges: empty whitelist entries unguarded (CR-03)"
-    missing:
-      - "pas_plugin.py: return None when api.user.get(username=login) is None, before calling getUserName()"
-      - "helpers.py: wrap ipaddress.ip_address(ip) in try/except ValueError, treating a parse failure as 'no client IP' (same as the empty-IP branch)"
-      - "helpers.py: filter empty/blank entries out of the whitelist list before calling ipaddress.ip_network(), and/or make get_ip_ranges skip an individual bad entry rather than raising"
-      - "A regression test per fixed path (unknown username, malformed X-Forwarded-For, trailing blank whitelist line) proving each now returns None/False instead of raising, to close the same class of gap CR-01/02/03 exploited (the existing suite only exercises TEST_USER_NAME and well-formed inputs, which is why this shipped invisibly)"
+re_verification:
+  previous_status: gaps_found
+  previous_score: 5/6
+  gaps_closed:
+    - "Ordinary, non-malicious inputs reaching the PAS plugin (unknown username, malformed X-Forwarded-For, trailing blank line in the IP whitelist) do not crash login with an unhandled 500 -- the whitelist/lookup logic this phase touched is fail-closed, not fail-crashed"
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 01: Rename and Fail-Closed Verification Report
 
-**Phase Goal:** The package is `imio.googleauthenticator` everywhere -- on disk, in the egg, in
-the i18n domain, in the GenericSetup profile and its marker file -- and any exception inside the
+**Phase Goal:** The package is `imio.googleauthenticator` everywhere — on disk, in the egg, in
+the i18n domain, in the GenericSetup profile and its marker file — and any exception inside the
 PAS plugin becomes a 500 rather than a silent fallthrough to password-only authentication.
 
-**Verified:** 2026-07-29T08:13:52Z
-**Status:** gaps_found
-**Re-verification:** No -- initial verification
+**Verified:** 2026-07-29T09:15:00Z
+**Status:** passed
+**Re-verification:** Yes — after gap closure
 
 ## Goal Achievement
 
@@ -65,117 +30,137 @@ PAS plugin becomes a 500 rather than a silent fallthrough to password-only authe
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | Fresh clone: `bin/instance` buildout installs the add-on, `collective.googleauthenticator` importable from nowhere, no orphan `.pyc`/`.egg-info` under the old namespace | VERIFIED | `find . -iname "*collective.googleauthenticator*"` and `find . -path "*collective/googleauthenticator*"` both empty (excluding `.git`); the only `collective/*.pyc` hits are `parts/omelette/collective/{__init__,z3cform/__init__}.pyc`, a git-ignored buildout omelette symlink tree for the unrelated third-party `collective.z3cform` egg, not this package's old namespace. `src/imio.googleauthenticator.egg-info` present and correctly named; `src/imio/__init__.py` declares the `imio` namespace |
-| 2 | A test asserts `google_auth` is registered for `IAuthenticationPlugin` | VERIFIED | `test_plugin_is_registered_for_authentication` in `tests/test_pas_plugin.py:39-48` asserts `PAS_ID` (`google_auth`) in `listPlugins(IAuthenticationPlugin)`; `bin/test -t '!robot'` run in this pass: 15 tests, 0 failures, 0 errors |
-| 3 | `python setup.py sdist` produces an archive with `profiles/`, `locales/`, templates | VERIFIED | Built `imio.googleauthenticator-1.0.0.dev0.tar.gz` in this pass; `tar tzf` shows 17 `profiles/` entries (incl. `default/` and `uninstall/`), 12 `locales/` entries (pot + 3 language `.po`), and `www/add_google_authenticator_form.zpt` |
-| 4 | Dutch translation still renders; catalogues `git mv`-ed to new domain filenames, stale `.mo` deleted | VERIFIED | `locales/{en,fr,nl}/LC_MESSAGES/imio.googleauthenticator.{po,mo}` all present under the new domain name, no stale `collective.googleauthenticator.*` catalogue files anywhere on disk; `test_control_panel_is_translated_nl` and `test_corrected_msgid_renders_in_english` both pass in the 15-test run |
-| 5 (literal) | `_dont_swallow_my_exceptions = True` set; a test asserts a deliberately raised plugin exception yields a 500 rather than authenticating via `source_users` | VERIFIED | `pas_plugin.py:71` sets the flag; `test_plugin_exception_is_not_swallowed` injects a `ValueError` via `is_whitelisted_client` and asserts `_extractUserIds` raises; `test_plugin_exception_is_swallowed_without_the_flag` is the counterfactual proving the flag is what changes the behavior. Both pass |
-| 5 (intent) | Ordinary, non-malicious inputs do not crash login with the same mechanism -- fail-closed, not fail-crashed, as the code's own comment states | ✗ FAILED | Three unguarded exception paths confirmed live in current source (see Gaps) -- an unknown username, a malformed `X-Forwarded-For` value, and a trailing blank line in the admin IP whitelist textarea each 500 the login flow via the exact same `_dont_swallow_my_exceptions` mechanism this phase introduced |
+| 1 | Fresh clone: `bin/instance` buildout installs the add-on, `collective.googleauthenticator` importable from nowhere, no orphan `.pyc`/`.egg-info` under the old namespace | ✓ VERIFIED | Carried forward from initial pass, no regression: `git status` shows no rename-related changes; `src/imio.googleauthenticator.egg-info` present; no `collective/googleauthenticator` path on disk |
+| 2 | A test asserts `google_auth` is registered for `IAuthenticationPlugin` | ✓ VERIFIED | `test_plugin_is_registered_for_authentication` in `tests/test_pas_plugin.py:41-50`, passes in this pass's full run |
+| 3 | `python setup.py sdist` produces an archive with `profiles/`, `locales/`, templates | ✓ VERIFIED | No change since initial pass; packaging paths untouched by the CR-01/02/03 fix commits |
+| 4 | Dutch translation still renders; catalogues renamed, stale `.mo` deleted | ✓ VERIFIED | No change since initial pass; i18n files untouched by the fix commits |
+| 5 (literal) | `_dont_swallow_my_exceptions = True` set; a test asserts a deliberately raised plugin exception yields a 500 rather than authenticating via `source_users` | ✓ VERIFIED | `pas_plugin.py:71`; `test_plugin_exception_is_not_swallowed` and its counterfactual `test_plugin_exception_is_swallowed_without_the_flag` both pass |
+| 5 (intent) | Ordinary, non-malicious inputs do not crash login with the same mechanism — fail-closed, not fail-crashed, as the code's own comment states | ✓ VERIFIED | All three previously-failing paths now guarded and regression-tested (see below). Re-read the current source directly (not the SUMMARY) and confirmed each fix is present, wired, and exercised by a passing test |
 
-**Score:** 5/6 truths verified (0 present, behavior-unverified)
+**Score:** 6/6 truths verified (0 present, behavior-unverified)
+
+### Gap Closure Detail (RENAME-11 fail-closed intent)
+
+Each of the three findings from the previous VERIFICATION.md was re-checked directly against
+current source on `HEAD`, not against SUMMARY/REVIEW-FIX claims:
+
+| Finding | Fix location | Verified in source | Regression test | Test passes |
+|---------|-------------|---------------------|------------------|-------------|
+| CR-01 — `api.user.get()` returns `None` for unmatched username, then unconditional `.getUserName()` raised `AttributeError` | `pas_plugin.py:99-104` | Confirmed: `if user is None: return None` guard present before `user.getUserName()` (commit `0018bca`) | `test_unmatched_username_does_not_crash` (`test_pas_plugin.py:72-95`) — calls `authenticateCredentials({'login': 'no-such-user', ...})` with a bound request, asserts `None` returned | PASS (targeted run + full suite) |
+| CR-02 — malformed `X-Forwarded-For` reaches `ipaddress.ip_address()` unguarded, raises `ValueError` | `helpers.py:478-486` | Confirmed: `try/except ValueError` around the final `ipaddress.ip_address(ip)` call, returns `None`, logs at debug (commit `e6d9e57`) | `test_extract_ip_address_from_request_ignores_malformed_ip` (`test_helpers.py:60-67`) — `HTTP_X_FORWARDED_FOR: 'not-an-ip'`, asserts `None` returned | PASS |
+| CR-03 — blank whitelist line produces `ip_network('')`, raises `ValueError` | `helpers.py:503-514` (filter blanks) and `helpers.py:517-531` (`get_ip_ranges` per-entry try/except, defense in depth) | Confirmed: both fixes applied as REVIEW-FIX.md's "and/or" suggestion (commit `316d636`) | `test_get_ip_addresses_whitelist_drops_blank_lines` and `test_get_ip_ranges_skips_invalid_entries_instead_of_raising` (`test_helpers.py:30-58`) | PASS |
+
+Targeted re-run of exactly these four tests in isolation:
+`bin/test -t 'test_unmatched_username_does_not_crash|test_extract_ip_address_from_request_ignores_malformed_ip|test_get_ip_addresses_whitelist_drops_blank_lines|test_get_ip_ranges_skips_invalid_entries_instead_of_raising'`
+→ **4 tests, 0 failures, 0 errors**.
+
+Full suite re-run in this pass: `bin/test -t '!robot'` → **21 tests, 0 failures, 0 errors** (up
+from 15 tests at the initial verification pass — the 6 new tests are the CR-01/02/03 regressions
+plus the WR-01 companion tests added during the same fix pass).
+
+### Additional hardening beyond the original gap (not required, found during re-check)
+
+The fix pass and subsequent security audit closed several adjacent items while addressing the
+gap. These were not part of the previous verification's required gap but are confirmed present
+and do not regress anything:
+
+- WR-01 (`helpers.py:450-462`): `PRIVATE_IPS_PREFIX` string-prefix match replaced with
+  `ipaddress.ip_address(...).is_private`, fixing a false-positive that treated public
+  `172.217.0.0/16` as a private proxy hop. Tested by
+  `test_extract_ip_address_does_not_treat_public_172_216_as_private` and
+  `test_extract_ip_address_still_strips_real_private_hops`.
+- WR-04 / T-1-11: raw exception text (`_(str(e))`) removed from all three form sites that
+  echoed it to end users, including a third site (`request_bar_code_reset.py:113`) found only
+  during the security audit, not the original code review. `grep -rn "_(str(e))" src/` returns
+  no matches — confirmed directly in this pass.
+- 01-SECURITY.md: `threats_open: 0`, `status: verified`; T-1-05 (the DoS risk this whole gap was
+  about) is recorded `accept`ed as a locked trade (loud outage over silent bypass for an MFA
+  package) and explicitly notes it was "materially reduced" by the CR-01/02/03 fixes — consistent
+  with what this pass independently confirmed in source.
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `src/imio/__init__.py` | Namespace package declaration | VERIFIED | `__import__('pkg_resources').declare_namespace(__name__)` |
-| `setup.py` | `namespace_packages = ['imio']` | VERIFIED | Line 52 |
-| `src/imio/googleauthenticator/profiles/default/imio.googleauthenticator.marker.txt` | Renamed marker file matching `setupVarious`'s check | VERIFIED | File present; `setuphandlers.py:53` reads `imio.googleauthenticator.marker.txt` |
-| `MANIFEST.in` | 8 `src/imio/googleauthenticator/...` paths | VERIFIED | `recursive-include src/imio/googleauthenticator/{locales,profiles} *` etc.; sdist build proves inclusion |
-| `CHANGES.rst` | Records rename + non-migration of existing DBs | VERIFIED | 1.0.0 (unreleased) section documents both explicitly |
-| `src/imio/googleauthenticator/pas_plugin.py` | `_dont_swallow_my_exceptions = True`, renamed `meta_type`/`PAS_TITLE`, unchanged `PAS_ID` | VERIFIED | Line 59 `meta_type = 'iMio Google Authenticator PAS'`, line 71 flag set, `PAS_ID` still `google_auth` (checked in `setuphandlers.py`) |
-| `src/imio/googleauthenticator/upgrades/` | Deleted | VERIFIED | Directory does not exist (`ls` exit 2 / not found) |
-| `.coveragerc`, `base.cfg` | Updated `package-name`/`directory`/`include` | VERIFIED | Both reference `imio.googleauthenticator` / `src/imio/googleauthenticator` |
-| `cleanup.sh` | Purges `src/imio.googleauthenticator.egg-info` | VERIFIED | Confirmed on disk |
+| `src/imio/googleauthenticator/pas_plugin.py` | `None`-guard after `api.user.get()` | ✓ VERIFIED | Lines 99-104, wired into `authenticateCredentials` |
+| `src/imio/googleauthenticator/helpers.py` | `try/except ValueError` in `extract_ip_address_from_request`, blank-filtering in `get_ip_addresses_whitelist`/`get_ip_ranges` | ✓ VERIFIED | Lines 478-486, 503-514, 517-531 |
+| `src/imio/googleauthenticator/tests/test_pas_plugin.py` | CR-01 regression test | ✓ VERIFIED | `test_unmatched_username_does_not_crash` |
+| `src/imio/googleauthenticator/tests/test_helpers.py` | CR-02/CR-03 regression tests | ✓ VERIFIED | 4 new tests present and passing |
+
+All other artifacts from the initial verification pass (namespace package, marker file,
+`MANIFEST.in`, `CHANGES.rst`, `.coveragerc`/`base.cfg`, `upgrades/` removal) are unchanged by
+this gap-closure work and remain verified — no regression found.
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|-----|-----|--------|---------|
-| `testing.py` | Zope product registration | `z2.installProduct(app, 'imio.googleauthenticator')` | WIRED | Confirmed in file, and the full integration-test layer boots and runs 15 tests successfully against it |
-| `setuphandlers.py` | GenericSetup marker | `context.readDataFile('imio.googleauthenticator.marker.txt')` | WIRED | Matches the actual marker filename on disk; behaviorally proven by `test_plugin_is_registered_for_authentication` (a mismatch would make it fail, per the test's own docstring) |
-| `pas_plugin.py:authenticateCredentials` | `helpers.is_whitelisted_client` | Direct call, first statement | WIRED, but see gap | The call and its downstream helpers are reachable, wired, and exercised by the test suite -- the gap is in what happens when the *content* of that call raises on ordinary input, not in the wiring itself |
+| `pas_plugin.py:authenticateCredentials` | `api.user.get()` result | `if user is None: return None` before `.getUserName()` | ✓ WIRED | Confirmed in source; behaviorally proven by `test_unmatched_username_does_not_crash` |
+| `pas_plugin.py:authenticateCredentials` | `helpers.is_whitelisted_client` → `extract_ip_address_from_request` | Direct call chain, first statement | ✓ WIRED | Now returns `None` on malformed input instead of raising; proven by `test_extract_ip_address_from_request_ignores_malformed_ip` |
+| `helpers.get_ip_addresses_whitelist` | `helpers.get_ip_ranges` | List of whitelist strings → list of network objects | ✓ WIRED | Blank entries filtered at the source, and `get_ip_ranges` independently defensive; proven by both new tests |
 
 ### Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
 |-------------|------------|-------------|--------|----------|
-| RENAME-01 | 01-01 | Package on disk/setup.py/namespace | SATISFIED | `src/imio/`, `setup.py:52`, `src/imio/__init__.py` |
-| RENAME-02 | 01-01 | All dotted refs updated | SATISFIED | No `collective` string in reviewed source/config files (grep) |
-| RENAME-03 | 01-02 | Dutch translation survives rename | SATISFIED | `locales/nl/**` under new domain filenames, tests pass |
-| RENAME-04 | 01-01 | Marker file renamed | SATISFIED | File + behavioral test |
-| RENAME-05 | 01-01 | `++resource++` prefixes match | SATISFIED | `test_resources_are_registered` passes |
-| RENAME-06 | 01-03 | `MANIFEST.in` 8 paths, sdist proof | SATISFIED | sdist built and inspected in this pass |
-| RENAME-07 | 01-01/02/03 | Build/tooling config updated | SATISFIED | `.coveragerc`, `base.cfg`, `cleanup.sh`, `testing.py` all confirmed |
-| RENAME-08 | 01-01 | Stale `.pyc`/`.egg-info` purged | SATISFIED | No old-namespace artifacts found on disk |
-| RENAME-09 | 01-01 | `upgrades/` deleted | SATISFIED | Directory absent |
-| RENAME-10 | 01-04 | `meta_type`/`PAS_TITLE` renamed, `PAS_ID` unchanged | SATISFIED | Confirmed in `pas_plugin.py` |
-| RENAME-11 | 01-04 | `_dont_swallow_my_exceptions = True` | SATISFIED (flag) / BLOCKED (fail-closed intent) | Flag set and tested; but 3 confirmed unguarded exception paths in the exact call graph this flag now propagates from (see Gaps) contradict the stated fail-closed design intent |
-| RENAME-12 | 01-01 | Test asserts plugin registered | SATISFIED | `test_plugin_is_registered_for_authentication` passes |
-| DOC-04 | 01-03 | `CHANGES.txt`/`.rst` records rename | SATISFIED | Confirmed above |
+| RENAME-01 through RENAME-10, RENAME-12, DOC-04 | 01-01/02/03/04 | Rename on disk, config, i18n, packaging, marker file, plugin identity | ✓ SATISFIED | Unchanged since initial pass; no regression found |
+| RENAME-11 | 01-04 | `_dont_swallow_my_exceptions = True`, fail-closed not fail-crashed | ✓ SATISFIED | Both the literal flag AND the fail-closed intent are now met — the three previously-open crash paths are fixed and regression-tested |
 
-No orphaned requirements: all 13 IDs (RENAME-01..12, DOC-04) appear in the `requirements:` frontmatter of the four phase-01 plans, matching REQUIREMENTS.md's phase-1 allocation exactly.
+No orphaned requirements: all 13 IDs (RENAME-01..12, DOC-04) appear in the `requirements:`
+frontmatter of the four phase-01 plans, matching REQUIREMENTS.md's phase-1 allocation.
+
+Note: REQUIREMENTS.md's phase-1 rows (lines 162-173, 232) still literally read "Gaps Found" —
+this is the traceability table left over from the initial verification pass and is a document
+freshness issue, not a code gap. It should be updated to reflect this passed re-verification as
+part of the normal ship/complete workflow; it is not itself a phase-goal blocker.
 
 ### Anti-Patterns Found
 
-| File | Line | Pattern | Severity | Impact |
-|------|------|---------|----------|--------|
-| `src/imio/googleauthenticator/pas_plugin.py` | 99-101 | Unchecked `None` from `api.user.get()` used unconditionally | Blocker | Any unknown/mistyped username 500s login (CR-01) |
-| `src/imio/googleauthenticator/helpers.py` | ~460-467 | `ipaddress.ip_address(ip)` unguarded for non-empty malformed input | Blocker | Malformed `X-Forwarded-For` 500s login (CR-02) |
-| `src/imio/googleauthenticator/helpers.py` | ~486-508 | Empty whitelist entries not filtered before `ipaddress.ip_network()` | Blocker | Trailing blank line in admin whitelist setting 500s login site-wide for every user (CR-03) |
-| `src/imio/googleauthenticator/pas_plugin.py` | 94 | `credentials['login']` direct key access (no `.get()`) | Warning | Same exception class as CR-01 if a future/reconfigured extractor omits `login` (WR-01, not currently triggerable) |
-| `src/imio/googleauthenticator/helpers.py` | 444 | `PRIVATE_IPS_PREFIX` treats all of `172.0.0.0/8` as private | Warning | Pre-existing, adjacent to the hardened code, not introduced by this phase (WR-02) |
-| `src/imio/googleauthenticator/helpers.py` | 310, 338 | Pre-existing `:FIXME:` docstring notes (2014/2015, upstream) | Info | Not touched by this phase's diff (confirmed via `git blame`); tracked separately as BUG-06, allocated to Phase 7 in REQUIREMENTS.md -- not a phase-01 debt marker |
+None introduced by the gap-closure commits. Scanned `pas_plugin.py` and `helpers.py` diffs
+(`0018bca`, `e6d9e57`, `316d636`, plus the WR-01/WR-04 commits) for debt markers
+(`TBD`/`FIXME`/`XXX`), placeholder text, and swallow-everything `except Exception: pass` —
+none found. The two exception handlers added (CR-02, CR-03) narrowly catch `ValueError` only,
+consistent with the fail-closed intent, and both log at debug level before returning a safe
+default. Pre-existing `:FIXME:` docstring notes in `helpers.py:310,338` are untouched by this
+diff (confirmed via `git blame`) and were already tracked as BUG-06/Phase 7 in the initial pass.
 
-None of the three Blocker anti-patterns are hypothetical or attacker-only: CR-01 fires on the single most common failed-login shape (a typo), and CR-03 fires on a routine admin textarea edit and crashes login for every user on the site.
+### Behavioral Spot-Checks
+
+| Behavior | Command | Result | Status |
+|----------|---------|--------|--------|
+| Unknown username does not crash login | `bin/test -t test_unmatched_username_does_not_crash` | 1 test, 0 failures | ✓ PASS |
+| Malformed X-Forwarded-For does not crash | `bin/test -t test_extract_ip_address_from_request_ignores_malformed_ip` | 1 test, 0 failures | ✓ PASS |
+| Blank whitelist line does not crash | `bin/test -t test_get_ip_addresses_whitelist_drops_blank_lines` | 1 test, 0 failures | ✓ PASS |
+| `get_ip_ranges` skips bad entries instead of raising | `bin/test -t test_get_ip_ranges_skips_invalid_entries_instead_of_raising` | 1 test, 0 failures | ✓ PASS |
+| Full suite regression | `bin/test -t '!robot'` | 21 tests, 0 failures, 0 errors | ✓ PASS |
 
 ### Human Verification Required
 
-None. All findings above are confirmed directly against source and reproducible by inspection/test; no visual, real-time, or external-service behavior is in question for this phase.
+None. 01-UAT.md records 29/29 automated + manual UAT checks passed, including the three human
+checkpoints, prior to this re-verification. All findings in this pass are confirmed directly
+against source and by passing tests; no visual, real-time, or external-service behavior is in
+question.
 
 ### Gaps Summary
 
-The rename itself (RENAME-01 through RENAME-10, RENAME-12, DOC-04) is complete, clean, and
-verified directly against the codebase: no stray `collective` references, no orphaned artifacts,
-sdist proves packaging, Dutch translation round-trips, and the plugin-registration test passes.
+The single gap from the initial verification pass — three unguarded exception paths
+(CR-01/02/03) that turned `_dont_swallow_my_exceptions = True` into a site-wide/ordinary-input
+DoS rather than the intended fail-closed behavior — has been closed:
 
-RENAME-11 is where the phase falls short of its own stated goal. The success criterion as written
-("`_dont_swallow_my_exceptions = True` is set... and a test asserts a deliberately raised plugin
-exception yields a 500") is met literally -- the flag is set, and the one deliberately-injected
-exception the phase's own test suite raises does propagate to a 500 as intended.
+- Each of the three paths now has an explicit guard (`None`-check, `try/except ValueError`,
+  blank-entry filtering) confirmed present in the current source, not just claimed in a summary.
+- Each has a dedicated regression test that exercises exactly the previously-crashing input and
+  asserts safe behavior; all four targeted tests pass, and the full 21-test suite passes with
+  zero failures and zero errors (up from 15 tests at the initial pass).
+- A follow-up security audit (01-SECURITY.md) independently found and closed one more
+  information-disclosure site (T-1-11, `request_bar_code_reset.py`) using the same pattern as
+  the code review's WR-04 fix, and confirmed `threats_open: 0`.
 
-But the phase goal's framing -- "any exception inside the PAS plugin becomes a 500 rather than a
-silent fallthrough to password-only authentication" -- and the implementation's own inline comment
-("keeps the whitelist fail-closed instead of fail-crashed") describe a broader intent: turning on
-`_dont_swallow_my_exceptions` should not, by itself, convert *ordinary* operational conditions into
-site-wide outages. Three such conditions were audited by the independent code review (01-REVIEW.md)
-and independently reconfirmed against the live source in this verification pass:
-
-- an unknown/mistyped username (CR-01) -- the most common failed-login case there is,
-- a malformed `X-Forwarded-For` value (CR-02) -- reachable via a proxy header,
-- a trailing blank line in the admin IP whitelist setting (CR-03) -- an ordinary textarea edit that
-  crashes login for every user on the site, site-wide, until an admin edits the setting back.
-
-None of these are attacks; none require unusual configuration. They are the direct, self-inflicted
-consequence of the exact commit (`60f377f`) that this phase's own success criterion #5 asks for,
-and they were not caught by that commit's own test suite because every existing test uses a valid
-username and well-formed inputs. This is not "goal achieved with follow-up work deferred to a later
-phase" -- REQUIREMENTS.md maps no later phase to fixing these three paths (they are not BUG-01
-through BUG-06's Phase 2/3/7 items; those cover unrelated bugs), and the phase's own text frames
-"fail-closed, not fail-crashed" as this phase's job. Treating it as done risks shipping a change
-that trades a low-severity latent 2FA-bypass-on-crash for a high-severity, routinely-triggerable
-site-wide login outage -- worse than the problem it was meant to fix.
-
-**Recommended fix (small, scoped, matches 01-REVIEW.md's suggested patches):**
-1. `pas_plugin.py`: return `None` immediately when `api.user.get(username=login)` is `None`.
-2. `helpers.py` `extract_ip_address_from_request`: wrap `ipaddress.ip_address(ip)` in
-   `try/except ValueError`, treating a parse failure like the existing empty-IP branch.
-3. `helpers.py` `get_ip_addresses_whitelist`/`get_ip_ranges`: filter blank entries before building
-   ranges (and/or make `get_ip_ranges` skip an individual invalid entry rather than raising).
-4. One regression test per path, since the existing suite's blind spot (valid username, well-formed
-   inputs only) is exactly why this shipped unnoticed.
+No regressions were introduced: the rename-only truths (1-4) and artifacts from the initial pass
+are unchanged and still hold. The phase goal — package fully renamed AND fail-closed exception
+handling that doesn't itself become an ordinary-input DoS — is achieved.
 
 ---
 
-_Verified: 2026-07-29T08:13:52Z_
+_Verified: 2026-07-29T09:15:00Z_
 _Verifier: Claude (gsd-verifier)_
