@@ -14,6 +14,19 @@ Changelog
 - Previously-issued signed token URLs keep validating: the rename changes none
   of the three inputs to the ``ska`` signing key.
   [chris-adam]
+- The ``imio.googleauthenticator`` GenericSetup import step now declares
+  ``<depends name="plone.app.registry"/>``, so the registry records it needs
+  are seeded deterministically instead of by CPython 2.7 string-hash chance.
+  [chris-adam]
+- ``ska_secret_key`` is no longer seeded at install time; it is minted once,
+  lazily, on first use of ``get_ska_secret_key()``.
+  [chris-adam]
+- The ``ska`` signing key derivation now length-prefixes its three
+  components instead of bare-concatenating them, so two different
+  component boundaries can no longer collide on the same key. This
+  invalidates any previously issued signed URL -- harmless before any site
+  is deployed and any user is enrolled, which is why it ships now.
+  [chris-adam]
 
 0.3.0 (unreleased)
 ------------------

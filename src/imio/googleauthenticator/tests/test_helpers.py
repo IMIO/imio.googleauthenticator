@@ -10,6 +10,7 @@ from imio.googleauthenticator.tests.base import BaseTest
 
 from imio.googleauthenticator.helpers import extract_ip_address_from_request
 from imio.googleauthenticator.helpers import get_app_settings
+from imio.googleauthenticator.helpers import get_browser_hash
 from imio.googleauthenticator.helpers import get_ip_addresses_whitelist
 from imio.googleauthenticator.helpers import get_ip_ranges
 from imio.googleauthenticator.helpers import get_ska_secret_key
@@ -157,3 +158,20 @@ class TestSkaSecretKey(unittest.TestCase, BaseTest):
         # re-minted by the derivation -- the registry value read back after
         # both derive calls above is still the one explicitly set here.
         self.assertEqual(u'bcd', get_app_settings().ska_secret_key)
+
+    def test_get_browser_hash(self):
+        """Regression guard, not a fix for a live bug: get_browser_hash's
+        `except` branch already returns '' today (not None). It stopped
+        being merely cosmetic the moment Task 1's length-prefixed derivation
+        landed -- that derivation takes len() of this return value, and
+        len(None) raises TypeError on a login path. Nobody should go looking
+        for a currently-firing bug here; this pins the guard against a
+        future edit reintroducing a fall-off-the-end None.
+        """
+        result = get_browser_hash(request={})
+        self.assertEqual('', result)
+        self.assertIsNotNone(result)
+
+        happy_result = get_browser_hash(
+            request={'HTTP_USER_AGENT': 'Mozilla/5.0'})
+        self.assertEqual(40, len(happy_result))
