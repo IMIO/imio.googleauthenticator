@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 2
-current_phase_name: Registry Seeding and Import-Step Ordering
-status: "Phase 01 shipped — PR #1"
-stopped_at: Phase 2 context gathered
-last_updated: "2026-07-29T12:40:28.444Z"
+current_phase: 02
+current_phase_name: registry-seeding-and-import-step-ordering
+status: executing
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-07-29T12:50:37.677Z"
 last_activity: 2026-07-29
-last_activity_desc: Phase 02 planning complete
+last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-28)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 01 — rename-and-fail-closed
+**Current focus:** Phase 02 — registry-seeding-and-import-step-ordering
 
 ## Current Position
 
-Phase: 2 — Registry Seeding and Import-Step Ordering
-Plan: Not started
-Status: Phase 01 shipped — PR #1
-Last activity: 2026-07-29 — Phase 02 planning complete
+Phase: 02 (registry-seeding-and-import-step-ordering) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-07-29 — Phase 02 execution started
 
-Progress: [██████████] 100%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [██████████] 100%
 | Phase 01 P02 | 35min | 2 tasks | 9 files |
 | Phase 01 P03 | 30min | 3 tasks | 13 files |
 | Phase 01 P04 | 25min | 2 tasks | 7 files |
+| Phase 02 P01 | 25min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 01-03: profiles/default/site_properties.xml left in place (dead per RESEARCH O-3) -- tied to no requirement, recorded as a Phase 8 observation.
 - [Phase ?]: 01-04: meta_type/PAS_TITLE renamed to iMio in an isolated commit; PAS_ID (google_auth) left untouched, per the roadmap's own commit-isolation requirement.
 - [Phase ?]: 01-04: _dont_swallow_my_exceptions = True surfaced two pre-existing bugs (is_whitelisted_client crashing on empty REMOTE_ADDR; a broken getProperty('username') debug line) that had likely been silently disabling the 2FA gate on every request in any deployment; both fixed as blocking Rule 1 auto-fixes.
+- [Phase ?]: 02-01: REG-01 proven by ordering assertion alone (D-01/D-02); no second-site fixture, no manual site-creation run
+- [Phase ?]: 02-01: _setup_secret_key deleted outright, ska_secret_key mint moved into a single lazy branch inside get_ska_secret_key() (D-04/D-05)
+- [Phase ?]: 02-01: REG-05 double-apply test documented as a regression guard against a future schema tightening, not a fix for a currently-firing bug (D-13)
 
 ### Pending Todos
 
@@ -110,6 +114,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-29T12:10:55.647Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-registry-seeding-and-import-step-ordering/02-CONTEXT.md
+Last session: 2026-07-29T12:50:37.667Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: None
