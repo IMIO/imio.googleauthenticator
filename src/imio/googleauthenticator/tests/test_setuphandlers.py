@@ -41,12 +41,42 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         self.portal_url = api.portal.get().absolute_url()
         self._install()
 
+    def test_import_step_declares_registry_dependency(self):
+        """REG-03: the <depends name="plone.app.registry"/> declaration is
+        recorded on our import step.
+
+        This -- not the sorted order below -- is the control. Asserting only
+        the post-sort position of getSortedImportSteps() is a tautology in
+        the current fixture: with the <depends> line deleted,
+        'imio.googleauthenticator' still lands after 'plone.app.registry'
+        (index 51 vs 36 of 52) purely by CPython 2.7 string-hash order, so
+        that assertion passes either way and would not catch the deletion.
+        Verified empirically during phase-2 verification. Asserting the
+        recorded dependency instead fails the moment the declaration goes.
+        """
+        portal_setup = getToolByName(self.portal, 'portal_setup')
+        metadata = portal_setup.getImportStepMetadata(
+            'imio.googleauthenticator')
+        self.assertIsNotNone(
+            metadata,
+            'REG-03: imio.googleauthenticator import step must be registered')
+        self.assertIn(
+            'plone.app.registry',
+            metadata['dependencies'],
+            'REG-03: the import step must declare <depends '
+            'name="plone.app.registry"/> -- without it the registry records '
+            'may not exist when setupVarious runs, and the resulting '
+            'get_app_settings() KeyError is a swallowable PAS exception')
+
     def test_import_step_ordering(self):
         """REG-03: imio.googleauthenticator's import step sorts after
-        plone.app.registry -- this is what catches someone deleting the
-        <depends> declaration. The assertion is the control, not the
-        rename: the ordering must be asserted here rather than inferred
-        from the absence of a "no record" error.
+        plone.app.registry.
+
+        Kept as the outcome check that the declared dependency above is
+        actually honoured by GenericSetup's topological sort. On its own it
+        proves nothing (see
+        test_import_step_declares_registry_dependency) -- the two together
+        assert both the declaration and its effect.
         """
         portal_setup = getToolByName(self.portal, 'portal_setup')
         steps = portal_setup.getSortedImportSteps()
