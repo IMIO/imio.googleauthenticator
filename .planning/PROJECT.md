@@ -34,28 +34,26 @@ A second factor that actually holds for in-site users, and that can be deployed 
 - ✓ Bulk enable of 2FA for all users from the control panel — existing
 - ✓ IP whitelist that skips the second factor for configured CIDR ranges — existing
 
+**Rename** — *Validated in Phase 1: Rename and Fail-Closed (2026-07-29)*
+
+- ✓ Renamed `collective.googleauthenticator` → `imio.googleauthenticator` everywhere:
+      on-disk structure (`src/collective/` → `src/imio/`), egg name, i18n domain **and the
+      `locales/` filenames**, the GenericSetup profile **and its marker file**, the registry
+      interface path, the PAS plugin *title* and `meta_type`, the `++resource++` prefixes,
+      `MANIFEST.in`, `.coveragerc`, `base.cfg`, `cleanup.sh`, and `testing.py`'s
+      `installProduct` string — RENAME-01…10
+- ✓ Stale artefacts purged: the 27 git-ignored `.pyc` files and the
+      `collective.googleauthenticator.egg-info` directory. Verified: 0 old-namespace `.pyc`,
+      one develop-egg, one egg-info — RENAME-08
+- ✓ `upgrades/` deleted along with its ZCML include — RENAME-09
+- ✓ `_dont_swallow_my_exceptions = True` on the plugin class, so a plugin exception is a 500
+      rather than a silent fallthrough to `source_users` password-only auth. Asserted by
+      `test_plugin_exception_is_not_swallowed` plus a counterfactual — RENAME-11, RENAME-12.
+      The three crash paths this flag exposed on ordinary input (unknown username, malformed
+      `X-Forwarded-For`, blank line in the IP whitelist) were found by code review and fixed
+      with regression tests, so the plugin is fail-closed rather than fail-crashed
+
 ### Active
-
-**Rename**
-
-- [ ] Rename `collective.googleauthenticator` → `imio.googleauthenticator` everywhere,
-      including the on-disk file structure (`src/collective/` → `src/imio/`), the egg name, the
-      i18n domain **and the `locales/` filenames** (the domain comes from the filenames, not
-      from `i18n_domain`), the GenericSetup profile **and its marker file** (`setupVarious`
-      returns silently on a mismatch), the registry interface path, the PAS plugin *title* and
-      `meta_type`, the `++resource++` prefixes, `MANIFEST.in`'s eight hardcoded paths,
-      `.coveragerc`, `base.cfg`, `cleanup.sh`, and `testing.py`'s `installProduct` string
-- [ ] Purge the stale artefacts that keep the old namespace importable: 27 git-ignored `.pyc`
-      files and the `collective.googleauthenticator.egg-info` directory. Python 2.7 imports an
-      orphan `.pyc` with no `.py` beside it, so without this a half-done rename passes locally
-      and fails in CI and production
-- [ ] Delete `upgrades/` — it only ever mattered for sites installed at ≤0.3.0, of which there
-      are none
-- [ ] `_dont_swallow_my_exceptions = True` on the plugin class. Not cosmetic: PAS swallows
-      `NameError`/`AttributeError`/`KeyError`/`TypeError`/`ValueError` from
-      `authenticateCredentials` at debug level and falls through to `source_users`, which
-      authenticates on password alone. Every later requirement below depends on this, or its
-      failure mode is a silent total bypass with no forensic trail
 
 **Correctness**
 
@@ -287,4 +285,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-28 after initialization and research reconciliation*
+*Last updated: 2026-07-29 — Phase 1 complete (rename + fail-closed); rename requirements moved to Validated*
