@@ -18,8 +18,13 @@ Changelog
   ``<depends name="plone.app.registry"/>``, so the registry records it needs
   are seeded deterministically instead of by CPython 2.7 string-hash chance.
   [chris-adam]
-- ``ska_secret_key`` is no longer seeded at install time; it is minted once,
-  lazily, on first use of ``get_ska_secret_key()``.
+- ``ska_secret_key`` is seeded once at install time, without the nested
+  ``runImportStepFromProfile`` re-entry the ``<depends>`` declaration above
+  makes unnecessary. ``get_ska_secret_key()`` is a pure read and raises if the
+  key is missing: minting inside it would write registry state from the PAS
+  ``authenticateCredentials()`` path, which ends in ``transaction.abort()`` on
+  ``Unauthorized`` and would discard the key after a URL signed with it had
+  already been sent to the browser.
   [chris-adam]
 - The ``ska`` signing key derivation now length-prefixes its three
   components instead of bare-concatenating them, so two different
