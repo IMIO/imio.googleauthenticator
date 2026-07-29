@@ -20,8 +20,8 @@ def _setup_secret_key():
     request path (PAS authenticateCredentials -> sign_user_data) that ends
     in transaction.abort() on Unauthorized, discarding the mint after a
     signed URL using it was already redirected to. Restoring seeding here
-    fixes that. D-04's actual intent is kept intact: no nested
-    runImportStepFromProfile re-entry -- the <depends name="plone.app.registry"/>
+    fixes that. D-04's actual intent is kept intact: no nested profile
+    import-step re-entry -- the <depends name="plone.app.registry"/>
     declaration added by REG-02 already guarantees the registry records
     exist by the time setupVarious runs, so a direct get_app_settings()
     call is enough.
