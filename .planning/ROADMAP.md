@@ -95,7 +95,7 @@ Plans:
   4. A test applies the default profile **twice** and asserts `ska_secret_key` is unchanged, so signed URLs in flight are not invalidated by a reinstall. (A retained value that no longer validates is silently replaced by the default `u''`, with only an INFO log line.)
   5. A test asserts the derived `ska` key separates its components: two different component tuples that share the same bare concatenation produce different keys.
 
-**Plans**: 1/2 plans executed
+**Plans**: 2/2 plans executed
 
 Plans:
 **Wave 1**
@@ -104,7 +104,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-02-PLAN.md — Length-prefixed `ska` key derivation with the collision it prevents asserted, plus the `get_browser_hash` empty-string regression guard and the changelog
+- [x] 02-02-PLAN.md — Length-prefixed `ska` key derivation with the collision it prevents asserted, plus the `get_browser_hash` empty-string regression guard and the changelog
 
 **Phase notes:**
 
@@ -259,7 +259,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Rename and Fail-Closed | 4/4 | Complete    | 2026-07-29 |
-| 2. Registry Seeding and Import-Step Ordering | 1/2 | In Progress|  |
+| 2. Registry Seeding and Import-Step Ordering | 2/2 | In Progress|  |
 | 3. Encrypted Seeds and Local QR | 0/TBD | Not started | - |
 | 4. PAS Boundary | 0/TBD | Not started | - |
 | 5. Drift, Replay and Lockout | 0/TBD | Not started | - |

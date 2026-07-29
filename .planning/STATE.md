@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 02
 current_phase_name: registry-seeding-and-import-step-ordering
-status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-07-29T12:50:37.677Z"
+status: verifying
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-07-29T13:07:13.718Z"
 last_activity: 2026-07-29
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 2
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -29,10 +29,10 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 
 Phase: 02 (registry-seeding-and-import-step-ordering) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-29 — Phase 02 execution started
 
-Progress: [████████░░] 83%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [████████░░] 83%
 | Phase 01 P03 | 30min | 3 tasks | 13 files |
 | Phase 01 P04 | 25min | 2 tasks | 7 files |
 | Phase 02 P01 | 25min | 2 tasks | 4 files |
+| Phase 02 P02 | 12min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 02-01: REG-01 proven by ordering assertion alone (D-01/D-02); no second-site fixture, no manual site-creation run
 - [Phase ?]: 02-01: _setup_secret_key deleted outright, ska_secret_key mint moved into a single lazy branch inside get_ska_secret_key() (D-04/D-05)
 - [Phase ?]: 02-01: REG-05 double-apply test documented as a regression guard against a future schema tightening, not a fix for a currently-firing bug (D-13)
+- [Phase ?]: 02-02: BUG-04 fixed via netstring-style length-prefixed join (D-08); test setUp needed a re-login after profile install because PLONE_FIXTURE's cached test-user property sheets predate the add-on's memberdata schema (own-test Rule 1 fix, no production change)
 
 ### Pending Todos
 
@@ -114,6 +116,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-29T12:50:37.667Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-07-29T13:07:13.709Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None
