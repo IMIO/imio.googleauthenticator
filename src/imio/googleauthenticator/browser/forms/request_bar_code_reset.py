@@ -109,8 +109,9 @@ class RequestBarCodeResetForm(form.SchemaForm):
                     )
                 redirect_url = "{0}".format(self.context.absolute_url())
                 self.request.response.redirect(redirect_url)
-            except ValueError as e:
-                reason = _(str(e))
+            except ValueError:
+                logger.exception("Bar-code reset request failed for %r", username)
+                reason = _("An unexpected error occurred.")
         else:
             reason = _("Invalid username.")
 
