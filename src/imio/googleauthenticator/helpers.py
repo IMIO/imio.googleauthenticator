@@ -268,7 +268,11 @@ def get_ska_secret_key(request=None, user=None, use_browser_hash=True):
         raise ValueError(
             'ska_secret_key is not set; (re)install imio.googleauthenticator')
 
-    user_secret = user.getProperty('two_factor_authentication_secret')
+    # CR-01: getProperty() with no default returns None for an
+    # undeclared/stale-cached property sheet (documented hazard, see
+    # CLAUDE.md); len(None) would raise TypeError. Coerce to '' like the
+    # sibling get_secret()/get_browser_hash() already do.
+    user_secret = user.getProperty('two_factor_authentication_secret') or ''
 
     if use_browser_hash:
         browser_hash = get_browser_hash(request=request)

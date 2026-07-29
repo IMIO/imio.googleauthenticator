@@ -159,6 +159,28 @@ class TestSkaSecretKey(unittest.TestCase, BaseTest):
         # both derive calls above is still the one explicitly set here.
         self.assertEqual(u'bcd', get_app_settings().ska_secret_key)
 
+    def test_get_ska_secret_key_handles_missing_secret_property(self):
+        """CR-01/WR-02 regression: a user whose
+        two_factor_authentication_secret property is unset/None (e.g. a
+        freshly created member that never went through
+        get_or_create_secret, or a cached property sheet that predates the
+        memberdata_properties.xml declaration -- see this class's setUp
+        docstring for why that can happen) must not crash
+        get_ska_secret_key() with 'TypeError: object of type NoneType has
+        no len()'. The old bare "{0}{1}{2}".format(...) concatenation
+        coerced None to the literal string "None" and never crashed; the
+        netstring-style len()-based derivation (BUG-04) must keep that same
+        crash-safety by coercing a falsy/None component to '' first, like
+        the sibling get_secret() already does.
+        """
+        class FakeUser(object):
+            def getProperty(self, name, default=None):
+                return None
+
+        result = get_ska_secret_key(
+            request=self.request, user=FakeUser(), use_browser_hash=False)
+        self.assertIsInstance(result, unicode)
+
     def test_get_browser_hash(self):
         """Regression guard, not a fix for a live bug: get_browser_hash's
         `except` branch already returns '' today (not None). It stopped
