@@ -13,7 +13,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 
 - [x] **RENAME-01**: Package is `imio.googleauthenticator` on disk (`src/imio/googleauthenticator/`), in `setup.py`, and in the egg name, with `namespace_packages=['imio']` and a `declare_namespace` boilerplate `src/imio/__init__.py`
 - [x] **RENAME-02**: All dotted references updated — `configure.zcml`, `overrides.zcml`, the registry interface path, `MessageFactory`, logger names, and the `IUserDataSchemaProvider` registration
-- [ ] **RENAME-03**: Dutch translation survives the rename — `locales/*.pot` and `locales/nl/**` are `git mv`-ed to the new domain filenames and stale `.mo` files deleted, because the i18n domain is taken from the filenames rather than from `i18n_domain`
+- [x] **RENAME-03**: Dutch translation survives the rename — `locales/*.pot` and `locales/nl/**` are `git mv`-ed to the new domain filenames and stale `.mo` files deleted, because the i18n domain is taken from the filenames rather than from `i18n_domain`
 - [x] **RENAME-04**: GenericSetup profile marker file is renamed alongside the string it is compared to, so `setupVarious` does not silently return and skip PAS plugin installation
 - [x] **RENAME-05**: `++resource++` prefixes in `jsregistry.xml` and `cssregistry.xml` match the new package name
 - [ ] **RENAME-06**: `MANIFEST.in`'s eight hardcoded `src/collective/...` paths updated, verified by building an sdist and confirming it contains `profiles/`, `locales/` and templates
@@ -161,7 +161,7 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 |-------------|-------|--------|
 | RENAME-01 | Phase 1 | Complete |
 | RENAME-02 | Phase 1 | Complete |
-| RENAME-03 | Phase 1 | Pending |
+| RENAME-03 | Phase 1 | Complete |
 | RENAME-04 | Phase 1 | Complete |
 | RENAME-05 | Phase 1 | Complete |
 | RENAME-06 | Phase 1 | Pending |

@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: rename-and-fail-closed
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-07-28T14:40:10.901Z"
-last_activity: 2026-07-28
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-07-29T07:25:49.624Z"
+last_activity: 2026-07-29
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -30,9 +30,9 @@ See: .planning/PROJECT.md (updated 2026-07-28)
 Phase: 01 (rename-and-fail-closed) — EXECUTING
 Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-07-28 — Phase 01 execution started
+Last activity: 2026-07-29 — Phase 01 execution started
 
-Progress: [███░░░░░░░] 25%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [███░░░░░░░] 25%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P01 | 10min | 2 tasks | 40 files |
+| Phase 01 P02 | 35min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 01-01: Three-commit shape for the move (pure move / buildout regen / content rename), per CONTEXT.md commit-shape decision
 - [Phase ?]: 01-01: PAS_ID, meta_type, PAS_TITLE left untouched — plan 01-04 owns them in an isolated commit
 - [Phase ?]: 01-01: locales/** filenames and rebuild_i18n.sh I18NDOMAIN left untouched — plan 01-02 owns D-15
+- [Phase ?]: 01-02: Used the live ska_secret_key schema field's title (Secret Key -> Geheime Sleutel) for test_control_panel_is_translated_nl instead of the plan's suggested stale 'Google Authenticator settings' msgid, which has no corresponding _(...) call in current source and would have been dropped by i18ndude's rebuild-pot.
+- [Phase ?]: 01-02: Dutch translations completed only for the three msgids this plan's own source corrections invalidated (D-19 scope); ~19 pre-existing untranslated msgids the rebuild-pot surfaced are documented as a deferred gap, not silently filled or ignored.
 
 ### Pending Todos
 
@@ -100,6 +103,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-28T14:40:10.890Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-07-29T07:25:49.615Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
