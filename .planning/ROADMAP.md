@@ -31,7 +31,7 @@ failure mode has no error page and no log line.
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Rename and Fail-Closed** - `imio.googleauthenticator` everywhere, and a plugin exception becomes a 500 instead of a password-only login (completed 2026-07-29)
-- [ ] **Phase 2: Registry Seeding and Import-Step Ordering** - New Plone sites install cleanly, and the ordering that makes them clean is asserted rather than accidental
+- [x] **Phase 2: Registry Seeding and Import-Step Ordering** - New Plone sites install cleanly, and the ordering that makes them clean is asserted rather than accidental (completed 2026-07-29)
 - [ ] **Phase 3: Encrypted Seeds and Local QR** - Seeds are Fernet-encrypted at rest, never sent to Google, and never fall back to plaintext
 - [ ] **Phase 4: PAS Boundary** - The second factor cannot be bypassed by any credentials extractor, and the refusal leaks nothing
 - [ ] **Phase 5: Drift, Replay and Lockout** - A replayed code fails, brute force stops at N attempts, and the counters actually persist
@@ -259,7 +259,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Rename and Fail-Closed | 4/4 | Complete    | 2026-07-29 |
-| 2. Registry Seeding and Import-Step Ordering | 2/2 | In Progress|  |
+| 2. Registry Seeding and Import-Step Ordering | 2/2 | Complete    | 2026-07-29 |
 | 3. Encrypted Seeds and Local QR | 0/TBD | Not started | - |
 | 4. PAS Boundary | 0/TBD | Not started | - |
 | 5. Drift, Replay and Lockout | 0/TBD | Not started | - |

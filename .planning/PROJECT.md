@@ -53,25 +53,40 @@ A second factor that actually holds for in-site users, and that can be deployed 
       `X-Forwarded-For`, blank line in the IP whitelist) were found by code review and fixed
       with regression tests, so the plugin is fail-closed rather than fail-crashed
 
+**Registry seeding** — *Validated in Phase 2: Registry Seeding and Import-Step Ordering (2026-07-29)*
+
+- ✓ `Interface ... IGoogleAuthenticatorSettings defines a field ska_secret_key, for which there
+      is no record` is fixed on new Plone site creation. `<depends name="plone.app.registry"/>`
+      declared at `configure.zcml:50`, and the nested `runImportStepFromProfile` re-entry is gone
+      from `src/`. Confirmed against a real site-creation log (UAT 2026-07-29): zero `no record`
+      lines — REG-01, REG-02, REG-04
+- ✓ The ordering is asserted rather than accidental, and the assertion is a *genuine* control:
+      `test_import_step_declares_registry_dependency` asserts the pre-sort
+      `getImportStepMetadata(...)['dependencies']` and was reproduced failing when the `<depends>`
+      line is deleted. The older `test_import_step_ordering` is kept as the outcome check with a
+      docstring that admits it proves nothing alone — REG-03
+- ✓ `ska_secret_key` is seeded once at install time by `setuphandlers._setup_secret_key()`;
+      `get_ska_secret_key()` is a pure read that raises `ValueError` on an empty key (fail-closed,
+      no plaintext-equivalent fallback, no lazy mint on a `transaction.abort()` path). Re-applying
+      the profile leaves an existing key unchanged — REG-04, REG-05
+- ✓ Derived `ska` key components are separated by a length-prefixed netstring join, so two
+      component tuples that collide under bare concatenation now derive to different keys.
+      Asserted with an exact-string check on a provably-colliding fixture — BUG-04
+
 ### Active
 
 **Correctness**
 
-- [ ] Fix `Interface ... IGoogleAuthenticatorSettings defines a field ska_secret_key, for which
-      there is no record` on new Plone site creation — via `<depends name="plone.app.registry"/>`
-      and removing the nested `runImportStepFromProfile`, **not** via the rename. The root cause
-      is Python 2 `set` iteration order over import-step ids, so the rename changes a hash and
-      may make the error vanish without fixing it. An ordering assertion in the test suite is the
-      actual control
-- [ ] `bin/code-analysis` exits 0 (~40 pre-existing findings; the buildout installs a
-      pre-commit hook that fails every commit until this is clean)
+- [ ] `bin/code-analysis` exits 0. The corrected baseline is **318 pre-existing findings**, not
+      the ~40 previously recorded here — measured in plan 01-03 (RESEARCH C-6). 184 of the 318
+      (58%) are `isort` findings, and the rename actively perturbs first-party import ordering,
+      so QUAL-06 must be planned against 318. The buildout installs a pre-commit hook that fails
+      every commit until this is clean (`--no-verify` in the meantime)
 - [ ] Fix open redirect: `next_url` accepted unvalidated at `token.py:112-113`
 - [ ] Fix `UnboundLocalError` on `redirect_url` at `user_setup.py:96`
 - [ ] Use a constant-time comparison for the reset token at `reset_bar_code.py:104` — encoding
       both sides first, because `hmac.compare_digest` raises `TypeError` across `str`/`unicode`
       and the stored and submitted values differ in type
-- [ ] Separate the components of the derived `ska` key at `helpers.py:259` (currently bare
-      concatenation, collidable)
 - [ ] Swap `py2-ipaddress` for `ipaddress == 1.0.23` with `unicode` coercion at `helpers.py:459`
       and `:496`. Forced by adding `cryptography`, which pulls the `ipaddress` backport — both
       distributions install a top-level module of the same name, and the backport raises
@@ -266,6 +281,9 @@ enumerates the bugs, security gaps, and test-coverage holes referenced above.
 | Recovery codes hashed with one salt per user, not per code | A per-code salt forces N hash runs per attempt (~1.1s for 10 codes) on a login-adjacent endpoint — a DoS lever. Per-user still defeats cross-user rainbow tables, which is all a salt does here | — Pending |
 | No upgrade steps for the rename; existing dev ZODBs discarded | No enrolled users to migrate, and pickled module paths make in-place migration far more work than recreating a dev database | — Pending |
 | Don't rename `PAS_ID` (`google_auth`) | Already namespace-neutral; renaming it would create a second plugin on any existing ZODB | — Pending |
+| Seed `ska_secret_key` at install time in `setuphandlers._setup_secret_key()`, **not** lazily on first read | Reverses the 02-01 plan's D-04/D-05 lazy-mint design (CR-02). A mint inside `get_ska_secret_key()` is reachable from `authenticateCredentials()`, a path that ends in `transaction.abort()` on `Unauthorized` — it would discard the key *after* a signed URL using it was already handed to the browser. `get_ska_secret_key()` is now a pure read that raises `ValueError` on an empty key | ✓ Shipped Phase 2 |
+| Derive the `ska` key with a length-prefixed netstring join, not bare concatenation | Bare concatenation of `(user_secret, browser_hash, ska_secret_key)` is collidable: a component-boundary shift yields the same key, so a signature minted in one context validates in another. Asserted with an exact-string check on a fixture that provably collides under the old scheme, so it cannot regress into a cosmetic reformat | ✓ Shipped Phase 2 |
+| Assert the `<depends>` *declaration*, not just the resulting sorted order | The first ordering test was tautological — it stayed green with `<depends name="plone.app.registry"/>` deleted, purely by CPython 2.7 string-hash coincidence. `test_import_step_declares_registry_dependency` asserts the pre-sort `getImportStepMetadata(...)['dependencies']` instead, and was reproduced failing on deletion. The outcome test is kept, with a docstring admitting it proves nothing alone | ✓ Shipped Phase 2 |
 
 ## Evolution
 
@@ -285,4 +303,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-29 — Phase 1 complete (rename + fail-closed); rename requirements moved to Validated*
+*Last updated: 2026-07-29 — Phase 2 complete (registry seeding + import-step ordering); registry-seeding and BUG-04 requirements moved to Validated, three Phase 2 decisions logged, the stale `~40 code-analysis findings` figure corrected to 318*

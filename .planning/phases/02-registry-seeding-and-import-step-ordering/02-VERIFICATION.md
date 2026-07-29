@@ -1,7 +1,7 @@
 ---
 phase: 02-registry-seeding-and-import-step-ordering
 verified: 2026-07-29T16:30:00Z
-status: human_needed
+status: passed
 score: 9/9 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
@@ -9,10 +9,12 @@ re_verification:
   previous_status: gaps_found
   previous_score: 8/9
   gaps_closed:
+
     - "REG-03 / ROADMAP Success Criterion 2: the getSortedImportSteps() ordering assertion is the mechanised control for the <depends name=\"plone.app.registry\"/> declaration and must fail if the <depends> line is deleted"
   gaps_remaining: []
   regressions: []
 human_verification:
+
   - test: "REG-01 / ROADMAP Success Criterion 1 -- real site-creation smoke check"
     expected: "bin/instance fg, create a new Plone site with imio.googleauthenticator selected in the add-ons list, then grep -e \"no record\" -e \"Cannot find registry\" var/log/instance.log finds no matches"
     why_human: "Deliberately not automated per D-01/D-02 (verification: backstop must_have) -- no second-site fixture exists and no var/log/instance.log from a real site-creation run is available to this verifier. The RECORDS + ORDERING + DECLARATION assertions are the mechanised substitute control and all now pass."
@@ -55,15 +57,19 @@ account:
 1. `find . -name '*.pyc' -delete` (avoids the stale-`.pyc` false-positive noted in the prior report).
 2. `bin/test -t '!robot'` on the unmodified tree: **`Ran 30 tests with 0 failures and 0 errors`**
    (was 29 at the prior verification — the one new test).
+
 3. Deleted `<depends name="plone.app.registry"/>` from `configure.zcml` (converted the
    `genericsetup:importStep` block back to self-closing), confirmed the edit is still well-formed
    XML (`xml.dom.minidom.parse` exits 0).
+
 4. `bin/test -t test_import_step_declares_registry_dependency` on the mutated tree:
    **1 failure** — `AssertionError: 'plone.app.registry' not found in ()`. This is the new control
    catching the exact regression it exists to catch.
+
 5. `bin/test -t test_import_step_ordering` on the same mutated tree: **0 failures** — confirms the
    kept outcome-check test is *still* tautological on its own in this fixture (as its docstring now
    says explicitly), which is exactly why the declaration test above is the one that must exist.
+
 6. Restored `configure.zcml` from a pre-edit backup, confirmed `git status` is clean and
    `git diff --stat` is empty, re-ran `bin/test -t '!robot'`: back to 30/0/0.
 
@@ -100,10 +106,12 @@ that back several of the 8 previously-verified truths. Re-checked each:
 - **REG-04 / setuphandlers.py, helpers.py**: unchanged by the gap-closure commits (only
   `test_setuphandlers.py` was touched, adding a new test method and re-docstringing an existing
   one — no assertion in the five pre-existing methods was weakened or removed).
+
 - **REG-05, BUG-04, CR-01, CR-02**: their backing test methods (`test_reapply_profile_does_not_reset_ska_secret_key`,
   `test_get_ska_secret_key`, `test_get_ska_secret_key_handles_missing_secret_property`,
   `test_get_ska_secret_key_does_not_mutate_registry`) are byte-for-byte unchanged; confirmed by
   reading the current file and comparing against the prior verification's evidence.
+
 - **Whole-suite regression**: `bin/test -t '!robot'` — 30/0/0, no new failures, one new test
   (the count previously was 29).
 
