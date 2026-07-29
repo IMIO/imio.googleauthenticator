@@ -54,7 +54,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. The Dutch translation still renders in the UI: `locales/*.pot` and `locales/nl/**` were `git mv`-ed to the new domain filenames and stale `.mo` files deleted. The i18n domain comes from the filenames, not from `i18n_domain`, so renaming `MessageFactory` alone silently deletes the translation.
   5. `_dont_swallow_my_exceptions = True` is set on the plugin class, and a test asserts a deliberately raised plugin exception yields a 500 rather than authenticating on password alone via `source_users`.
 
-**Plans**: 3/4 plans executed
+**Plans**: 4/4 plans executed
 
 Plans:
 **Wave 1**
@@ -71,7 +71,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-04-PLAN.md — PAS `meta_type`/title rename in an isolated commit, then `_dont_swallow_my_exceptions` with its fail-closed test
+- [x] 01-04-PLAN.md — PAS `meta_type`/title rename in an isolated commit, then `_dont_swallow_my_exceptions` with its fail-closed test
 
 **Phase notes:**
 
@@ -249,7 +249,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Rename and Fail-Closed | 3/4 | In Progress|  |
+| 1. Rename and Fail-Closed | 4/4 | In Progress|  |
 | 2. Registry Seeding and Import-Step Ordering | 0/TBD | Not started | - |
 | 3. Encrypted Seeds and Local QR | 0/TBD | Not started | - |
 | 4. PAS Boundary | 0/TBD | Not started | - |

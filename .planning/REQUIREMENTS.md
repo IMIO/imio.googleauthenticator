@@ -20,8 +20,8 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [x] **RENAME-07**: Build and tooling config updated — `.coveragerc`, `base.cfg` (`package-name`, `[code-analysis] directory`), `cleanup.sh`, and `testing.py`'s `installProduct` string and layer constants
 - [x] **RENAME-08**: Stale artefacts purged — all 27 git-ignored `.pyc` files under the old namespace and the `collective.googleauthenticator.egg-info` directory, so the old namespace is no longer importable from an orphan `.pyc`
 - [x] **RENAME-09**: `upgrades/` is deleted, having only ever applied to sites installed at ≤0.3.0
-- [ ] **RENAME-10**: PAS plugin `meta_type` and `PAS_TITLE` renamed; `PAS_ID` (`google_auth`) deliberately unchanged
-- [ ] **RENAME-11**: `_dont_swallow_my_exceptions = True` on the plugin class, so a plugin exception becomes a 500 rather than a silent fallthrough to password-only authentication
+- [x] **RENAME-10**: PAS plugin `meta_type` and `PAS_TITLE` renamed; `PAS_ID` (`google_auth`) deliberately unchanged
+- [x] **RENAME-11**: `_dont_swallow_my_exceptions = True` on the plugin class, so a plugin exception becomes a 500 rather than a silent fallthrough to password-only authentication
 - [x] **RENAME-12**: A test asserts the plugin is registered for `IAuthenticationPlugin`, catching both a broken rename and a `Broken`-object ZODB
 
 ### Site creation and registry (REG)
@@ -168,8 +168,8 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | RENAME-07 | Phase 1 | Complete |
 | RENAME-08 | Phase 1 | Complete |
 | RENAME-09 | Phase 1 | Complete |
-| RENAME-10 | Phase 1 | Pending |
-| RENAME-11 | Phase 1 | Pending |
+| RENAME-10 | Phase 1 | Complete |
+| RENAME-11 | Phase 1 | Complete |
 | RENAME-12 | Phase 1 | Complete |
 | REG-01 | Phase 2 | Pending |
 | REG-02 | Phase 2 | Pending |
