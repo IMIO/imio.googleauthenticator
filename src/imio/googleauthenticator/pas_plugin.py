@@ -56,7 +56,7 @@ class GoogleAuthenticatorPlugin(BasePlugin):
     """
     Google Authenticator PAS Plugin
     """
-    meta_type = 'Collective Google Authenticator PAS'
+    meta_type = 'iMio Google Authenticator PAS'
     security = ClassSecurityInfo()
 
     def __init__(self, id, title=None):

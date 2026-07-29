@@ -128,7 +128,7 @@ Choose "Google Authenticator Plone" and install it.
 
 ZMI -> acl_users
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-1. Choose "google_auth (Google Authenticator plugin (collective.googleauthenticator))".
+1. Choose "google_auth (Google Authenticator plugin (imio.googleauthenticator))".
 
 2. Make sure the "Active plugins" section of "Authentication" has the following plugins in
    the given order ("google_auth" should come as first - critical!):

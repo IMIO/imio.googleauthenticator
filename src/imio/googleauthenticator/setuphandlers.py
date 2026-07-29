@@ -7,7 +7,7 @@ from imio.googleauthenticator.pas_plugin import GoogleAuthenticatorPlugin
 
 _ = MessageFactory('imio.googleauthenticator')
 
-PAS_TITLE = 'Google Authenticator plugin (collective.googleauthenticator)'
+PAS_TITLE = 'Google Authenticator plugin (imio.googleauthenticator)'
 PAS_ID = 'google_auth'
 
 def _add_plugin(pas, pluginid=PAS_ID):
