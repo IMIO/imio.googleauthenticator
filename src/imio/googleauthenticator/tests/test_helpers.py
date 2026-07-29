@@ -4,6 +4,7 @@ from imio.googleauthenticator.testing import \
     IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 
+from imio.googleauthenticator.helpers import extract_ip_address_from_request
 from imio.googleauthenticator.helpers import get_ip_ranges
 from ipaddress import IPv4Network
 from ipaddress import IPv4Address
@@ -24,3 +25,12 @@ class TestIPWhitelisting(unittest.TestCase, BaseTest):
         self.assertTrue(any(IPv4Address('127.0.0.1') in r for r in ranges))
         self.assertTrue(any(IPv4Address('192.168.1.1') in r for r in ranges))
         self.assertFalse(any(IPv4Address('10.0.0.0') in r for r in ranges))
+
+    def test_extract_ip_address_from_request_ignores_malformed_ip(self):
+        """CR-02 regression: a malformed/attacker-controlled X-Forwarded-For
+        value must not raise ValueError from inside is_whitelisted_client(),
+        the first statement of authenticateCredentials.
+        """
+        request = {'REMOTE_ADDR': '127.0.0.1',
+                   'HTTP_X_FORWARDED_FOR': 'not-an-ip'}
+        self.assertIsNone(extract_ip_address_from_request(request=request))

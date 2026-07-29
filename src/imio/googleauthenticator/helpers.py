@@ -466,7 +466,15 @@ def extract_ip_address_from_request(request=None):
         # fail-closed instead of fail-crashed.
         return None
 
-    return ipaddress.ip_address(ip)
+    try:
+        return ipaddress.ip_address(ip)
+    except ValueError:
+        # Malformed/attacker-controlled IP (bogus X-Forwarded-For value, a
+        # legacy "ip:port" entry some proxies emit, ...). Same fail-closed
+        # reasoning as the empty-IP case above: treat as "no client IP to
+        # check" rather than letting the client 500 the login path.
+        logger.debug("Unparseable client IP %r", ip)
+        return None
 
 
 def get_ip_addresses_whitelist(request=None):
