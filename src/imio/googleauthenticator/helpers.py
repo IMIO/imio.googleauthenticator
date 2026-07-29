@@ -259,7 +259,10 @@ def get_ska_secret_key(request=None, user=None, use_browser_hash=True):
     else:
         browser_hash = ''
 
-    return "{0}{1}{2}".format(user_secret, browser_hash, ska_secret_key)
+    return u''.join(
+        u'{0}:{1}'.format(len(part), part)
+        for part in (user_secret, browser_hash, ska_secret_key)
+    )
 
 
 def is_two_factor_authentication_globally_enabled():
