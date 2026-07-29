@@ -6,6 +6,7 @@ from plone import api
 from plone.app.testing import quickInstallProduct
 from plone.app.testing import TEST_USER_NAME
 from plone.app.testing import TEST_USER_PASSWORD
+from zope.globalrequest import setRequest
 from imio.googleauthenticator import pas_plugin
 from imio.googleauthenticator.setuphandlers import PAS_ID
 
@@ -76,10 +77,21 @@ class TestPas(unittest.TestCase, BaseTest):
         PAS's _SWALLOWABLE_PLUGIN_EXCEPTIONS -- which _dont_swallow_my_exceptions
         (RENAME-11) then lets propagate as an uncaught HTTP 500 instead of a
         normal 'Login failed'.
+
+        authenticateCredentials()'s first statement (is_whitelisted_client())
+        calls zope.globalrequest.getRequest() with no argument, so this test
+        needs a request bound the same way a real HTTP request would --
+        plain zope.globalrequest.setRequest(), not a Browser/publish
+        roundtrip, keeps this a narrow unit test of the plugin method itself.
         """
         plugin = self.pas[PAS_ID]
-        result = plugin.authenticateCredentials(
-            {'login': 'no-such-user', 'password': 'whatever'})
+        request = self.layer['request']
+        setRequest(request)
+        try:
+            result = plugin.authenticateCredentials(
+                {'login': 'no-such-user', 'password': 'whatever'})
+        finally:
+            setRequest(None)
         self.assertIsNone(result)
 
     def test_plugin_exception_is_swallowed_without_the_flag(self):
