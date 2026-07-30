@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 3
-current_phase_name: Encrypted Seeds and Local QR
-status: "Phase 2 shipped — PR #2"
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-07-30T08:06:34.629Z"
+current_phase: 03
+current_phase_name: encrypted-seeds-and-local-qr
+status: executing
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-07-30T09:42:57.858Z"
 last_activity: 2026-07-30
-last_activity_desc: Phase 3 planning complete
+last_activity_desc: Phase 03 execution started
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 9
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-29)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 3 — Encrypted Seeds and Local QR
+**Current focus:** Phase 03 — encrypted-seeds-and-local-qr
 
 ## Current Position
 
-Phase: 3 — Encrypted Seeds and Local QR
-Plan: Not started
-Status: Phase 2 shipped — PR #2
-Last activity: 2026-07-30 — Phase 3 planning complete
+Phase: 03 (encrypted-seeds-and-local-qr) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-07-30 — Phase 03 execution started
 
-Progress: [████████████████████] 6/6 plans authored (100%) · 2 of 8 roadmap phases complete
+Progress: [████████████████████] 6/6 plans authored ([████████░░] 78%) · 2 of 8 roadmap phases complete
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [████████████████████] 6/6 pla
 | Phase 01 P04 | 25min | 2 tasks | 7 files |
 | Phase 02 P01 | 25min | 2 tasks | 4 files |
 | Phase 02 P02 | 12min | 2 tasks | 3 files |
+| Phase 03 P01 | 35min | 5 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,10 @@ Recent decisions affecting current work:
 - [Phase 02]: **CORRECTION (supersedes the 02-01 plan's D-04/D-05):** `_setup_secret_key()` was NOT deleted and there is NO lazy mint. CR-02 reverted that design: `setuphandlers._setup_secret_key()` seeds `ska_secret_key` once at install time, and `get_ska_secret_key()` is a pure read that raises `ValueError` on an empty key (fail-closed). Phase 3 must build on the install-time seeding path, not a lazy accessor.
 - [Phase ?]: 02-01: REG-05 double-apply test documented as a regression guard against a future schema tightening, not a fix for a currently-firing bug (D-13)
 - [Phase ?]: 02-02: BUG-04 fixed via netstring-style length-prefixed join (D-08); test setUp needed a re-login after profile install because PLONE_FIXTURE's cached test-user property sheets predate the add-on's memberdata schema (own-test Rule 1 fix, no production change)
+- [Phase ?]: Phase 03-01 Task 1 checkpoint: locked the TOTP-seed encryption-key env var name to IMIO_GOOGLEAUTHENTICATOR_SEED_KEY (human selected the unambiguous option over the shorter IMIO_GA_SEED_KEY plan default). Every plan reference to IMIO_GA_SEED_KEY is substituted with this literal.
+- [Phase ?]: Task 1 checkpoint: environment-variable name locked to IMIO_GOOGLEAUTHENTICATOR_SEED_KEY (human overrode plan default IMIO_GA_SEED_KEY).
+- [Phase ?]: Task 2 blocking-human package gate: cryptography==3.3.2, ipaddress==1.0.23, qrcode==6.1, cffi==1.15.1, Pillow all approved on live-PyPI-verified provenance.
+- [Phase ?]: ska_secret_key control-panel TextLine field (02-SECURITY.md R-02-01) re-deferred again: PasswordWidget blanks an untouched field on Save, so the swap needs its own tested change, not a drive-by.
 
 ### Pending Todos
 
@@ -119,6 +124,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-29T14:36:34Z
-Stopped at: Phase 02 complete (UAT 1/1 passed, verification passed, threats_open 0), ready to plan Phase 3
+Last session: 2026-07-30T09:42:57.848Z
+Stopped at: Completed 03-01-PLAN.md
 Resume file: None
