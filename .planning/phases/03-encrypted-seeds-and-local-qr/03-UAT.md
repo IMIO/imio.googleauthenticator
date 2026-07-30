@@ -3,8 +3,24 @@ status: complete
 phase: 03-encrypted-seeds-and-local-qr
 source: [03-VERIFICATION.md]
 started: 2026-07-30T15:10:00Z
-updated: 2026-07-30T16:40:00Z
+updated: 2026-07-30T18:25:00Z
 ---
+
+## Session 2 — re-opened 2026-07-30
+
+Test 1 passed, then **three production-code fixes landed** (`d8cda87`, `3d97681`,
+`01a8c04`), each changing user-visible behaviour in this phase's scope. One of the three
+has since been confirmed by the reporter (the reset email arrived — G-03-3). The other two
+are machine-verified only: their tests pass, but nobody has looked at what the user now
+sees. Tests 2 and 3 close that.
+
+**Test 1 is NOT being re-run**, and that is a considered call rather than an omission.
+`01a8c04` added a guard to `user_setup.py`, the form test 1 exercises — but it returns early
+only for accounts absent from the site's `acl_users`, and the member path is machine-verified
+through the changed code: `test_handleSubmit` scenario 1 drives the real handler as a site
+member through the new guard, and `test_is_site_local_user_distinguishes_a_root_account`
+asserts a member classifies `True`. Both green at 50 tests. Re-scanning a QR would re-verify
+code paths no longer in question.
 
 ## Current Test
 
@@ -65,10 +81,67 @@ a key and export it before starting Zope:
 covers: ROADMAP Phase 3 success criterion 4, SEC-06 (160-bit `os.urandom` seed — the
 entropy half is machine-verified; the real-app acceptance half is not)
 
+### 2. Manual visit to the token form returns a form error, not a 500
+
+expected: Navigate directly to `@@google-authenticator-token` with no signed URL, enter any 6-digit code and submit. The page returns the error "Invalid token or token expired." No HTTP 500, no traceback page, no new `TypeError: Incorrect secret` in `var/log/instance.log`.
+result: pass
+reported: "pass"
+evidence: |
+  Confirmed in the browser 2026-07-30: the token form now returns "Invalid token or token
+  expired." on a manual visit with no signed URL, where it previously returned a 500 with
+  `TypeError: Incorrect secret`. This closes G-03-2 at the layer the defect was reported
+  at — the helper test alone could not have.
+
+why_human: This is the exact reproduction the reporter hit in session 1 — the defect was
+found by hand, so the fix should be confirmed by hand. `3d97681`'s regression test proves
+`validate_token` returns `False` instead of raising, but it asserts on the helper, not on
+what the browser renders. A 500 could still reach the user from a different layer (the
+z3c.form action wrapper, or the `updateFields` cookie-blanking path) and the helper test
+would stay green.
+
+setup: Log in as any user, then navigate directly to
+`http://localhost:8080/Plone3/@@google-authenticator-token` — no query string. Enter any
+six digits. The point is arriving with **no signed `auth_user` parameter**, which is what
+makes the resolved user secret-less.
+
+covers: G-03-2 / threat T-03-24
+
+### 3. Enrolling an account the plugin cannot gate is refused, not congratulated
+
+expected: While logged in as the Zope root `admin`, open `@@setup-two-factor-authentication`. **No QR code** is shown — instead an explanation that the account is not defined in this Plone site and two-step verification is unavailable for it. Submitting the form yields a red error saying enrolment cannot proceed, **not** "Two-step verification is successfully enabled for your account."
+result: pass
+reported: "pass"
+evidence: |
+  Confirmed in the browser 2026-07-30: as the Zope root `admin` the setup form shows no QR
+  and explains the account cannot use two-step verification, and submitting it produces the
+  refusal rather than "successfully enabled". This closes the in-scope half of G-03-1 —
+  the false assurance is gone from the page a person actually reads, which is the only place
+  the defect ever existed. The scope half (root logins remain ungated) stays accepted as
+  `03-SECURITY.md` R-03-03.
+
+why_human: The false-assurance message is the entire defect. Its absence is what has to be
+confirmed, and only a person reading the page can confirm a message is not misleading.
+`01a8c04`'s test asserts the flag is not written and the status message type is `error`, but
+"an error message was emitted" and "the user is no longer told the wrong thing" are
+different claims.
+
+setup: Log in as the Zope root `admin` (the buildout `inituser` account — the one whose
+login was never intercepted in session 1), then visit
+`http://localhost:8080/Plone3/@@setup-two-factor-authentication`.
+
+note: This account already carries a secret and possibly `enable_two_factor_authentication:
+True` from session 1's first enrolment attempt — `@@google-authenticator-disable-for-all-users`
+only iterates `api.user.get_users()`, which returns site members and never included it. That
+leftover state is expected and harmless (the plugin never runs for a root account). The guard
+prevents new false claims; it does not retroactively clean up. Do not treat pre-existing state
+as a failure of this test.
+
+covers: G-03-1 / threat T-03-23
+
 ## Summary
 
-total: 1
-passed: 1
+total: 3
+passed: 3
 issues: 0
 pending: 0
 skipped: 0
