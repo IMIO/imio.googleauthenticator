@@ -1,19 +1,30 @@
+import base64
+import os
 import unittest2 as unittest
+
+from cryptography.fernet import Fernet
+from onetimepass import get_totp
 
 from plone import api
 from plone.app.testing import login
 from plone.app.testing import TEST_USER_NAME
 
+from imio.googleauthenticator import helpers
 from imio.googleauthenticator.testing import \
     IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 
 from imio.googleauthenticator.helpers import extract_ip_address_from_request
+from imio.googleauthenticator.helpers import generate_secret
 from imio.googleauthenticator.helpers import get_app_settings
+from imio.googleauthenticator.helpers import get_barcode_image
 from imio.googleauthenticator.helpers import get_browser_hash
 from imio.googleauthenticator.helpers import get_ip_addresses_whitelist
 from imio.googleauthenticator.helpers import get_ip_ranges
+from imio.googleauthenticator.helpers import get_or_create_secret
+from imio.googleauthenticator.helpers import get_secret
 from imio.googleauthenticator.helpers import get_ska_secret_key
+from imio.googleauthenticator.helpers import validate_token
 from ipaddress import IPv4Network
 from ipaddress import IPv4Address
 
@@ -25,14 +36,14 @@ class TestIPWhitelisting(unittest.TestCase, BaseTest):
     def test_get_ip_ranges_always_returns_networks_and_accepts_single_ip(self):
         ranges = get_ip_ranges(['127.0.0.1', '192.168.0.0/16'])
         self.assertEqual(
-            [IPv4Network('127.0.0.1'), IPv4Network('192.168.0.0/16')],
+            [IPv4Network(u'127.0.0.1'), IPv4Network(u'192.168.0.0/16')],
             ranges)
 
     def test_get_ip_ranges_can_be_used_for_containment_testing(self):
         ranges = get_ip_ranges(['127.0.0.1', '192.168.0.0/16'])
-        self.assertTrue(any(IPv4Address('127.0.0.1') in r for r in ranges))
-        self.assertTrue(any(IPv4Address('192.168.1.1') in r for r in ranges))
-        self.assertFalse(any(IPv4Address('10.0.0.0') in r for r in ranges))
+        self.assertTrue(any(IPv4Address(u'127.0.0.1') in r for r in ranges))
+        self.assertTrue(any(IPv4Address(u'192.168.1.1') in r for r in ranges))
+        self.assertFalse(any(IPv4Address(u'10.0.0.0') in r for r in ranges))
 
     def test_get_ip_ranges_skips_invalid_entries_instead_of_raising(self):
         """CR-03 regression: a trailing blank line in the admin whitelist
@@ -41,7 +52,7 @@ class TestIPWhitelisting(unittest.TestCase, BaseTest):
         """
         ranges = get_ip_ranges(['127.0.0.1', '', 'not-an-ip', '192.168.0.0/16'])
         self.assertEqual(
-            [IPv4Network('127.0.0.1'), IPv4Network('192.168.0.0/16')],
+            [IPv4Network(u'127.0.0.1'), IPv4Network(u'192.168.0.0/16')],
             ranges)
 
     def test_get_ip_addresses_whitelist_drops_blank_lines(self):
@@ -197,3 +208,84 @@ class TestSkaSecretKey(unittest.TestCase, BaseTest):
         happy_result = get_browser_hash(
             request={'HTTP_USER_AGENT': 'Mozilla/5.0'})
         self.assertEqual(40, len(happy_result))
+
+
+class TestSeedEncryption(unittest.TestCase, BaseTest):
+    """Concern-named class, like TestIPWhitelisting and TestSkaSecretKey
+    above: this file groups by concern rather than by module (R7). This
+    class covers the seed's whole storage lifecycle -- generation, Fernet
+    encryption, storage, decryption and validation through a real
+    onetimepass TOTP round trip -- rather than one helper function.
+    """
+
+    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+
+    def setUp(self):
+        self.app = self.layer['app']
+        self.portal = self.layer['portal']
+        self.request = self.layer['request']
+        self.portal_url = api.portal.get().absolute_url()
+        self._install()
+        # See TestSkaSecretKey.setUp's docstring: PLONE_FIXTURE caches the
+        # test user's property sheets before this add-on's
+        # memberdata_properties.xml is applied, so a re-login is mandatory
+        # or setMemberProperties silently drops
+        # two_factor_authentication_secret.
+        login(self.portal, TEST_USER_NAME)
+
+        self._previous_key = os.environ.get(helpers.ENV_VAR_NAME)
+        os.environ[helpers.ENV_VAR_NAME] = Fernet.generate_key()
+
+    def tearDown(self):
+        if self._previous_key is None:
+            os.environ.pop(helpers.ENV_VAR_NAME, None)
+        else:
+            os.environ[helpers.ENV_VAR_NAME] = self._previous_key
+
+    def test_seed_encryption_round_trip(self):
+        """SEC-01/SEC-04/SEC-05/SEC-06 tracer: a single linear walk of the
+        enrollment-then-validation path, real memberdata storage, a real
+        onetimepass TOTP round trip and a real in-process QR render.
+        """
+        user = api.user.get_current()
+
+        seed = generate_secret(user)
+
+        # SEC-06 boundary: 160 bits, above RFC 4226 Section 4 R6's 128-bit floor.
+        self.assertEqual(20, len(base64.b32decode(seed)), 'SEC-06 boundary')
+        # SEC-06 precision: 20 bytes is an exact multiple of base32's 5-byte
+        # block, so the encoded seed is exactly 32 characters, no padding.
+        self.assertEqual(32, len(seed), 'SEC-06 precision')
+        self.assertNotIn('=', seed, 'SEC-06 precision')
+
+        stored = user.getProperty('two_factor_authentication_secret')
+        self.assertTrue(stored.startswith(u'v1$'), 'SEC-04')
+
+        # SEC-01: the plaintext seed is not a substring of the ciphertext.
+        self.assertNotIn(seed, stored, 'SEC-01')
+
+        # Round trip through real memberdata storage.
+        self.assertEqual(seed, get_secret(user))
+
+        # SEC-01 end-to-end, and the assertion that catches Pitfall A: a
+        # real onetimepass token computed from the plaintext seed validates
+        # through get_secret -> decrypt_seed.
+        self.assertTrue(
+            validate_token(get_totp(seed), user=user), 'SEC-01 end-to-end')
+
+        # SEC-05: the QR is a locally rendered data: URI, no external host,
+        # and the payload decodes to a real PNG.
+        img = get_barcode_image('bob', 'example.com', seed)
+        self.assertTrue(img.startswith('data:image/png;base64,'), 'SEC-05')
+        self.assertNotIn('googleapis', img, 'SEC-05')
+        payload = base64.b64decode(img.split(',', 1)[1])
+        self.assertTrue(payload.startswith(b'\x89PNG'), 'SEC-05')
+
+        # The read branch decrypts, it does not re-roll: two calls return
+        # the same plaintext seed and the stored ciphertext is unchanged.
+        first = get_or_create_secret(user)
+        second = get_or_create_secret(user)
+        self.assertEqual(seed, first)
+        self.assertEqual(first, second)
+        self.assertEqual(
+            stored, user.getProperty('two_factor_authentication_secret'))
