@@ -97,13 +97,14 @@ register that omits what testing actually found would overstate this phase's cov
 
 ## Residual Risks
 
-Not threats with open dispositions, but known gaps in the *evidence* behind two closures.
-Recorded so a later reader does not mistake a passing test for a proven end-to-end path.
+Both evidence gaps this audit recorded were **subsequently closed by direct observation**
+(2026-07-30, reporter). Kept rather than deleted: the point of the section is that the gaps
+existed and were named while they were open, not that the file ends up clean.
 
-| Ref | Gap | Why it remains |
-|-----|-----|----------------|
-| T-03-25 | The regression test patches `MailBase._send`, so it proves the message survives encoding and is handed to MailHost — **not** that it is delivered. The originally reported traceback died during encoding, before any SMTP conversation, so whether this instance can deliver mail at all is untested | Needs a browser run against a real SMTP server; no such fixture exists and none is planned for this phase |
-| criterion 4 | The `otpauth://` label rendering literally as `<username>@<domain>` was not read back from the QR payload during UAT; it is inferred from the authenticator app accepting the code and emitting codes that validated | Weak evidence for that one sub-assertion only; every other part of criterion 4 was directly observed |
+| Ref | Gap as recorded | Resolution |
+|-----|-----------------|------------|
+| T-03-25 | The regression test patches `MailBase._send`, so it proved the message survives encoding and is handed to MailHost — **not** that it is delivered. The originally reported traceback died during encoding, before any SMTP conversation, so whether this instance could deliver mail at all was untested | **CLOSED — observed.** The reporter ran the reset flow in the browser and received the email. The recovery path is now proven end to end, not only past the encoding step. The automated test still stops at MailHost by design; delivery is covered by this observation, not by CI |
+| criterion 4 | The `otpauth://` label rendering literally as `<username>@<domain>` was not read back from the QR payload during UAT; it was inferred from the authenticator app accepting the code and emitting codes that validated | **CLOSED — observed.** The reporter confirmed the label is correct. The last inferred sub-assertion in criterion 4 is now directly verified |
 
 ---
 
@@ -131,4 +132,5 @@ call-site guards were written, tested and committed as part of this run.
 - [x] `threats_open: 0` confirmed — the single open threat (T-03-26, `low`) is below the
       `high` blocking threshold and carries an accepted-risk entry
 - [x] Suite green at 46 tests, 0 failures, 0 errors
-- [x] Evidence gaps recorded under Residual Risks rather than left implicit
+- [x] Evidence gaps recorded under Residual Risks rather than left implicit — and both
+      subsequently closed by observation, leaving no closure resting on inference

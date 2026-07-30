@@ -35,15 +35,16 @@ evidence: |
   - That app's current code was accepted at the token form and the session reached the
     site as the authenticated user.
 
-  NOT SEPARATELY CONFIRMED: the `otpauth://` label rendering literally as
-  `<username>@<domain>`. The reporter did not read the payload back; it is inferred
-  from the app accepting the QR and emitting codes that validated. Weak evidence for
-  that one sub-assertion, strong for everything else.
+  - The `otpauth://` label renders as `<username>@<domain>`. Initially recorded as
+    inferred rather than observed (the payload had not been read back); the reporter
+    subsequently confirmed the label directly, so no part of this test now rests on
+    inference.
 
   Enrolment route used: `@@google-authenticator-disable-for-all-users` to clear the
   flag (secrets are preserved), log in as `cadam` unchallenged, enrol via
   `@@setup-two-factor-authentication`, then re-login. The bar-code reset path — the
-  intended recovery route — was NOT used, because it is broken (G-03-3).
+  intended recovery route — was not available at that point, because it was broken
+  (G-03-3). It was exercised and confirmed working after that fix landed.
 
 why_human: Requires a physical or virtual TOTP authenticator app scanning a real QR code
 rendered by a running `bin/instance`, plus a live login round trip — not executable by an
@@ -85,15 +86,18 @@ The single test passes, so `issues: 0` is accurate as a UAT tally. But three def
 were found along the way and are recorded in `## Gaps` below. **None is a phase-3
 regression** — all three are pre-existing, and none is a phase-3 deliverable:
 
-| Gap | What | Verdict |
-|-----|------|---------|
-| G-03-1 | 2FA silently bypassed for Zope-root accounts | Scope decision, not a fix |
-| G-03-2 | Unguarded null seed → HTTP 500 at the token form | Real defect, one-line guard |
-| G-03-3 | Bar-code reset email dies on non-ASCII | Real defect, one-line fix |
+| Gap | What | Disposition | Status |
+|-----|------|-------------|--------|
+| G-03-1 | 2FA silently bypassed for Zope-root accounts | Scope accepted; false assurance fixed (T-03-23) | resolved `01a8c04` |
+| G-03-2 | Unguarded null seed → HTTP 500 at the token form | Guard in the shared `validate_token` | resolved `3d97681` |
+| G-03-3 | Bar-code reset email dies on non-ASCII | `charset='utf-8'` to `MailHost.send` | resolved `d8cda87` |
 
-G-03-2 and G-03-3 are carried as open with `status: failed` so `--gaps-only` can pick
-them up. They do not gate this phase's criterion, but G-03-3 does break the only
-documented recovery path for a locked-out user, which is why it is not merely cosmetic.
+**All three gaps were closed after this table was written** — G-03-2 and G-03-3 by direct
+fix, G-03-1 during `/gsd-secure-phase 03`, where it surfaced as blocking threat T-03-23 and
+was dispositioned scope-accept plus false-assurance-mitigate. See each gap's `resolution`
+below and `03-SECURITY.md`. The recovery path (G-03-3) was re-run in the browser afterwards
+and the email arrived, so the locked-out-user route this phase depends on is observed
+working, not merely unit-tested.
 
 ## Gaps
 
@@ -201,8 +205,11 @@ documented recovery path for a locked-out user, which is why it is not merely co
     that control initially passed vacuously on leftover memberdata from its sibling
     test, which is why setUp now clears `bar_code_reset_token`.
     Suite green at 43 tests, 0 failures, 0 errors.
-    NOT yet re-verified in the browser against a real SMTP server — the test patches
-    MailBase._send, so delivery itself is unproven.
+    CONFIRMED IN THE BROWSER (2026-07-30, after the fix): the reporter ran the reset flow
+    and received the email. Delivery is therefore proven end to end, not merely past the
+    encoding step where the original traceback died. The automated test still stops at
+    MailHost by design — it patches MailBase._send — so delivery is covered by this
+    observation rather than by CI.
   reason: "User reported: 'Request for bar-code reset is failed! An unexpected error occurred.' — UnicodeEncodeError: 'ascii' codec can't encode character u'\\xe9' in position 83"
   severity: major
   test: 1
