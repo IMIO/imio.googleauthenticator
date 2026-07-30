@@ -66,4 +66,10 @@
        handler=".userdataschema.userCreatedHandler"
        />
 
+    <!-- -*- Loud at boot when the seed-encryption key is missing (SEC-08) -*- -->
+    <subscriber
+       for="zope.processlifetime.IProcessStarting"
+       handler=".subscribers.on_process_starting"
+       />
+
 </configure>
