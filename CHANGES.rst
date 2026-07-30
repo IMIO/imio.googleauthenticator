@@ -65,6 +65,14 @@ Changelog
   The ``UnboundLocalError`` described in earlier notes does not reproduce
   on the current source, so this is a guard rather than a fix.
   [chris-adam]
+- The bar-code reset email no longer fails on a non-ASCII character. The
+  ``MailHost.send()`` call passed no ``charset``, so ``_mungeHeaders``
+  ASCII-encoded the unicode body and a single accented byte -- from the
+  site's ``email_from_name`` or the translated Subject line -- raised
+  ``UnicodeEncodeError``. Because that subclasses ``ValueError`` the handler
+  swallowed it and reported only "An unexpected error occurred.", leaving a
+  locked-out user with no working recovery path.
+  [chris-adam]
 
 0.3.0 (unreleased)
 ------------------

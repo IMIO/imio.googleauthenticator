@@ -161,7 +161,19 @@ documented recovery path for a locked-out user, which is why it is not merely co
 
 - gap_id: G-03-3
   truth: "Requesting a bar-code reset sends the reset email and confirms success"
-  status: failed
+  status: resolved
+  resolved_by: "charset='utf-8' passed to host.send in request_bar_code_reset.py"
+  resolved_at: 2026-07-30
+  resolution: |
+    Fixed directly rather than via a gap-closure plan, at the reporter's request.
+    Test written first and confirmed to FAIL on the unfixed code (0 messages handed
+    to MailHost, the UnicodeEncodeError having been swallowed by `except ValueError`),
+    with a non-vacuity control asserting the handler reached the send step at all —
+    that control initially passed vacuously on leftover memberdata from its sibling
+    test, which is why setUp now clears `bar_code_reset_token`.
+    Suite green at 43 tests, 0 failures, 0 errors.
+    NOT yet re-verified in the browser against a real SMTP server — the test patches
+    MailBase._send, so delivery itself is unproven.
   reason: "User reported: 'Request for bar-code reset is failed! An unexpected error occurred.' — UnicodeEncodeError: 'ascii' codec can't encode character u'\\xe9' in position 83"
   severity: major
   test: 1
