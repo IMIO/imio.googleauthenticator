@@ -10,6 +10,7 @@ from Products.statusmessages.interfaces import IStatusMessage
 from plone import api
 from plone.app.testing import login
 from plone.app.testing import setRoles
+from plone.app.testing import SITE_OWNER_NAME
 from plone.app.testing import TEST_USER_ID
 from plone.app.testing import TEST_USER_NAME
 
@@ -389,6 +390,33 @@ class TestSeedEncryption(unittest.TestCase, BaseTest):
                 ValueError, validate_token, '123456', user=user)
         finally:
             helpers.get_encryption_key = original
+
+    def test_is_site_local_user_distinguishes_a_root_account(self):
+        """T-03-23: the discriminator behind the enrolment refusal.
+
+        SITE_OWNER_NAME is the fixture's Zope-root user, the analog of the
+        buildout ``inituser`` admin. The asymmetry this pins is the whole
+        reason the bug existed: ``plone.api.user.get`` resolves a root account
+        to a MemberData and ``portal_memberdata`` stores properties against
+        it, so every obvious check reports the account as perfectly ordinary.
+        Only the site PAS lookup tells them apart.
+        """
+        member = api.user.get(username=TEST_USER_NAME)
+        root = api.user.get(username=SITE_OWNER_NAME)
+
+        # Both look like real users through plone.api -- that is the trap.
+        self.assertIsNotNone(member)
+        self.assertIsNotNone(root)
+
+        self.assertTrue(helpers.is_site_local_user(member))
+        self.assertFalse(helpers.is_site_local_user(root))
+
+        # The bulk-enrolment path cannot reach a root account at all, which is
+        # why the guard is only wired into the two self-service forms. If this
+        # ever starts including root accounts, helpers.py's bulk enable needs
+        # the same guard.
+        self.assertNotIn(
+            SITE_OWNER_NAME, [u.getId() for u in api.user.get_users()])
 
     def test_encryption_key_is_read_per_call(self):
         """SEC-02's behavioural proof: every fail-closed assertion above

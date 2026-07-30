@@ -5,9 +5,13 @@ from cryptography.fernet import Fernet
 
 from zope.globalrequest import setRequest
 
+from Products.statusmessages.interfaces import IStatusMessage
+
 from plone import api
 from plone.app.testing import login
+from plone.app.testing import SITE_OWNER_NAME
 from plone.app.testing import TEST_USER_NAME
+from plone.testing import z2
 
 from imio.googleauthenticator import helpers
 from imio.googleauthenticator.browser.forms import user_setup
@@ -132,6 +136,60 @@ class TestSetupForm(unittest.TestCase, BaseTest):
             form = SetupForm(self.portal, self.request)
             form.update()
         return form
+
+    def test_handleSubmit_refuses_an_account_not_defined_in_this_site(self):
+        """T-03-23: enrolment must refuse a Zope-root account rather than
+        report success for a second factor its login will never be asked for.
+
+        ``validate_token`` is stubbed to True so the refusal cannot be
+        explained by a rejected code: the point is that even a *correct* code
+        does not enrol such an account. The two assertions that matter are
+        negative -- no flag written and no seed minted -- because the original
+        defect wrote both and then said "successfully enabled".
+        """
+        real_validate_token = user_setup.validate_token
+        z2.login(self.app['acl_users'], SITE_OWNER_NAME)
+        try:
+            root = api.user.get_current()
+            self.assertFalse(
+                helpers.is_site_local_user(root), 'precondition')
+            flag_before = root.getProperty('enable_two_factor_authentication')
+
+            user_setup.validate_token = lambda *args, **kwargs: True
+            try:
+                form = self._build_form('123456')
+                result = SetupForm.handleSubmit.func(form, None)
+            finally:
+                user_setup.validate_token = real_validate_token
+
+            # State assertions first, deliberately: these are the security
+            # properties, so they should be what fails if the guard regresses.
+            # Asserting the return value first would short-circuit them.
+            current = api.user.get_current()
+            self.assertFalse(
+                flag_before, 'precondition: flag must start unset, or the '
+                'next assertion is vacuous')
+            self.assertEqual(
+                flag_before,
+                current.getProperty('enable_two_factor_authentication'),
+                'The 2FA flag must not be written for an account whose login '
+                'cannot be intercepted.')
+            # updateFields must not have minted a seed either: rendering the
+            # QR calls get_or_create_secret as a side effect.
+            self.assertFalse(
+                current.getProperty('two_factor_authentication_secret'),
+                'No seed should be stored for an unprotectable account.')
+
+            messages = IStatusMessage(self.request).show()
+            self.assertTrue(messages, 'The refusal must be reported.')
+            self.assertEqual(
+                ['error'], list({m.type for m in messages}),
+                'The refusal must be an error, never an info/success.')
+
+            self.assertIs(result, False)
+        finally:
+            z2.logout()
+            login(self.portal, TEST_USER_NAME)
 
     def test_handleSubmit(self):
         user = api.user.get_current()

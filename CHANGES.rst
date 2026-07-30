@@ -65,6 +65,15 @@ Changelog
   The ``UnboundLocalError`` described in earlier notes does not reproduce
   on the current source, so this is a guard rather than a fix.
   [chris-adam]
+- Two-step verification setup and bar-code reset now refuse an account that is
+  not defined in the Plone site itself, instead of reporting success for a
+  second factor that will never be demanded. This plugin lives in the site's
+  ``acl_users``, so a Zope-root account (typically the buildout ``inituser``
+  ``admin``) is authenticated above the site and its login cannot be
+  intercepted; enrolling it previously wrote the flag, stored a seed and said
+  "successfully enabled". Root logins remain ungated by design — the package
+  targets in-site users — but they are no longer told otherwise.
+  [chris-adam]
 - Submitting a token for a user with no stored seed is now refused instead of
   raising ``TypeError('Incorrect secret')`` out of ``onetimepass`` as an
   unhandled 500. ``get_secret`` returns ``None`` implicitly for such a user,

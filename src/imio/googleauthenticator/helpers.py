@@ -233,6 +233,46 @@ def get_secret(user=None, hashed=False):
             return decrypt_seed(secret)
 
 
+def is_site_local_user(user=None):
+    """
+    Tells whether the user is defined in the Plone site's own PAS, rather
+    than in the Zope root user folder.
+
+    This plugin is registered in the site's ``acl_users``, so it only sees
+    logins that the site's PAS authenticates. An account defined in the root
+    user folder -- typically the ``inituser`` ``admin`` -- is authenticated
+    above the site, and this plugin's ``authenticateCredentials`` cannot gate
+    it: its password pre-check delegates to the *site's* other
+    ``IAuthenticationPlugin``s, none of which can resolve a root account, so
+    it declines to veto and the root user folder logs the user in on the
+    password alone.
+
+    Enrolment therefore has to refuse such an account rather than report
+    success for a second factor that will never be demanded (T-03-23).
+
+    Note that ``plone.api.user.get`` is NOT a usable test here: it returns a
+    ``MemberData`` for a root account too (wrapped ``for /acl_users``), and
+    ``portal_memberdata`` will happily store properties against it. Only the
+    site PAS lookup distinguishes the two.
+
+    :param Products.PlonePAS.tools.memberdata user:
+    :return bool:
+    """
+    if user is None:
+        user = api.user.get_current()
+
+    if user is None:
+        return False
+
+    user_id = user.getId()
+    if not user_id:
+        # Anonymous.
+        return False
+
+    portal = api.portal.get()
+    return portal.acl_users.getUserById(user_id) is not None
+
+
 def get_or_create_secret(user, overwrite=False):
     """
     Gets or creates token secret for the user given. Checks first if user

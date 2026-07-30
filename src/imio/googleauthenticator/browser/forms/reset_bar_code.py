@@ -14,7 +14,8 @@ from plone.z3cform.layout import wrap_form
 from Products.statusmessages.interfaces import IStatusMessage
 from zope.schema import TextLine
 
-from imio.googleauthenticator.helpers import get_token_description, validate_token, validate_user_data
+from imio.googleauthenticator.helpers import get_token_description, is_site_local_user, validate_token, \
+    validate_user_data
 from imio.googleauthenticator.helpers import validate_bar_code_reset_token
 
 logger = logging.getLogger('imio.googleauthenticator')
@@ -84,6 +85,20 @@ class ResetBarCodeForm(form.SchemaForm):
 
         if not user:
             reason = _("User not found {0}.".format(username))
+            IStatusMessage(self.request).addStatusMessage(
+                _("Resetting of the bar-code failed! {0}".format(reason)),
+                'error'
+                )
+            return
+
+        # T-03-23, same false assurance as user_setup.py: this handler also
+        # sets enable_two_factor_authentication and reports success, and
+        # api.user.get above resolves a Zope-root account happily, so a root
+        # user who obtained a reset token would be told the second factor is
+        # active on a login this plugin cannot gate.
+        if not is_site_local_user(user):
+            reason = _("Account is not defined in this Plone site, so its "
+                       "logins cannot be intercepted.")
             IStatusMessage(self.request).addStatusMessage(
                 _("Resetting of the bar-code failed! {0}".format(reason)),
                 'error'

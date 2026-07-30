@@ -99,10 +99,26 @@ documented recovery path for a locked-out user, which is why it is not merely co
 
 - gap_id: G-03-1
   truth: "After logout and a fresh username/password login, a 2FA-enabled user is redirected to @@google-authenticator-token instead of being logged in on the password alone"
-  status: deferred
+  status: resolved
   reason: "User reported: if I logout and login again, it doesn't ask for my OTP and log in without MFA. Root-caused to a Zope-root account; a later run with a real Plone member was intercepted correctly, so this is not a login-path defect."
   severity: major
-  deferred_because: "Needs a scope decision, not a code fix — see the last `missing` item. Deliberately NOT status:failed, so --gaps-only does not spawn a fix plan for a question that has to be answered first."
+  resolved_by: "helpers.is_site_local_user + refusal guards at both self-service claim sites"
+  resolved_at: 2026-07-30
+  resolution: |
+    Disposed during /gsd-secure-phase 03, where it surfaced as blocking threat T-03-23
+    (high). The scope half is ACCEPTED (SECURITY.md R-03-03): a Zope-root login is not
+    gated by this plugin and cannot be, since the plugin lives in the site's acl_users;
+    the project targets in-site users, and gating root logins would mean installing the
+    plugin in the root acl_users — roadmap-level, not a phase-03 fix.
+    The false-assurance half is MITIGATED: user_setup.py and reset_bar_code.py now refuse
+    an account absent from the site's acl_users, before any flag write or seed mint, and
+    no QR is rendered for it.
+    Guard scope determined empirically, not assumed: api.user.get_users() returns only
+    site members, so the bulk-enrolment path cannot reach a root account and needs no
+    guard; the test asserts that, so the day it changes, this decision fails loudly.
+    Verified failing without the guard, with the assertions ordered so the security
+    property (no flag written) is what breaks first rather than the return value.
+    Suite green at 46 tests, 0 failures, 0 errors.
   test: 1
   root_cause: |
     CONFIRMED AND REPRODUCED. The reporter enrolled and logged in as the Zope root
