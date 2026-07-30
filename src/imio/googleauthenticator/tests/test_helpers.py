@@ -1,12 +1,19 @@
 import unittest2 as unittest
 
+from plone import api
+from plone.app.testing import login
+from plone.app.testing import TEST_USER_NAME
+
 from imio.googleauthenticator.testing import \
     IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 
 from imio.googleauthenticator.helpers import extract_ip_address_from_request
+from imio.googleauthenticator.helpers import get_app_settings
+from imio.googleauthenticator.helpers import get_browser_hash
 from imio.googleauthenticator.helpers import get_ip_addresses_whitelist
 from imio.googleauthenticator.helpers import get_ip_ranges
+from imio.googleauthenticator.helpers import get_ska_secret_key
 from ipaddress import IPv4Network
 from ipaddress import IPv4Address
 
@@ -89,3 +96,104 @@ class TestIPWhitelisting(unittest.TestCase, BaseTest):
         self.assertEqual(
             IPv4Address(u'8.8.8.8'),
             extract_ip_address_from_request(request=request))
+
+
+class TestSkaSecretKey(unittest.TestCase, BaseTest):
+    """Concern-named class, like TestIPWhitelisting above: this file already
+    groups by concern rather than by module (R7), so the ska key derivation
+    and its browser-hash guard live in one class named for what they protect
+    rather than a second class named for test_helpers.py itself.
+    """
+
+    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+
+    def setUp(self):
+        self.app = self.layer['app']
+        self.portal = self.layer['portal']
+        self.request = self.layer['request']
+        self.portal_url = api.portal.get().absolute_url()
+        self._install()
+        # PLONE_FIXTURE logs the test user in (and caches its property
+        # sheets) before this class's own setUp installs the add-on's
+        # memberdata_properties.xml. Re-login so the cached user is rebuilt
+        # against the now-current portal_memberdata schema; otherwise
+        # setMemberProperties silently drops 'two_factor_authentication_secret'
+        # per MutablePropertySheet.setProperties (CLAUDE.md's documented
+        # "undeclared properties are popped" hazard -- here the property IS
+        # declared, but the cached sheet predates the declaration).
+        login(self.portal, TEST_USER_NAME)
+
+    def test_get_ska_secret_key(self):
+        """BUG-04: the derivation must separate its three components instead
+        of bare-concatenating them, so two component tuples sharing the same
+        concatenation derive to different keys.
+        """
+        user = api.user.get_current()
+
+        # EXACT SHAPE: pins ordering (user secret first), the empty
+        # component (browser hash), the delimiter and the length semantics,
+        # all in one assertion.
+        user.setMemberProperties(
+            mapping={'two_factor_authentication_secret': 'ab'})
+        get_app_settings().ska_secret_key = u'cd'
+        result = get_ska_secret_key(
+            request=self.request, user=user, use_browser_hash=False)
+        self.assertEqual(u'2:ab0:2:cd', result)
+        self.assertIsInstance(result, unicode)
+
+        # THE COLLISION IT PREVENTS: the fixture above really does collide
+        # under the old bare-concatenation scheme. Without this line the
+        # fixture below looks arbitrary and a future editor could
+        # "simplify" it into one that no longer collides.
+        self.assertEqual(u'ab' + u'' + u'cd', u'a' + u'' + u'bcd')
+
+        user.setMemberProperties(
+            mapping={'two_factor_authentication_secret': 'a'})
+        get_app_settings().ska_secret_key = u'bcd'
+        second_result = get_ska_secret_key(
+            request=self.request, user=user, use_browser_hash=False)
+        self.assertNotEqual(result, second_result)
+
+        # MINT UNTOUCHED: a non-empty ska_secret_key already in place is not
+        # re-minted by the derivation -- the registry value read back after
+        # both derive calls above is still the one explicitly set here.
+        self.assertEqual(u'bcd', get_app_settings().ska_secret_key)
+
+    def test_get_ska_secret_key_handles_missing_secret_property(self):
+        """CR-01/WR-02 regression: a user whose
+        two_factor_authentication_secret property is unset/None (e.g. a
+        freshly created member that never went through
+        get_or_create_secret, or a cached property sheet that predates the
+        memberdata_properties.xml declaration -- see this class's setUp
+        docstring for why that can happen) must not crash
+        get_ska_secret_key() with 'TypeError: object of type NoneType has
+        no len()'. The old bare "{0}{1}{2}".format(...) concatenation
+        coerced None to the literal string "None" and never crashed; the
+        netstring-style len()-based derivation (BUG-04) must keep that same
+        crash-safety by coercing a falsy/None component to '' first, like
+        the sibling get_secret() already does.
+        """
+        class FakeUser(object):
+            def getProperty(self, name, default=None):
+                return None
+
+        result = get_ska_secret_key(
+            request=self.request, user=FakeUser(), use_browser_hash=False)
+        self.assertIsInstance(result, unicode)
+
+    def test_get_browser_hash(self):
+        """Regression guard, not a fix for a live bug: get_browser_hash's
+        `except` branch already returns '' today (not None). It stopped
+        being merely cosmetic the moment Task 1's length-prefixed derivation
+        landed -- that derivation takes len() of this return value, and
+        len(None) raises TypeError on a login path. Nobody should go looking
+        for a currently-firing bug here; this pins the guard against a
+        future edit reintroducing a fall-off-the-end None.
+        """
+        result = get_browser_hash(request={})
+        self.assertEqual('', result)
+        self.assertIsNotNone(result)
+
+        happy_result = get_browser_hash(
+            request={'HTTP_USER_AGENT': 'Mozilla/5.0'})
+        self.assertEqual(40, len(happy_result))

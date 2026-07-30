@@ -10,6 +10,26 @@ _ = MessageFactory('imio.googleauthenticator')
 PAS_TITLE = 'Google Authenticator plugin (imio.googleauthenticator)'
 PAS_ID = 'google_auth'
 
+def _setup_secret_key():
+    """
+    Seed ska_secret_key at install time, if it is not already set.
+
+    Post-review revision (CR-02): this seeding was deleted by this phase's
+    original plan (D-04) in favour of a lazy mint inside
+    get_ska_secret_key(), which turned out to write registry state from a
+    request path (PAS authenticateCredentials -> sign_user_data) that ends
+    in transaction.abort() on Unauthorized, discarding the mint after a
+    signed URL using it was already redirected to. Restoring seeding here
+    fixes that. D-04's actual intent is kept intact: no nested profile
+    import-step re-entry -- the <depends name="plone.app.registry"/>
+    declaration added by REG-02 already guarantees the registry records
+    exist by the time setupVarious runs, so a direct get_app_settings()
+    call is enough.
+    """
+    settings = get_app_settings()
+    if not settings.ska_secret_key:
+        settings.ska_secret_key = unicode(uuid4())
+
 def _add_plugin(pas, pluginid=PAS_ID):
     """
     Install and activate imio.googleauthenticator PAS plugin
@@ -30,19 +50,6 @@ def _add_plugin(pas, pluginid=PAS_ID):
             [x[0] for x in pas.plugins.listPlugins(interface)[:-1]],
         )
 
-def _setup_secret_key(portal):
-    """
-    Generate secret key
-    """
-    portal.portal_setup.runImportStepFromProfile(
-        'profile-imio.googleauthenticator:default',
-        'plone.app.registry'
-        )
-
-    settings = get_app_settings()
-    if not settings.ska_secret_key:
-        settings.ska_secret_key = unicode(uuid4())
-
 def setupVarious(context):
     """
     @param context: Products.GenericSetup.context.DirectoryImportContext instance
@@ -56,7 +63,7 @@ def setupVarious(context):
 
     portal = context.getSite()
 
-    _setup_secret_key(portal)
+    _setup_secret_key()
 
     pas = portal.acl_users
     _add_plugin(pas)

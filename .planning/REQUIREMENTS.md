@@ -26,11 +26,11 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 
 ### Site creation and registry (REG)
 
-- [ ] **REG-01**: Creating a new Plone site with the add-on selected completes without the `ska_secret_key ... no record` error
-- [ ] **REG-02**: The `<depends name="plone.app.registry"/>` declaration makes the import-step ordering explicit rather than dependent on Python 2 `set` iteration order
-- [ ] **REG-03**: A test asserts `getSortedImportSteps()` places this package's step after `plone.app.registry` — the ordering assertion, not the rename, is the control
-- [ ] **REG-04**: The nested `runImportStepFromProfile` call is gone; `ska_secret_key` is minted by a lazy accessor on first use
-- [ ] **REG-05**: Re-applying the default profile leaves an existing `ska_secret_key` unchanged, so signed URLs in flight are not invalidated
+- [x] **REG-01**: Creating a new Plone site with the add-on selected completes without the `ska_secret_key ... no record` error
+- [x] **REG-02**: The `<depends name="plone.app.registry"/>` declaration makes the import-step ordering explicit rather than dependent on Python 2 `set` iteration order
+- [x] **REG-03**: A test asserts `getSortedImportSteps()` places this package's step after `plone.app.registry` — the ordering assertion, not the rename, is the control
+- [x] **REG-04**: The nested `runImportStepFromProfile` call is gone; `ska_secret_key` is seeded reliably at install time (revised after CR-02 code review: a lazy-accessor mint on first use was tried first, but it wrote registry state from a request path that `transaction.abort()`s on `Unauthorized`, discarding the mint — see `02-01-SUMMARY.md` "Post-review revision")
+- [x] **REG-05**: Re-applying the default profile leaves an existing `ska_secret_key` unchanged, so signed URLs in flight are not invalidated
 
 ### Secret handling (SEC)
 
@@ -86,7 +86,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [ ] **BUG-01**: `next_url` is validated against the portal URL before redirect; an off-site value is refused (`token.py:112-113`)
 - [ ] **BUG-02**: `redirect_url` is always bound on every code path through `user_setup.py`
 - [ ] **BUG-03**: The bar-code reset token comparison is constant-time, with both operands encoded first to avoid `TypeError` across `str`/`unicode`
-- [ ] **BUG-04**: The derived `ska` key separates its components rather than concatenating them bare
+- [x] **BUG-04**: The derived `ska` key separates its components rather than concatenating them bare
 - [ ] **BUG-05**: `py2-ipaddress` is replaced by `ipaddress == 1.0.23`, with `unicode` coercion at the two call sites, so adding `cryptography` cannot break every login through module shadowing
 - [ ] **BUG-06**: Query-string values are URL-encoded on the way in, resolving the `+`-escaping FIXME
 
@@ -171,11 +171,11 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | RENAME-10 | Phase 1 | Complete |
 | RENAME-11 | Phase 1 | Complete |
 | RENAME-12 | Phase 1 | Complete |
-| REG-01 | Phase 2 | Pending |
-| REG-02 | Phase 2 | Pending |
-| REG-03 | Phase 2 | Pending |
-| REG-04 | Phase 2 | Pending |
-| REG-05 | Phase 2 | Pending |
+| REG-01 | Phase 2 | Complete |
+| REG-02 | Phase 2 | Complete |
+| REG-03 | Phase 2 | Complete |
+| REG-04 | Phase 2 | Complete |
+| REG-05 | Phase 2 | Complete |
 | SEC-01 | Phase 3 | Pending |
 | SEC-02 | Phase 3 | Pending |
 | SEC-03 | Phase 3 | Pending |
@@ -216,7 +216,7 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | BUG-01 | Phase 7 | Pending |
 | BUG-02 | Phase 3 | Pending |
 | BUG-03 | Phase 3 | Pending |
-| BUG-04 | Phase 2 | Pending |
+| BUG-04 | Phase 2 | Complete |
 | BUG-05 | Phase 3 | Pending |
 | BUG-06 | Phase 7 | Pending |
 | QUAL-01 | Phase 8 | Pending |

@@ -46,7 +46,9 @@
         title="imio.googleauthenticator install steps"
         description=""
         handler="imio.googleauthenticator.setuphandlers.setupVarious"
-        />
+        >
+        <depends name="plone.app.registry"/>
+    </genericsetup:importStep>
 
     <!-- -*- extra stuff goes here -*- -->
 

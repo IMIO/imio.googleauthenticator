@@ -31,7 +31,7 @@ failure mode has no error page and no log line.
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Rename and Fail-Closed** - `imio.googleauthenticator` everywhere, and a plugin exception becomes a 500 instead of a password-only login (completed 2026-07-29)
-- [ ] **Phase 2: Registry Seeding and Import-Step Ordering** - New Plone sites install cleanly, and the ordering that makes them clean is asserted rather than accidental
+- [x] **Phase 2: Registry Seeding and Import-Step Ordering** - New Plone sites install cleanly, and the ordering that makes them clean is asserted rather than accidental (completed 2026-07-29)
 - [ ] **Phase 3: Encrypted Seeds and Local QR** - Seeds are Fernet-encrypted at rest, never sent to Google, and never fall back to plaintext
 - [ ] **Phase 4: PAS Boundary** - The second factor cannot be bypassed by any credentials extractor, and the refusal leaks nothing
 - [ ] **Phase 5: Drift, Replay and Lockout** - A replayed code fails, brute force stops at N attempts, and the counters actually persist
@@ -90,12 +90,21 @@ Plans:
 **Success Criteria** (what must be TRUE):
 
   1. Creating a new Plone site with the add-on selected completes with no `IGoogleAuthenticatorSettings defines a field ska_secret_key, for which there is no record` in `var/log/instance.log`.
-  2. A test asserts `getSortedImportSteps()` places this package's step after `plone.app.registry`. **The assertion is the control, not the rename** — the rename changes the step id's hash and can make the error vanish without fixing anything, and it would return the first time any other add-on adds or removes an import step.
-  3. `grep -r runImportStepFromProfile src/` returns nothing, and `ska_secret_key` is minted by a lazy accessor on first use rather than by a nested profile import.
+  2. A test asserts the import step **declares** `plone.app.registry` as a dependency (via `getImportStepMetadata()['dependencies']`), and a second test asserts `getSortedImportSteps()` places this package's step after it. **The declaration assertion is the control, not the rename and not the sorted order** — verified in phase-2 verification: with the `<depends>` line deleted, the sorted-order assertion still passes by CPython 2.7 string-hash accident (index 51 vs 36 of 52), so order alone proves nothing and would flip the first time any other add-on adds or removes an import step.
+  3. `grep -r runImportStepFromProfile src/` returns nothing, and `ska_secret_key` is minted without a nested profile import — seeded once at install time by `setuphandlers._setup_secret_key()`, with `get_ska_secret_key()` a pure read. *(Revised after code review CR-02: the original criterion said "minted by a lazy accessor on first use". A mint inside the accessor writes registry state from `authenticateCredentials()`, a path that ends in `transaction.abort()` on `Unauthorized`, discarding the key after a URL signed with it was already redirected to. See `02-REVIEW.md` CR-02 and `02-01-SUMMARY.md`.)*
   4. A test applies the default profile **twice** and asserts `ska_secret_key` is unchanged, so signed URLs in flight are not invalidated by a reinstall. (A retained value that no longer validates is silently replaced by the default `u''`, with only an INFO log line.)
   5. A test asserts the derived `ska` key separates its components: two different component tuples that share the same bare concatenation produce different keys.
 
-**Plans**: TBD
+**Plans**: 2/2 plans executed
+
+Plans:
+**Wave 1**
+
+- [x] 02-01-PLAN.md — Declared `<depends name="plone.app.registry"/>`, the nested profile re-entry deleted, `ska_secret_key` minted lazily in `get_ska_secret_key`, and one test asserting ordering, records, mint and profile-re-apply preservation
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 02-02-PLAN.md — Length-prefixed `ska` key derivation with the collision it prevents asserted, plus the `get_browser_hash` empty-string regression guard and the changelog
 
 **Phase notes:**
 
@@ -250,7 +259,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Rename and Fail-Closed | 4/4 | Complete    | 2026-07-29 |
-| 2. Registry Seeding and Import-Step Ordering | 0/TBD | Not started | - |
+| 2. Registry Seeding and Import-Step Ordering | 2/2 | Complete    | 2026-07-29 |
 | 3. Encrypted Seeds and Local QR | 0/TBD | Not started | - |
 | 4. PAS Boundary | 0/TBD | Not started | - |
 | 5. Drift, Replay and Lockout | 0/TBD | Not started | - |
