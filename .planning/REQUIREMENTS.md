@@ -34,14 +34,14 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 
 ### Secret handling (SEC)
 
-- [ ] **SEC-01**: TOTP seeds are Fernet-encrypted at rest; no plaintext seed is ever written to a memberdata property
-- [ ] **SEC-02**: The encryption key is read per-call from the process environment, never stored in the ZODB, a memberdata property, a log line, or an exception message
-- [ ] **SEC-03**: Enrollment and validation both fail closed when the key is missing or invalid — login is refused, never downgraded to plaintext or to password-only
-- [ ] **SEC-04**: Ciphertext carries a `v1$` version prefix
-- [ ] **SEC-05**: The enrollment QR code is rendered in-process by `qrcode == 6.1`; the seed is transmitted to no external service and appears in no subprocess argv
-- [ ] **SEC-06**: New seeds are 160 bits of `os.urandom`, satisfying RFC 4226 §4 R6's 128-bit minimum
-- [ ] **SEC-07**: The required environment variable is documented and present in all four places it must exist — `[instance]`, `[testenv]`, the CI workflow, and (out of repo) the Puppet fragment
-- [ ] **SEC-08**: A missing key logs CRITICAL at process start rather than raising from module import or ZCML
+- [x] **SEC-01**: TOTP seeds are Fernet-encrypted at rest; no plaintext seed is ever written to a memberdata property
+- [x] **SEC-02**: The encryption key is read per-call from the process environment, never stored in the ZODB, a memberdata property, a log line, or an exception message
+- [x] **SEC-03**: Enrollment and validation both fail closed when the key is missing or invalid — login is refused, never downgraded to plaintext or to password-only
+- [x] **SEC-04**: Ciphertext carries a `v1$` version prefix
+- [x] **SEC-05**: The enrollment QR code is rendered in-process by `qrcode == 6.1`; the seed is transmitted to no external service and appears in no subprocess argv
+- [x] **SEC-06**: New seeds are 160 bits of `os.urandom`, satisfying RFC 4226 §4 R6's 128-bit minimum
+- [x] **SEC-07**: The required environment variable is documented and present in all four places it must exist — `[instance]`, `[testenv]`, the CI workflow, and (out of repo) the Puppet fragment
+- [x] **SEC-08**: A missing key logs CRITICAL at process start rather than raising from module import or ZCML
 
 ### Second-factor integrity (MFA)
 
@@ -84,10 +84,10 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 ### Known bug fixes (BUG)
 
 - [ ] **BUG-01**: `next_url` is validated against the portal URL before redirect; an off-site value is refused (`token.py:112-113`)
-- [ ] **BUG-02**: `redirect_url` is always bound on every code path through `user_setup.py`
-- [ ] **BUG-03**: The bar-code reset token comparison is constant-time, with both operands encoded first to avoid `TypeError` across `str`/`unicode`
+- [x] **BUG-02**: `redirect_url` is always bound on every code path through `user_setup.py`
+- [x] **BUG-03**: The bar-code reset token comparison is constant-time, with both operands encoded first to avoid `TypeError` across `str`/`unicode`
 - [x] **BUG-04**: The derived `ska` key separates its components rather than concatenating them bare
-- [ ] **BUG-05**: `py2-ipaddress` is replaced by `ipaddress == 1.0.23`, with `unicode` coercion at the two call sites, so adding `cryptography` cannot break every login through module shadowing
+- [x] **BUG-05**: `py2-ipaddress` is replaced by `ipaddress == 1.0.23`, with `unicode` coercion at the two call sites, so adding `cryptography` cannot break every login through module shadowing
 - [ ] **BUG-06**: Query-string values are URL-encoded on the way in, resolving the `+`-escaping FIXME
 
 ### Quality (QUAL)
@@ -104,7 +104,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 
 - [ ] **DOC-01**: The Zope-root limitation is documented — MFA covers users and site admins inside the Plone site; root `acl_users` admins are architecturally out of reach for an in-site PAS plugin
 - [ ] **DOC-02**: The basic-auth consequence is documented, naming the supported alternative for scripts and API consumers
-- [ ] **DOC-03**: The required encryption-key environment variable is documented for deployment, including the failure mode when a single ZEO client has a stale value
+- [x] **DOC-03**: The required encryption-key environment variable is documented for deployment, including the failure mode when a single ZEO client has a stale value
 - [x] **DOC-04**: `CHANGES.txt` records the rename and that existing databases are discarded rather than migrated
 
 ## v2 Requirements
@@ -176,14 +176,14 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | REG-03 | Phase 2 | Complete |
 | REG-04 | Phase 2 | Complete |
 | REG-05 | Phase 2 | Complete |
-| SEC-01 | Phase 3 | Pending |
-| SEC-02 | Phase 3 | Pending |
-| SEC-03 | Phase 3 | Pending |
-| SEC-04 | Phase 3 | Pending |
-| SEC-05 | Phase 3 | Pending |
-| SEC-06 | Phase 3 | Pending |
-| SEC-07 | Phase 3 | Pending |
-| SEC-08 | Phase 3 | Pending |
+| SEC-01 | Phase 3 | Complete |
+| SEC-02 | Phase 3 | Complete |
+| SEC-03 | Phase 3 | Complete |
+| SEC-04 | Phase 3 | Complete |
+| SEC-05 | Phase 3 | Complete |
+| SEC-06 | Phase 3 | Complete |
+| SEC-07 | Phase 3 | Complete |
+| SEC-08 | Phase 3 | Complete |
 | MFA-01 | Phase 4 | Pending |
 | MFA-02 | Phase 4 | Pending |
 | MFA-03 | Phase 4 | Pending |
@@ -214,10 +214,10 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | COEX-08 | Phase 4 | Pending |
 | COEX-09 | Phase 7 | Pending |
 | BUG-01 | Phase 7 | Pending |
-| BUG-02 | Phase 3 | Pending |
-| BUG-03 | Phase 3 | Pending |
+| BUG-02 | Phase 3 | Complete |
+| BUG-03 | Phase 3 | Complete |
 | BUG-04 | Phase 2 | Complete |
-| BUG-05 | Phase 3 | Pending |
+| BUG-05 | Phase 3 | Complete |
 | BUG-06 | Phase 7 | Pending |
 | QUAL-01 | Phase 8 | Pending |
 | QUAL-02 | Phase 8 | Pending |
@@ -228,7 +228,7 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | QUAL-07 | Phase 8 | Pending |
 | DOC-01 | Phase 4 | Pending |
 | DOC-02 | Phase 4 | Pending |
-| DOC-03 | Phase 3 | Pending |
+| DOC-03 | Phase 3 | Complete |
 | DOC-04 | Phase 1 | Complete |
 
 **Coverage:**

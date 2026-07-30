@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Rename and Fail-Closed** - `imio.googleauthenticator` everywhere, and a plugin exception becomes a 500 instead of a password-only login (completed 2026-07-29)
 - [x] **Phase 2: Registry Seeding and Import-Step Ordering** - New Plone sites install cleanly, and the ordering that makes them clean is asserted rather than accidental (completed 2026-07-29)
-- [ ] **Phase 3: Encrypted Seeds and Local QR** - Seeds are Fernet-encrypted at rest, never sent to Google, and never fall back to plaintext
+- [x] **Phase 3: Encrypted Seeds and Local QR** - Seeds are Fernet-encrypted at rest, never sent to Google, and never fall back to plaintext (completed 2026-07-30)
 - [ ] **Phase 4: PAS Boundary** - The second factor cannot be bypassed by any credentials extractor, and the refusal leaks nothing
 - [ ] **Phase 5: Drift, Replay and Lockout** - A replayed code fails, brute force stops at N attempts, and the counters actually persist
 - [ ] **Phase 6: Recovery Codes** - A user who loses their phone gets back in without an admin, on a throttled path
@@ -123,9 +123,22 @@ Plans:
   2. Two tests assert login is **refused** with the key unset and refused again with the key set to garbage, at both enrollment and validation — never downgraded to plaintext and never to password-only. Fail-closed is the one mistake that silently undoes the entire phase.
   3. The enrollment QR renders in-process via `qrcode == 6.1`: no request reaches `chart.googleapis.com`, and no subprocess argv carries the seed (the reason `imio.helpers` + zint was rejected — `--data=otpauth://...secret=<SEED>` is readable in `ps` by any local user).
   4. A user enrolls with a real authenticator app and logs in end to end, against a seed that is 160 bits of `os.urandom` (RFC 4226 §4 R6 requires ≥128; `b32encode(str(uuid4()))` gave ~122).
-  5. `py2-ipaddress` is gone and `ipaddress == 1.0.23` pinned, with `unicode` coercion at `helpers.py:459` and `:496`; a login from a whitelisted CIDR still succeeds. Both distributions install a top-level `ipaddress` module, so without this the site works on a dev box and every login fails on a Puppet-built one, decided by egg ordering.
+  5. `py2-ipaddress` is gone and `ipaddress == 1.0.23` pinned, with `unicode` coercion at **all three** `ipaddress.*()` call sites in `helpers.py`; a login from a whitelisted CIDR still succeeds. Both distributions install a top-level `ipaddress` module, so without this the site works on a dev box and every login fails on a Puppet-built one, decided by egg ordering. *(Corrected during planning: this criterion previously said two call sites at `helpers.py:459` and `:496`. Those line numbers are stale, and there are three calls — `ip_address(proxies[0])` inside the private-hop strip loop is the third. Missing it is not cosmetic: `AddressValueError` subclasses `ValueError`, so the existing `except ValueError: break` would fire on the first iteration on every request, silently disabling private-hop stripping and making the whitelist trust an attacker-supplied hop.)*
 
-**Plans**: TBD
+**Plans**: 3/3 plans executed
+
+Plans:
+**Wave 1**
+
+- [x] 03-01-PLAN.md — The ROADMAP's own same-commit group: the `cryptography`/`qrcode`/`ipaddress`/`Pillow` pin swap, the `v1$` Fernet envelope with a per-call key read, a 160-bit `os.urandom` seed via stdlib base32, in-process QR rendering, `unicode` coercion at all three `ipaddress` call sites, `[testenv]`'s throwaway key so Wave 1 ends green, and fail-closed asserted at all four live `get_or_create_secret` surfaces — enrollment, login, bulk enable (unswallowed, with both callers reporting failure instead of "Changes saved.") and account creation (SEC-01/02/03/04/05/06, BUG-05)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 03-02-PLAN.md — The `IProcessStarting` CRITICAL log for a missing key, the SEC-07 four-places accounting settled with this repo owning exactly one site and no `[instance]` placeholder, and `README.rst` documenting all three consequences of a missing key, the ZEO-client-skew failure mode and the out-of-repo Puppet dependency (SEC-07, SEC-08, DOC-03)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 03-03-PLAN.md — One constant-time reset-token comparison used at both call sites, a regression test locking the `user_setup.py` redirect invariant with no production change, the real-authenticator-app end-to-end human check for success criterion 4, and the changelog (BUG-03, BUG-02)
 
 **Phase notes:**
 
@@ -260,7 +273,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 |-------|----------------|--------|-----------|
 | 1. Rename and Fail-Closed | 4/4 | Complete    | 2026-07-29 |
 | 2. Registry Seeding and Import-Step Ordering | 2/2 | Complete    | 2026-07-29 |
-| 3. Encrypted Seeds and Local QR | 0/TBD | Not started | - |
+| 3. Encrypted Seeds and Local QR | 3/3 | Complete    | 2026-07-30 |
 | 4. PAS Boundary | 0/TBD | Not started | - |
 | 5. Drift, Replay and Lockout | 0/TBD | Not started | - |
 | 6. Recovery Codes | 0/TBD | Not started | - |

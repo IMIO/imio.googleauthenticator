@@ -22,11 +22,22 @@ class EnableTwoFactorAuthenticationForAllUsers(BrowserView):
         Enable the two-step verification for the user and redirect back to the `@@google-authenticator-settings`.
         """
         users = api.user.get_users()
-        enable_two_factor_authentication_for_users(users)
-
-        IStatusMessage(self.request).addStatusMessage(
-            _("You have successfully enabled the two-step verification for all users."),
-            'info'
-            )
+        try:
+            enable_two_factor_authentication_for_users(users)
+            IStatusMessage(self.request).addStatusMessage(
+                _("You have successfully enabled the two-step verification for all users."),
+                'info'
+                )
+        except ValueError:
+            # Same fail-closed-and-reported shape as the control panel's
+            # Save handler: enrolling nobody while reporting success is a
+            # silent security-control removal.
+            IStatusMessage(self.request).addStatusMessage(
+                _(u"Two-step verification could not be enabled for any "
+                  u"user: seed encryption is unavailable. Set the "
+                  u"IMIO_GOOGLEAUTHENTICATOR_SEED_KEY environment variable "
+                  u"and try again."),
+                'error'
+                )
         redirect_url = "{0}/@@google-authenticator-settings".format(self.context.absolute_url())
         self.request.response.redirect(redirect_url)

@@ -59,8 +59,10 @@ setup(
         'plone.directives.form>=1.1',
         'onetimepass==0.2.2',
         'ska>=1.1',
-        'rebus>=0.1',
-        'py2-ipaddress>2.0.1',
+        'cryptography==3.3.2',
+        'ipaddress==1.0.23',
+        'qrcode==6.1',
+        'Pillow',
     ],
     extras_require = {'test': ['plone.app.testing', 'plone.app.robotframework']},
     entry_points = """

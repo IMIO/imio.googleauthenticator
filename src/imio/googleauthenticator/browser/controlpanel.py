@@ -106,11 +106,28 @@ class GoogleAuthenticatorSettingsEditForm(AutoExtensibleForm, form.EditForm):
 
         globally_enabled = data.get('globally_enabled', None)
 
+        enrollment_failed = False
         if globally_enabled is True:
             # Enable for all users
             users = api.user.get_users()
-            enable_two_factor_authentication_for_users(users)
-            logger.debug('Enabled')
+            try:
+                enable_two_factor_authentication_for_users(users)
+                logger.debug('Enabled')
+            except ValueError:
+                # Not a fail-closed violation of the crypto layer's
+                # no-fallback prohibition: this handler enrols nobody,
+                # grants no session and stores no plaintext. Refusing
+                # loudly in the UI *is* the closed state -- the alternative
+                # is "Changes saved." with zero users enrolled, which is
+                # the silent security-control removal this task exists to
+                # close.
+                enrollment_failed = True
+                IStatusMessage(self.request).addStatusMessage(
+                    _(u"Two-step verification could not be enabled for any "
+                      u"user: seed encryption is unavailable. Set the "
+                      u"IMIO_GOOGLEAUTHENTICATOR_SEED_KEY environment "
+                      u"variable and try again."),
+                    "error")
         elif globally_enabled is False:
             # Disable for all users
             users = api.user.get_users()
@@ -118,7 +135,8 @@ class GoogleAuthenticatorSettingsEditForm(AutoExtensibleForm, form.EditForm):
             logger.debug('Disabled')
 
         changes = self.applyChanges(data)
-        IStatusMessage(self.request).addStatusMessage(_(u"Changes saved."), "info")
+        if not enrollment_failed:
+            IStatusMessage(self.request).addStatusMessage(_(u"Changes saved."), "info")
         self.request.response.redirect("%s/%s" % (self.context.absolute_url(), self.control_panel_view))
 
     @button.buttonAndHandler(_(u"Cancel"), name='cancel')

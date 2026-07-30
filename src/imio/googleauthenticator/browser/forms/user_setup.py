@@ -15,7 +15,7 @@ from plone.z3cform.layout import wrap_form
 from Products.statusmessages.interfaces import IStatusMessage
 from zope.schema import TextLine
 
-from imio.googleauthenticator.helpers import get_token_description, validate_token
+from imio.googleauthenticator.helpers import get_token_description, is_site_local_user, validate_token
 
 logger = logging.getLogger('imio.googleauthenticator')
 
@@ -63,6 +63,25 @@ class SetupForm(form.SchemaForm):
         if errors:
             return False
 
+        # T-03-23: refuse an account this plugin cannot gate. Enrolling a
+        # Zope-root account and reporting success would claim a second factor
+        # that is never demanded at login -- a false report of a security
+        # control's state, the same class as T-03-21's zero-user bulk
+        # "Changes saved.". Checked before the token is validated, so no
+        # enrolment state is written on this path at all.
+        if not is_site_local_user():
+            IStatusMessage(self.request).addStatusMessage(
+                _(u"Two-step verification cannot be enabled for this account: "
+                  u"it is not defined in this Plone site, so its logins are "
+                  u"authenticated above the site and cannot be intercepted. "
+                  u"Use an account created inside the site."),
+                'error'
+                )
+            self.request.response.redirect(
+                "{0}/@@personal-information".format(
+                    self.context.absolute_url()))
+            return False
+
         token = data.get('token', '')
 
         valid_token = validate_token(token)
@@ -105,7 +124,19 @@ class SetupForm(form.SchemaForm):
             # Adding a proper description (with bar code image)
             barcode_field = self.fields.get('qr_code')
             if barcode_field:
-                barcode_field.field.description = _(get_token_description())
+                if is_site_local_user():
+                    barcode_field.field.description = _(get_token_description())
+                else:
+                    # T-03-23: show no QR for an account this plugin cannot
+                    # gate. Beyond the misleading offer, get_token_description
+                    # mints and stores a seed as a side effect, so rendering
+                    # it here would leave enrolment state behind for an
+                    # account that can never use it.
+                    barcode_field.field.description = _(
+                        u"This account is not defined in this Plone site, so "
+                        u"its logins are authenticated above the site and "
+                        u"cannot be intercepted. Two-step verification is "
+                        u"unavailable for it.")
 
             return super(SetupForm, self).updateFields(*args, **kwargs)
 

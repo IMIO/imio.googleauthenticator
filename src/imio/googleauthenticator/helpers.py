@@ -2,10 +2,13 @@
 This helper module contains functions used throughout c.googleauthenticator.
 """
 from hashlib import sha1
-from urllib import urlencode, unquote, quote
+from hmac import compare_digest
+from urllib import unquote, quote
 from urlparse import urlparse
-from uuid import uuid4
+import base64
+import io
 import logging
+import os
 
 from zope.component import getUtility
 from zope.globalrequest import getRequest
@@ -19,15 +22,100 @@ from onetimepass import valid_totp
 from plone import api
 from plone.registry.interfaces import IRegistry
 
+from cryptography.fernet import Fernet
+from cryptography.fernet import InvalidToken
 from ska import sign_url, validate_signed_request_data
 import ipaddress
-import rebus
+import qrcode
 
 from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 
 _ = MessageFactory('imio.googleauthenticator')
 
 logger = logging.getLogger("imio.googleauthenticator")
+
+# Environment variable name carrying the Fernet key that encrypts every
+# user's TOTP seed. Locked via this phase's Task 1 checkpoint:decision.
+ENV_VAR_NAME = 'IMIO_GOOGLEAUTHENTICATOR_SEED_KEY'
+# Literal envelope prefix on every ciphertext this module stores. '$' cannot
+# appear in URL-safe base64 (A-Za-z0-9-_=), so the split is unambiguous.
+CIPHERTEXT_VERSION_PREFIX = 'v1$'
+
+
+def get_encryption_key():
+    """
+    Reads the Fernet key from the environment on every call, deliberately --
+    unlike ``imio.helpers/__init__.py``'s module-scope
+    ``SSO_APPS_CLIENT_SECRET = os.environ.get(...)`` read at import time. A
+    module-scope read here would run before ``bin/test``'s environment is
+    necessarily populated, and could never be overridden per-test.
+
+    :return string: The raw value of ``ENV_VAR_NAME``, or ``None`` if unset.
+    """
+    return os.environ.get(ENV_VAR_NAME)
+
+
+def _get_fernet():
+    """
+    Builds a ``Fernet`` instance from :func:`get_encryption_key`, failing
+    closed. Never caught locally to return ``None`` or a cached/default
+    instance -- a caller that swallows this turns a loud refusal into a
+    silent plaintext or password-only downgrade.
+
+    :return cryptography.fernet.Fernet:
+    """
+    key = get_encryption_key()
+    if not key:
+        raise ValueError(
+            '{0} is not set; seed encryption is unavailable'.format(ENV_VAR_NAME))
+
+    if isinstance(key, unicode):
+        key = key.encode('ascii')
+
+    try:
+        return Fernet(key)
+    except (ValueError, TypeError):
+        # A right-shaped-but-wrong-length base64 key raises ValueError; a
+        # key that is not valid base64 at all raises TypeError from
+        # binascii on py2. Catch both so the operator sees a readable
+        # message naming the variable, not a bare TypeError traceback.
+        raise ValueError(
+            '{0} is set but is not a valid Fernet key'.format(ENV_VAR_NAME))
+
+
+def encrypt_seed(plaintext_seed):
+    """
+    Encrypts a plaintext TOTP seed for storage.
+
+    :param string plaintext_seed:
+    :return unicode: ``v1$<fernet-token>``.
+    """
+    fernet = _get_fernet()
+    if isinstance(plaintext_seed, unicode):
+        plaintext_seed = plaintext_seed.encode('ascii')
+    token = fernet.encrypt(plaintext_seed)
+    return u'{0}{1}'.format(CIPHERTEXT_VERSION_PREFIX, token.decode('ascii'))
+
+
+def decrypt_seed(ciphertext):
+    """
+    Decrypts a ``v1$<fernet-token>`` ciphertext back to the plaintext seed.
+
+    :param string ciphertext:
+    :return string: The plaintext seed.
+    """
+    if not ciphertext or not ciphertext.startswith(CIPHERTEXT_VERSION_PREFIX):
+        raise ValueError('Unknown or missing ciphertext version prefix')
+
+    token = ciphertext[len(CIPHERTEXT_VERSION_PREFIX):]
+    if isinstance(token, unicode):
+        token = token.encode('ascii')
+
+    fernet = _get_fernet()
+    try:
+        return fernet.decrypt(token)
+    except InvalidToken:
+        raise ValueError('Ciphertext failed to decrypt')
 
 # ******************************************
 
@@ -93,34 +181,37 @@ def get_domain_name(request=None):
 
 def generate_secret(user):
     """
-    Generates secret for the user.
+    Generates secret for the user. 160 bits of ``os.urandom``, stdlib
+    base32-encoded -- the previous third-party encoder ASCII-decodes its
+    input before encoding and rejects raw entropy.
 
     :param Products.PlonePAS.tools.memberdata user:
     """
-    secret = rebus.b32encode(str(uuid4()))
+    secret = base64.b32encode(os.urandom(20))
     # logger.debug(secret)
+    ciphertext = encrypt_seed(secret)
     user.setMemberProperties(
-        mapping={'two_factor_authentication_secret': secret})
+        mapping={'two_factor_authentication_secret': ciphertext})
     return secret
 
 
 def get_barcode_image(username, domain, secret):
     """
-    Get barcode image URL.
+    Get barcode image as an in-process ``data:`` URI. Rendered locally with
+    a pure-Python QR encoder -- no outbound request and nothing shelled
+    out, so the seed never crosses the process boundary.
 
     :param string username:
     :param string domain:
     :param string secret:
     :return string:
     """
-    params = urlencode({
-        'chs': '200x200',
-        'chld': 'M|0',
-        'cht': 'qr',
-        'chl': "otpauth://totp/{0}@{1}?secret={2}".format(
-            username, domain, secret)})
-    url = "https://chart.googleapis.com/chart?{0}".format(params)
-    return url
+    data = "otpauth://totp/{0}@{1}?secret={2}".format(username, domain, secret)
+    img = qrcode.make(data)
+    buf = io.BytesIO()
+    img.save(buf, 'PNG')
+    encoded = base64.b64encode(buf.getvalue())
+    return 'data:image/png;base64,{0}'.format(encoded)
 
 
 def get_secret(user=None, hashed=False):
@@ -139,7 +230,47 @@ def get_secret(user=None, hashed=False):
 
         # If string returned, then it's likely a set string
         if isinstance(secret, basestring) and secret:
-            return secret
+            return decrypt_seed(secret)
+
+
+def is_site_local_user(user=None):
+    """
+    Tells whether the user is defined in the Plone site's own PAS, rather
+    than in the Zope root user folder.
+
+    This plugin is registered in the site's ``acl_users``, so it only sees
+    logins that the site's PAS authenticates. An account defined in the root
+    user folder -- typically the ``inituser`` ``admin`` -- is authenticated
+    above the site, and this plugin's ``authenticateCredentials`` cannot gate
+    it: its password pre-check delegates to the *site's* other
+    ``IAuthenticationPlugin``s, none of which can resolve a root account, so
+    it declines to veto and the root user folder logs the user in on the
+    password alone.
+
+    Enrolment therefore has to refuse such an account rather than report
+    success for a second factor that will never be demanded (T-03-23).
+
+    Note that ``plone.api.user.get`` is NOT a usable test here: it returns a
+    ``MemberData`` for a root account too (wrapped ``for /acl_users``), and
+    ``portal_memberdata`` will happily store properties against it. Only the
+    site PAS lookup distinguishes the two.
+
+    :param Products.PlonePAS.tools.memberdata user:
+    :return bool:
+    """
+    if user is None:
+        user = api.user.get_current()
+
+    if user is None:
+        return False
+
+    user_id = user.getId()
+    if not user_id:
+        # Anonymous.
+        return False
+
+    portal = api.portal.get()
+    return portal.acl_users.getUserById(user_id) is not None
 
 
 def get_or_create_secret(user, overwrite=False):
@@ -162,7 +293,7 @@ def get_or_create_secret(user, overwrite=False):
 
     secret = user.getProperty('two_factor_authentication_secret')
     if isinstance(secret, basestring) and secret:
-        return secret
+        return decrypt_seed(secret)
     else:
         return generate_secret(user)
 
@@ -201,6 +332,26 @@ def validate_token(token, user=None):
     secret = get_secret(user)
 
     # logger.debug('secret: {0}'.format(secret))
+
+    if not secret:
+        # No stored seed means no token can be valid, so refuse rather than
+        # hand a falsy secret to onetimepass: it base32-decodes whatever it
+        # is given and raises TypeError('Incorrect secret'), which is an
+        # unhandled 500 on a form whose job is to reject bad input. Note
+        # that get_secret returns None *implicitly* for a user with no
+        # secret, which is how this reaches onetimepass at all.
+        #
+        # Guarded here rather than in the three callers (token.py,
+        # reset_bar_code.py, user_setup.py) because all three route through
+        # this function, and each can resolve a secret-less user: the token
+        # and reset forms pass user=None when no signed `auth_user`
+        # parameter is present, and their updateFields has already blanked
+        # the __ac cookie, so that submit arrives anonymous.
+        #
+        # Deliberately narrow: a *decryption* failure inside get_secret
+        # raises ValueError and must keep propagating, since swallowing it
+        # would downgrade a broken-key refusal into a wrong-token message.
+        return False
 
     validation_result = valid_totp(token=token, secret=secret)
 
@@ -412,6 +563,54 @@ def validate_user_data(request, user, use_browser_hash=True):
     return validation_result
 
 
+def validate_bar_code_reset_token(stored_token, submitted_token):
+    """
+    Compares a bar-code reset token against a submitted value in constant
+    time, through ``hmac.compare_digest``, refusing to match on any falsy
+    operand.
+
+    The stored token is written as a py2 ``str``
+    (``request_bar_code_reset.py``'s ``user.setMemberProperties(mapping=
+    {'bar_code_reset_token': str(signature)})``) while the value read off
+    the request is typically ``unicode``. A naive ``compare_digest(a, b)``
+    raises ``TypeError: 'unicode' does not have the buffer interface`` when
+    ``a`` and ``b`` are different types on Python 2, so both operands are
+    coerced to ``str`` bytes first.
+
+    An absent or empty stored token means no reset was ever requested, so it
+    must never match anything -- including an empty submitted value. This is
+    a deliberate behaviour change from the previous ``==``/``!=`` equality
+    tests, which returned ``True`` for two empty strings.
+
+    A non-ASCII ``unicode`` operand is caught and turned into ``False``
+    rather than allowed to escape as ``UnicodeEncodeError`` -- the one place
+    in this module where catching an exception on attacker-controlled,
+    pre-authentication input is the fail-closed behaviour rather than a
+    violation of it: the stored token is always ASCII hex-ish ``ska``
+    output, so a non-ASCII submitted value can only be an attacker probing,
+    and it must be a clean refusal, not a crash.
+
+    Do not log either operand at any level: the stored value is a secret
+    that grants a bar-code reset.
+
+    :param stored_token: The ``bar_code_reset_token`` memberdata property.
+    :param submitted_token: The ``signature`` value read from the request.
+    :return bool:
+    """
+    if not stored_token or not submitted_token:
+        return False
+
+    try:
+        if isinstance(stored_token, unicode):
+            stored_token = stored_token.encode('ascii')
+        if isinstance(submitted_token, unicode):
+            submitted_token = submitted_token.encode('ascii')
+    except UnicodeEncodeError:
+        return False
+
+    return compare_digest(stored_token, submitted_token)
+
+
 def has_enabled_two_factor_authentication(user):
     """
     Checks if user has enabled the two-step verification.
@@ -435,6 +634,12 @@ def enable_two_factor_authentication_for_users(users=None):
             if not has_enabled_two_factor_authentication(user):
                 user.setMemberProperties(
                     mapping={'enable_two_factor_authentication': True})
+        except ValueError:
+            # A key failure is not per-user, it is total: skipping every
+            # user and returning normally would report a success that did
+            # not happen. Let it escape so the callers can turn it into an
+            # operator-visible failure instead of a silently absorbed one.
+            raise
         except Exception as e:
             logger.debug(str(e))
 
@@ -454,6 +659,22 @@ def disable_two_factor_authentication_for_users(users=None):
                     mapping={'enable_two_factor_authentication': False})
         except Exception as e:
             logger.debug(str(e))
+
+
+def _to_unicode_ip(value):
+    """
+    Coerces a py2 ``str`` to ``unicode`` before it reaches an
+    ``ipaddress.ip_address``/``ip_network`` call. ``ipaddress == 1.0.23`` is
+    the CPython backport and requires ``unicode``; the distribution
+    previously installed under the same module name accepted ``str``.
+
+    :param value:
+    :return: ``value.decode('ascii')`` if this helper is given a ``str``,
+        ``value`` unchanged otherwise.
+    """
+    if isinstance(value, str):
+        return value.decode('ascii')
+    return value
 
 
 def extract_ip_address_from_request(request=None):
@@ -481,7 +702,7 @@ def extract_ip_address_from_request(request=None):
         # ip_address() call below (CR-02) to reject.
         while proxies:
             try:
-                if not ipaddress.ip_address(proxies[0]).is_private:
+                if not ipaddress.ip_address(_to_unicode_ip(proxies[0])).is_private:
                     break
             except ValueError:
                 break
@@ -502,7 +723,7 @@ def extract_ip_address_from_request(request=None):
         return None
 
     try:
-        return ipaddress.ip_address(ip)
+        return ipaddress.ip_address(_to_unicode_ip(ip))
     except ValueError:
         # Malformed/attacker-controlled IP (bogus X-Forwarded-For value, a
         # legacy "ip:port" entry some proxies emit, ...). Same fail-closed
@@ -551,7 +772,7 @@ def get_ip_ranges(list_of_networks):
     ranges = []
     for net in list_of_networks:
         try:
-            ranges.append(ipaddress.ip_network(net))
+            ranges.append(ipaddress.ip_network(_to_unicode_ip(net)))
         except ValueError:
             logger.debug("Skipping invalid whitelist entry %r", net)
     return ranges

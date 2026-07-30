@@ -95,9 +95,18 @@ class RequestBarCodeResetForm(form.SchemaForm):
                         )
                     mail_text = mail_text.format(bar_code_reset_url=signed_url)
 
+                    # ``charset`` is not optional in practice: MailHost's
+                    # _mungeHeaders ASCII-encodes a unicode body when it is
+                    # given none (_try_encode falls back to a bare
+                    # ``text.encode()``), so a single accented character
+                    # anywhere in the rendered message aborts the send. The
+                    # ``charset`` passed to the template above is a different
+                    # argument entirely -- it only sets the Content-Type the
+                    # message declares, and never reaches MailHost.
                     host.send(
                         mail_text,
                         immediate = True,
+                        charset = 'utf-8',
                         msg_type = 'text/html'
                         )
                 except SMTPRecipientsRefused as e:
