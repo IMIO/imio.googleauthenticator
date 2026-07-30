@@ -106,3 +106,62 @@ class TestOnProcessStarting(unittest.TestCase):
             helpers.CIPHERTEXT_VERSION_PREFIX, foreign_token.decode('ascii'))
         self.assertRaises(
             ValueError, helpers.decrypt_seed, foreign_ciphertext)
+
+    def test_instance_section_declares_no_seed_key(self):
+        """T-03-21b / SEC-07's other half: ``base.cfg``'s ``[instance]`` must
+        carry no key, and nothing asserted that until now.
+
+        The threat is rated `high` and is specifically the *tempting* edit: a
+        syntactically valid placeholder added so the buildout parses. That
+        would encrypt every production seed under a value any reader of this
+        repository has, **and** suppress the CRITICAL warning that is supposed
+        to announce a missing key -- because the key would no longer be
+        absent. Loud failure becomes silent compromise.
+
+        Until this test existed the invariant was held only by plan 03-02's
+        prohibition P6 and a one-time grep at execution, neither of which
+        survives into CI. ``README.rst`` documents the omission and its
+        reasoning; this is the assertion that keeps the documentation true.
+
+        Read as text rather than via ConfigParser: buildout's ``+=`` keys and
+        ``${...}`` references are not INI, and ConfigParser's interpolation
+        raises on them.
+        """
+        base_cfg = os.path.join(
+            os.path.dirname(imio.googleauthenticator.__file__),
+            os.pardir, os.pardir, os.pardir, 'base.cfg')
+        self.assertTrue(
+            os.path.exists(base_cfg),
+            'base.cfg not found at {0} -- if the repository layout moved, '
+            'fix this path rather than deleting the test'.format(base_cfg))
+
+        with open(base_cfg) as handle:
+            lines = handle.read().splitlines()
+
+        def section(name):
+            """Returns the raw lines of one buildout section."""
+            out, inside = [], False
+            for line in lines:
+                if line.startswith('['):
+                    if inside:
+                        break
+                    inside = line.strip() == '[{0}]'.format(name)
+                    continue
+                if inside:
+                    out.append(line)
+            return out
+
+        # Non-vacuity control, and it has to come first: if the reader above
+        # silently returned nothing, the real assertion below would pass for
+        # the wrong reason. [testenv] is known to declare the key.
+        self.assertIn(
+            helpers.ENV_VAR_NAME, '\n'.join(section('testenv')),
+            'The section reader found nothing in [testenv], so the '
+            '[instance] assertion below would be vacuous.')
+
+        self.assertNotIn(
+            helpers.ENV_VAR_NAME, '\n'.join(section('instance')),
+            'base.cfg [instance] must NOT declare {0} (T-03-21b): the '
+            'deployment buildout owns that copy. A placeholder here ships a '
+            'repo-readable production key and silences the missing-key '
+            'CRITICAL log.'.format(helpers.ENV_VAR_NAME))
