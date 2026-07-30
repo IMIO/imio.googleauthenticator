@@ -5,7 +5,7 @@ slug: rename-and-fail-closed
 # audit-milestone §5.5 distinguishes NOT-VALIDATED (draft) from PARTIAL (validated + nyquist_compliant: false) (#2117)
 status: validated
 nyquist_compliant: true
-wave_0_complete: true    # all six Wave 0 items landed during execution
+wave_0_complete: true
 created: 2026-07-28
 validated: 2026-07-30
 ---
