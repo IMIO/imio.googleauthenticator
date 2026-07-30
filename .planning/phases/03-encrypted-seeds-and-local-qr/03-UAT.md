@@ -24,7 +24,17 @@ partial_pass: |
   6-digit code was accepted at `@@setup-two-factor-authentication`. That exercises the
   phase-3 deliverables directly: local `qrcode` rendering (no outbound request) and the
   Fernet encrypt → decrypt round trip on a real seed a real phone parsed.
-  The login half FAILED.
+
+  LOGIN INTERCEPTION ALSO CONFIRMED, on the re-run with a real Plone member (`cadam`):
+  the fresh username/password login was intercepted and redirected to
+  `@@google-authenticator-token?valid_until=...&auth_user=cadam&extra=&signature=...`
+  — a correctly signed URL. This closes the interception half of criterion 4 and
+  confirms G-03-1 is specific to Zope-root accounts, not a defect in the plugin.
+
+  STILL UNVERIFIED: the final step — a valid OTP accepted at the token form, reaching
+  the site authenticated. The reporter could not reach it: that member had 2FA enabled
+  with a generated secret but had never been shown a QR, so no OTP existed. The
+  recovery path they correctly reached for (bar-code reset) is itself broken — G-03-3.
 
 why_human: Requires a physical or virtual TOTP authenticator app scanning a real QR code
 rendered by a running `bin/instance`, plus a live login round trip — not executable by an
@@ -116,3 +126,65 @@ blocked: 0
   missing:
     - "Guard in validate_token — the single shared function both callers (token form, setup form) route through: no secret means the token cannot be valid, so return False rather than letting onetimepass raise. Fixing it there also covers the setup form's unenrolled-user path."
     - "Regression test: validate_token returns False (does not raise) for a user with no stored seed"
+
+- gap_id: G-03-3
+  truth: "Requesting a bar-code reset sends the reset email and confirms success"
+  status: failed
+  reason: "User reported: 'Request for bar-code reset is failed! An unexpected error occurred.' — UnicodeEncodeError: 'ascii' codec can't encode character u'\\xe9' in position 83"
+  severity: major
+  test: 1
+  root_cause: |
+    CONFIRMED by traceback plus reading Products.MailHost 2.13.2 source.
+    `request_bar_code_reset.py:98-102` calls `host.send(mail_text, immediate=True,
+    msg_type='text/html')` and passes NO `charset`. MailHost.send's signature is
+    `send(messageText, mto, mfrom, subject, encode, immediate, charset, msg_type)`,
+    and `_mungeHeaders` (MailHost.py:400-402) does:
+
+        if isinstance(messageText, unicode):
+            messageText = _try_encode(messageText, charset)
+
+    with `_try_encode` (MailHost.py:506-512) falling back to bare `text.encode()`
+    — i.e. ASCII — when charset is None. The rendered template is unicode and
+    contains a non-ASCII character, so it dies on the first accented byte.
+
+    The `charset='utf-8'` on line 94 is a red herring: it is an argument to the
+    page template, not to MailHost. The template uses it only to set its own
+    `Content-Type` header (and a RESPONSE header), so the message correctly
+    DECLARES utf-8 while MailHost is still told nothing and encodes as ASCII.
+
+    The é does not come from the template — `request_bar_code_reset_email.pt` is
+    pure ASCII. It comes from a value interpolated into it at render time: the
+    site's `email_from_name`, and/or the `i18n:translate`d Subject line resolving
+    through the French catalogue. Position 83 falls in that header region.
+
+    Not a 500: UnicodeEncodeError subclasses ValueError, so line 112's
+    `except ValueError` catches it and degrades to the reported status message.
+    Only one MailHost.send call site exists in the package, so the fix is not
+    repeated elsewhere (verified by grep).
+  artifacts:
+    - path: "src/imio/googleauthenticator/browser/forms/request_bar_code_reset.py"
+      issue: "line 98-102: host.send() omits charset, so a unicode body is ASCII-encoded"
+  missing:
+    - "Pass charset='utf-8' to host.send — one line, matching the Content-Type the template already declares"
+    - "Regression test: a reset request succeeds when email_from_name (or the translated subject) contains a non-ASCII character. A test asserting only ASCII content would pass against the broken code."
+    - "Resolve the declared-type contradiction while in there: the template's own header says text/plain, the call says msg_type='text/html', and the body contains an <a href> anchor. _mungeHeaders honours the template's existing Content-Type, so msg_type is currently inert — the anchor is delivered as plain text."
+
+## Observations (not gaps)
+
+Raised by the reporter or found while diagnosing; none blocks this phase, none has
+been actioned. Recorded so they are not silently lost.
+
+- **Reset form re-asks for the username.** Reporter: "weird because I just tried to
+  login so Plone should already have my username, but it's not breaking." Correct —
+  the signed token URL already carries `auth_user`, so the field could be prefilled.
+  Cosmetic, but see the next item before treating it as purely cosmetic.
+- **Username-enumeration oracle on the reset form.** `request_bar_code_reset.py:116`
+  answers "Invalid username." for an unknown user and success for a known one, on an
+  unauthenticated endpoint. Standard practice for a password-reset-shaped flow is an
+  identical response either way. Minor, pre-existing, and a deliberate-decision call
+  rather than a bug — but it is a security-relevant one in a 2FA package.
+- **A user enrolled by `globally_enabled` is never shown a QR.** The reporter's member
+  had 2FA on with a generated secret but no way to obtain an OTP, so first login was a
+  lockout whose only exit is the (broken) reset path. This is the onboarding gap that
+  turned G-03-3 from an inconvenience into a dead end. Pre-existing and roadmap-level,
+  not a phase-3 regression.
