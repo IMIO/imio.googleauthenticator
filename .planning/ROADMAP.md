@@ -130,15 +130,15 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — The ROADMAP's own same-commit group: the `cryptography`/`qrcode`/`ipaddress` pin swap, the `v1$` Fernet envelope with a per-call key read, a 160-bit `os.urandom` seed via stdlib base32, in-process QR rendering, `unicode` coercion at all three `ipaddress` call sites, and fail-closed asserted at both enrollment and login (SEC-01/02/03/04/05/06, BUG-05)
+- [ ] 03-01-PLAN.md — The ROADMAP's own same-commit group: the `cryptography`/`qrcode`/`ipaddress`/`Pillow` pin swap, the `v1$` Fernet envelope with a per-call key read, a 160-bit `os.urandom` seed via stdlib base32, in-process QR rendering, `unicode` coercion at all three `ipaddress` call sites, `[testenv]`'s throwaway key so Wave 1 ends green, and fail-closed asserted at all four live `get_or_create_secret` surfaces — enrollment, login, bulk enable (unswallowed, with both callers reporting failure instead of "Changes saved.") and account creation (SEC-01/02/03/04/05/06, BUG-05)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03-02-PLAN.md — The `IProcessStarting` CRITICAL log for a missing key, the variable declared in `[instance]` and `[testenv]` with CI inheritance asserted rather than assumed, and `README.rst` documenting the ZEO-client-skew failure mode and the out-of-repo Puppet dependency (SEC-07, SEC-08, DOC-03)
+- [ ] 03-02-PLAN.md — The `IProcessStarting` CRITICAL log for a missing key, the SEC-07 four-places accounting settled with this repo owning exactly one site and no `[instance]` placeholder, and `README.rst` documenting all three consequences of a missing key, the ZEO-client-skew failure mode and the out-of-repo Puppet dependency (SEC-07, SEC-08, DOC-03)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 03-03-PLAN.md — One constant-time reset-token comparison used at both call sites, a regression test locking the `user_setup.py` redirect invariant with no production change, and the changelog (BUG-03, BUG-02)
+- [ ] 03-03-PLAN.md — One constant-time reset-token comparison used at both call sites, a regression test locking the `user_setup.py` redirect invariant with no production change, the real-authenticator-app end-to-end human check for success criterion 4, and the changelog (BUG-03, BUG-02)
 
 **Phase notes:**
 
