@@ -4,11 +4,11 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 4
 current_phase_name: PAS Boundary
-status: planning
-stopped_at: Phase 03 fully verified -- UAT 3/3 passed, verification passed, threats_open 0, nyquist_compliant. Phase 4 not yet planned.
+status: shipped
+stopped_at: Phase 03 shipped as PR #3 (37 commits, gsd/phase-3-encrypted-seeds-and-local-qr -> master), awaiting review/merge. Phase 4 not yet planned.
 last_updated: "2026-07-30T18:30:00.000Z"
 last_activity: 2026-07-30
-last_activity_desc: Phase 03 complete, transitioned to Phase 4
+last_activity_desc: Phase 03 shipped - PR #3
 progress:
   total_phases: 8
   completed_phases: 3
