@@ -1,40 +1,49 @@
 ---
-status: testing
+status: complete
 phase: 03-encrypted-seeds-and-local-qr
 source: [03-VERIFICATION.md]
 started: 2026-07-30T15:10:00Z
-updated: 2026-07-30T16:05:00Z
+updated: 2026-07-30T16:40:00Z
 ---
 
 ## Current Test
 
-[testing complete — 1 test, 1 issue]
+[testing complete]
 
 ## Tests
 
 ### 1. Enrol with a real TOTP authenticator app and log in end to end
 
 expected: QR renders and is scannable as displayed (a `data:` URI — no outbound request in the browser network panel); the `otpauth://` label reads `<username>@<domain>`; the app's 6-digit code is accepted at enrollment; after logout and a fresh username/password login the app's current code is accepted at `@@google-authenticator-token` and the user reaches the site authenticated.
-result: issue
-reported: "I managed to enable my MFA. I entered my OTP as a confirmation. However, if I logout and login again, it doesn't ask for my OTP and log in without MFA. If I manually navigate to the view @@google-authenticator-token and enter my OTP, it yields an error 500 no matter if my OTP is correct or not. TypeError: Incorrect secret at imio.googleauthenticator.helpers line 296 validate_token -> onetimepass line 100 get_hotp"
-severity: blocker
+result: pass
+reported: "I saved my MFA for user cadam, logged out, logged in, it prompted to enter OTP, I did and it worked"
 
-partial_pass: |
-  The enrollment half of this test PASSED — QR rendered, was scannable, and the app's
-  6-digit code was accepted at `@@setup-two-factor-authentication`. That exercises the
-  phase-3 deliverables directly: local `qrcode` rendering (no outbound request) and the
-  Fernet encrypt → decrypt round trip on a real seed a real phone parsed.
+evidence: |
+  Verified end to end across three runs, the third of which closed it. Took three runs
+  because the first used a Zope-root account (G-03-1) and the second hit a first-login
+  lockout with no enrolment path (see Observations).
 
-  LOGIN INTERCEPTION ALSO CONFIRMED, on the re-run with a real Plone member (`cadam`):
-  the fresh username/password login was intercepted and redirected to
-  `@@google-authenticator-token?valid_until=...&auth_user=cadam&extra=&signature=...`
-  — a correctly signed URL. This closes the interception half of criterion 4 and
-  confirms G-03-1 is specific to Zope-root accounts, not a defect in the plugin.
+  CONFIRMED:
+  - QR rendered and was scannable at displayed size, from a `data:` URI with no
+    outbound request — local `qrcode` rendering, phase 3's SEC-05 deliverable.
+  - The authenticator app's 6-digit code was accepted at
+    `@@setup-two-factor-authentication`, proving the Fernet encrypt → decrypt round
+    trip holds on a seed a real phone parsed, not just a computed one.
+  - A fresh username/password login as member `cadam` was intercepted and redirected
+    to `@@google-authenticator-token?valid_until=...&auth_user=cadam&extra=&signature=...`
+    — a correctly signed URL.
+  - That app's current code was accepted at the token form and the session reached the
+    site as the authenticated user.
 
-  STILL UNVERIFIED: the final step — a valid OTP accepted at the token form, reaching
-  the site authenticated. The reporter could not reach it: that member had 2FA enabled
-  with a generated secret but had never been shown a QR, so no OTP existed. The
-  recovery path they correctly reached for (bar-code reset) is itself broken — G-03-3.
+  NOT SEPARATELY CONFIRMED: the `otpauth://` label rendering literally as
+  `<username>@<domain>`. The reporter did not read the payload back; it is inferred
+  from the app accepting the QR and emitting codes that validated. Weak evidence for
+  that one sub-assertion, strong for everything else.
+
+  Enrolment route used: `@@google-authenticator-disable-for-all-users` to clear the
+  flag (secrets are preserved), log in as `cadam` unchallenged, enrol via
+  `@@setup-two-factor-authentication`, then re-login. The bar-code reset path — the
+  intended recovery route — was NOT used, because it is broken (G-03-3).
 
 why_human: Requires a physical or virtual TOTP authenticator app scanning a real QR code
 rendered by a running `bin/instance`, plus a live login round trip — not executable by an
@@ -58,19 +67,42 @@ entropy half is machine-verified; the real-app acceptance half is not)
 ## Summary
 
 total: 1
-passed: 0
-issues: 1
+passed: 1
+issues: 0
 pending: 0
 skipped: 0
 blocked: 0
+
+## Outcome
+
+Phase 3's own success criterion 4 is **verified end to end**: a real authenticator app
+enrolled against a locally-rendered QR, and its code logged a real Plone member in
+through the token form. Both phase-3 deliverables under test — local `qrcode` rendering
+with no outbound request (SEC-05) and the Fernet seed round trip (SEC-06's storage half)
+— hold against real hardware.
+
+The single test passes, so `issues: 0` is accurate as a UAT tally. But three defects
+were found along the way and are recorded in `## Gaps` below. **None is a phase-3
+regression** — all three are pre-existing, and none is a phase-3 deliverable:
+
+| Gap | What | Verdict |
+|-----|------|---------|
+| G-03-1 | 2FA silently bypassed for Zope-root accounts | Scope decision, not a fix |
+| G-03-2 | Unguarded null seed → HTTP 500 at the token form | Real defect, one-line guard |
+| G-03-3 | Bar-code reset email dies on non-ASCII | Real defect, one-line fix |
+
+G-03-2 and G-03-3 are carried as open with `status: failed` so `--gaps-only` can pick
+them up. They do not gate this phase's criterion, but G-03-3 does break the only
+documented recovery path for a locked-out user, which is why it is not merely cosmetic.
 
 ## Gaps
 
 - gap_id: G-03-1
   truth: "After logout and a fresh username/password login, a 2FA-enabled user is redirected to @@google-authenticator-token instead of being logged in on the password alone"
-  status: failed
-  reason: "User reported: if I logout and login again, it doesn't ask for my OTP and log in without MFA"
-  severity: blocker
+  status: deferred
+  reason: "User reported: if I logout and login again, it doesn't ask for my OTP and log in without MFA. Root-caused to a Zope-root account; a later run with a real Plone member was intercepted correctly, so this is not a login-path defect."
+  severity: major
+  deferred_because: "Needs a scope decision, not a code fix — see the last `missing` item. Deliberately NOT status:failed, so --gaps-only does not spawn a fix plan for a question that has to be answered first."
   test: 1
   root_cause: |
     CONFIRMED AND REPRODUCED. The reporter enrolled and logged in as the Zope root

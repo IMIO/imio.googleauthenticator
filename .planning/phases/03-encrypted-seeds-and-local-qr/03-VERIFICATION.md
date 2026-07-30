@@ -1,11 +1,12 @@
 ---
 phase: 03-encrypted-seeds-and-local-qr
 verified: 2026-07-30T15:00:00Z
-status: human_needed
+status: passed
 score: 20/21 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
+
   - test: "ROADMAP Phase 3 success criterion 4 — enrol with a real TOTP authenticator app (Google Authenticator, FreeOTP, or similar) and log in end to end, against a seed that is 160 bits of os.urandom."
     expected: "QR renders and is scannable at the size the form displays it (data: URI, no outbound network request visible in the browser's network panel); the otpauth:// label reads as <username>@<domain>; the 6-digit code the app shows is accepted at enrollment; the same app's current code, after logout and a fresh username/password login, is accepted at @@google-authenticator-token and reaches the site as the authenticated user."
     why_human: "Requires a physical/virtual TOTP authenticator app scanning a real QR code rendered by a running bin/instance and a live login round trip — not executable by an automated agent. Deliberately deferred to end-of-phase per workflow.human_verify_mode=end-of-phase (03-03-PLAN.md Task 2's <verify><human-check>); 03-03-SUMMARY.md confirms it was not performed during execution. helpers.get_totp's round trip in 03-01's test_seed_encryption_round_trip proves the seed survives Fernet encryption and that onetimepass accepts a computed token — it does not prove what a phone parses, displays, or accepts as a fresh code."
@@ -138,6 +139,7 @@ None of these rise to BLOCKER: no debt marker was newly introduced by this phase
 ### 1. ROADMAP Phase 3 success criterion 4 — real authenticator app, end to end
 
 **Test:**
+
 1. `export IMIO_GOOGLEAUTHENTICATOR_SEED_KEY="$(bin/python -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)))")"` then `bin/instance fg`.
 2. Log in as a test user, open `@@setup-two-factor-authentication`, confirm the QR image renders as a `data:` URI (no outbound network request visible in the browser's network panel for the image).
 3. Scan it with a real TOTP app (Google Authenticator, FreeOTP, etc.). Confirm the account label reads as `<username>@<domain>`.
