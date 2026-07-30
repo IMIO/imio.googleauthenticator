@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-29)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 03 — encrypted-seeds-and-local-qr
+**Current focus:** Phase 4 — PAS Boundary (Phase 03 shipped as PR #3, awaiting merge)
 
 ## Current Position
 
 Phase: 4 — PAS Boundary
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-30 — Phase 03 complete, transitioned to Phase 4
+Status: Ready to plan — Phase 03 shipped as PR #3, awaiting review/merge
+Last activity: 2026-07-30 — Phase 03 shipped, PR #3
 
 Progress: [████████████████████] 9/9 plans authored (100%) · **3 of 8 roadmap phases complete (38%)**
 
