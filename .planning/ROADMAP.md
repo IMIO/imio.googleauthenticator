@@ -125,7 +125,7 @@ Plans:
   4. A user enrolls with a real authenticator app and logs in end to end, against a seed that is 160 bits of `os.urandom` (RFC 4226 §4 R6 requires ≥128; `b32encode(str(uuid4()))` gave ~122).
   5. `py2-ipaddress` is gone and `ipaddress == 1.0.23` pinned, with `unicode` coercion at **all three** `ipaddress.*()` call sites in `helpers.py`; a login from a whitelisted CIDR still succeeds. Both distributions install a top-level `ipaddress` module, so without this the site works on a dev box and every login fails on a Puppet-built one, decided by egg ordering. *(Corrected during planning: this criterion previously said two call sites at `helpers.py:459` and `:496`. Those line numbers are stale, and there are three calls — `ip_address(proxies[0])` inside the private-hop strip loop is the third. Missing it is not cosmetic: `AddressValueError` subclasses `ValueError`, so the existing `except ValueError: break` would fire on the first iteration on every request, silently disabling private-hop stripping and making the whitelist trust an attacker-supplied hop.)*
 
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed
 
 Plans:
 **Wave 1**
@@ -138,7 +138,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 03-03-PLAN.md — One constant-time reset-token comparison used at both call sites, a regression test locking the `user_setup.py` redirect invariant with no production change, the real-authenticator-app end-to-end human check for success criterion 4, and the changelog (BUG-03, BUG-02)
+- [x] 03-03-PLAN.md — One constant-time reset-token comparison used at both call sites, a regression test locking the `user_setup.py` redirect invariant with no production change, the real-authenticator-app end-to-end human check for success criterion 4, and the changelog (BUG-03, BUG-02)
 
 **Phase notes:**
 
@@ -273,7 +273,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 |-------|----------------|--------|-----------|
 | 1. Rename and Fail-Closed | 4/4 | Complete    | 2026-07-29 |
 | 2. Registry Seeding and Import-Step Ordering | 2/2 | Complete    | 2026-07-29 |
-| 3. Encrypted Seeds and Local QR | 2/3 | In Progress|  |
+| 3. Encrypted Seeds and Local QR | 3/3 | In Progress|  |
 | 4. PAS Boundary | 0/TBD | Not started | - |
 | 5. Drift, Replay and Lockout | 0/TBD | Not started | - |
 | 6. Recovery Codes | 0/TBD | Not started | - |

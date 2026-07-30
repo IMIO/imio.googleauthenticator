@@ -84,8 +84,8 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 ### Known bug fixes (BUG)
 
 - [ ] **BUG-01**: `next_url` is validated against the portal URL before redirect; an off-site value is refused (`token.py:112-113`)
-- [ ] **BUG-02**: `redirect_url` is always bound on every code path through `user_setup.py`
-- [ ] **BUG-03**: The bar-code reset token comparison is constant-time, with both operands encoded first to avoid `TypeError` across `str`/`unicode`
+- [x] **BUG-02**: `redirect_url` is always bound on every code path through `user_setup.py`
+- [x] **BUG-03**: The bar-code reset token comparison is constant-time, with both operands encoded first to avoid `TypeError` across `str`/`unicode`
 - [x] **BUG-04**: The derived `ska` key separates its components rather than concatenating them bare
 - [x] **BUG-05**: `py2-ipaddress` is replaced by `ipaddress == 1.0.23`, with `unicode` coercion at the two call sites, so adding `cryptography` cannot break every login through module shadowing
 - [ ] **BUG-06**: Query-string values are URL-encoded on the way in, resolving the `+`-escaping FIXME
@@ -214,8 +214,8 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | COEX-08 | Phase 4 | Pending |
 | COEX-09 | Phase 7 | Pending |
 | BUG-01 | Phase 7 | Pending |
-| BUG-02 | Phase 3 | Pending |
-| BUG-03 | Phase 3 | Pending |
+| BUG-02 | Phase 3 | Complete |
+| BUG-03 | Phase 3 | Complete |
 | BUG-04 | Phase 2 | Complete |
 | BUG-05 | Phase 3 | Complete |
 | BUG-06 | Phase 7 | Pending |

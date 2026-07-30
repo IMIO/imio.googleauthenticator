@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 03
 current_phase_name: encrypted-seeds-and-local-qr
-status: executing
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-07-30T09:55:09.488Z"
+status: verifying
+stopped_at: Completed 03-03-PLAN.md -- phase 03 code-complete, ready for verification
+last_updated: "2026-07-30T10:12:23.326Z"
 last_activity: 2026-07-30
 last_activity_desc: Phase 03 execution started
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -29,10 +29,10 @@ See: .planning/PROJECT.md (updated 2026-07-29)
 
 Phase: 03 (encrypted-seeds-and-local-qr) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-30 — Phase 03 execution started
 
-Progress: [████████████████████] 6/6 plans authored ([█████████░] 89%) · 2 of 8 roadmap phases complete
+Progress: [████████████████████] 6/6 plans authored ([██████████] 100%) · 2 of 8 roadmap phases complete
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Progress: [████████████████████] 6/6 pla
 | Phase 02 P02 | 12min | 2 tasks | 3 files |
 | Phase 03 P01 | 35min | 5 tasks | 8 files |
 | Phase 03 P02 | 20min | 2 tasks | 4 files |
+| Phase 03 P03 | 45min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,8 @@ Recent decisions affecting current work:
 - [Phase ?]: ska_secret_key control-panel TextLine field (02-SECURITY.md R-02-01) re-deferred again: PasswordWidget blanks an untouched field on Save, so the swap needs its own tested change, not a drive-by.
 - [Phase ?]: [Phase 3]: 03-02: base.cfg [instance] deliberately carries no IMIO_GOOGLEAUTHENTICATOR_SEED_KEY entry (whitespace-form buildout can't parse an empty default, and a placeholder would silently suppress the new CRITICAL log); the deployment buildout supplies it, documented in README.rst.
 - [Phase ?]: [Phase 3]: 03-02: no docs/ cross-reference added -- docs/index.rst is a stale pre-rename duplicate of an old README never kept in sync; README.rst is the deployer-facing shipped artifact DOC-03 targets.
+- [Phase ?]: 03-03: BUG-02 closed by regression test with no production code change -- redirect_url confirmed bound on all three reachable branches of SetupForm.handleSubmit, both by research and by execution (empty diff on user_setup.py).
+- [Phase ?]: 03-03: BUG-03 fixed via one shared validate_bar_code_reset_token helper (hmac.compare_digest with str/unicode coercion) used at both reset_bar_code.py comparison sites, not the one the requirement named.
 
 ### Pending Todos
 
@@ -127,6 +130,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-30T09:55:09.478Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-07-30T10:12:23.316Z
+Stopped at: Completed 03-03-PLAN.md -- phase 03 code-complete, ready for verification
 Resume file: None
