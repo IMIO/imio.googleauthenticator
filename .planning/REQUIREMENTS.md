@@ -40,8 +40,8 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [x] **SEC-04**: Ciphertext carries a `v1$` version prefix
 - [x] **SEC-05**: The enrollment QR code is rendered in-process by `qrcode == 6.1`; the seed is transmitted to no external service and appears in no subprocess argv
 - [x] **SEC-06**: New seeds are 160 bits of `os.urandom`, satisfying RFC 4226 §4 R6's 128-bit minimum
-- [ ] **SEC-07**: The required environment variable is documented and present in all four places it must exist — `[instance]`, `[testenv]`, the CI workflow, and (out of repo) the Puppet fragment
-- [ ] **SEC-08**: A missing key logs CRITICAL at process start rather than raising from module import or ZCML
+- [x] **SEC-07**: The required environment variable is documented and present in all four places it must exist — `[instance]`, `[testenv]`, the CI workflow, and (out of repo) the Puppet fragment
+- [x] **SEC-08**: A missing key logs CRITICAL at process start rather than raising from module import or ZCML
 
 ### Second-factor integrity (MFA)
 
@@ -104,7 +104,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 
 - [ ] **DOC-01**: The Zope-root limitation is documented — MFA covers users and site admins inside the Plone site; root `acl_users` admins are architecturally out of reach for an in-site PAS plugin
 - [ ] **DOC-02**: The basic-auth consequence is documented, naming the supported alternative for scripts and API consumers
-- [ ] **DOC-03**: The required encryption-key environment variable is documented for deployment, including the failure mode when a single ZEO client has a stale value
+- [x] **DOC-03**: The required encryption-key environment variable is documented for deployment, including the failure mode when a single ZEO client has a stale value
 - [x] **DOC-04**: `CHANGES.txt` records the rename and that existing databases are discarded rather than migrated
 
 ## v2 Requirements
@@ -182,8 +182,8 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | SEC-04 | Phase 3 | Complete |
 | SEC-05 | Phase 3 | Complete |
 | SEC-06 | Phase 3 | Complete |
-| SEC-07 | Phase 3 | Pending |
-| SEC-08 | Phase 3 | Pending |
+| SEC-07 | Phase 3 | Complete |
+| SEC-08 | Phase 3 | Complete |
 | MFA-01 | Phase 4 | Pending |
 | MFA-02 | Phase 4 | Pending |
 | MFA-03 | Phase 4 | Pending |
@@ -228,7 +228,7 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | QUAL-07 | Phase 8 | Pending |
 | DOC-01 | Phase 4 | Pending |
 | DOC-02 | Phase 4 | Pending |
-| DOC-03 | Phase 3 | Pending |
+| DOC-03 | Phase 3 | Complete |
 | DOC-04 | Phase 1 | Complete |
 
 **Coverage:**

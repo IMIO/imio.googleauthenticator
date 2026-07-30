@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: encrypted-seeds-and-local-qr
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-07-30T09:42:57.858Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-07-30T09:55:09.488Z"
 last_activity: 2026-07-30
 last_activity_desc: Phase 03 execution started
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 9
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-29)
 ## Current Position
 
 Phase: 03 (encrypted-seeds-and-local-qr) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-07-30 — Phase 03 execution started
 
-Progress: [████████████████████] 6/6 plans authored ([████████░░] 78%) · 2 of 8 roadmap phases complete
+Progress: [████████████████████] 6/6 plans authored ([█████████░] 89%) · 2 of 8 roadmap phases complete
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Progress: [████████████████████] 6/6 pla
 | Phase 02 P01 | 25min | 2 tasks | 4 files |
 | Phase 02 P02 | 12min | 2 tasks | 3 files |
 | Phase 03 P01 | 35min | 5 tasks | 8 files |
+| Phase 03 P02 | 20min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Task 1 checkpoint: environment-variable name locked to IMIO_GOOGLEAUTHENTICATOR_SEED_KEY (human overrode plan default IMIO_GA_SEED_KEY).
 - [Phase ?]: Task 2 blocking-human package gate: cryptography==3.3.2, ipaddress==1.0.23, qrcode==6.1, cffi==1.15.1, Pillow all approved on live-PyPI-verified provenance.
 - [Phase ?]: ska_secret_key control-panel TextLine field (02-SECURITY.md R-02-01) re-deferred again: PasswordWidget blanks an untouched field on Save, so the swap needs its own tested change, not a drive-by.
+- [Phase ?]: [Phase 3]: 03-02: base.cfg [instance] deliberately carries no IMIO_GOOGLEAUTHENTICATOR_SEED_KEY entry (whitespace-form buildout can't parse an empty default, and a placeholder would silently suppress the new CRITICAL log); the deployment buildout supplies it, documented in README.rst.
+- [Phase ?]: [Phase 3]: 03-02: no docs/ cross-reference added -- docs/index.rst is a stale pre-rename duplicate of an old README never kept in sync; README.rst is the deployer-facing shipped artifact DOC-03 targets.
 
 ### Pending Todos
 
@@ -124,6 +127,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-30T09:42:57.848Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-07-30T09:55:09.478Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None
