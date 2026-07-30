@@ -65,6 +65,14 @@ Changelog
   The ``UnboundLocalError`` described in earlier notes does not reproduce
   on the current source, so this is a guard rather than a fix.
   [chris-adam]
+- Submitting a token for a user with no stored seed is now refused instead of
+  raising ``TypeError('Incorrect secret')`` out of ``onetimepass`` as an
+  unhandled 500. ``get_secret`` returns ``None`` implicitly for such a user,
+  and ``validate_token`` passed it straight through. Guarded in
+  ``validate_token``, which all three callers route through, and deliberately
+  narrow: an undecryptable stored seed still raises, since answering "wrong
+  token" to a broken-key condition would downgrade a fail-closed refusal.
+  [chris-adam]
 - The bar-code reset email no longer fails on a non-ASCII character. The
   ``MailHost.send()`` call passed no ``charset``, so ``_mungeHeaders``
   ASCII-encoded the unicode body and a single accented byte -- from the

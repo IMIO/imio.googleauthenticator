@@ -293,6 +293,26 @@ def validate_token(token, user=None):
 
     # logger.debug('secret: {0}'.format(secret))
 
+    if not secret:
+        # No stored seed means no token can be valid, so refuse rather than
+        # hand a falsy secret to onetimepass: it base32-decodes whatever it
+        # is given and raises TypeError('Incorrect secret'), which is an
+        # unhandled 500 on a form whose job is to reject bad input. Note
+        # that get_secret returns None *implicitly* for a user with no
+        # secret, which is how this reaches onetimepass at all.
+        #
+        # Guarded here rather than in the three callers (token.py,
+        # reset_bar_code.py, user_setup.py) because all three route through
+        # this function, and each can resolve a secret-less user: the token
+        # and reset forms pass user=None when no signed `auth_user`
+        # parameter is present, and their updateFields has already blanked
+        # the __ac cookie, so that submit arrives anonymous.
+        #
+        # Deliberately narrow: a *decryption* failure inside get_secret
+        # raises ValueError and must keep propagating, since swallowing it
+        # would downgrade a broken-key refusal into a wrong-token message.
+        return False
+
     validation_result = valid_totp(token=token, secret=secret)
 
     return validation_result

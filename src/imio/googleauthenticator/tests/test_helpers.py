@@ -351,6 +351,45 @@ class TestSeedEncryption(unittest.TestCase, BaseTest):
         self.assertRaises(ValueError, decrypt_seed, u'no-prefix-here')
         self.assertRaises(ValueError, decrypt_seed, u'v2$whatever')
 
+    def test_validate_token_refuses_a_user_with_no_stored_seed(self):
+        """G-03-2 regression: a secret-less user must get a refusal, not a
+        500.
+
+        ``get_secret`` returns ``None`` *implicitly* for a user whose
+        ``two_factor_authentication_secret`` is empty, and ``onetimepass``
+        base32-decodes whatever it is handed, so before the guard this raised
+        ``TypeError('Incorrect secret')`` straight out of the token form.
+        Reported from a real instance: submitting any code at
+        ``@@google-authenticator-token`` after arriving without a signed
+        ``auth_user`` parameter 500'd regardless of whether the code was
+        correct.
+
+        The second half pins the guard's narrowness, which is the part a
+        careless refactor breaks: an *undecryptable* stored seed must still
+        raise, because answering "wrong token" to a broken-key condition
+        would turn a fail-closed refusal into a silent security downgrade.
+        """
+        user = api.user.get_current()
+        user.setMemberProperties(
+            mapping={'two_factor_authentication_secret': ''})
+
+        # Precondition -- the implicit None that reaches onetimepass.
+        self.assertIsNone(get_secret(user))
+
+        self.assertFalse(
+            validate_token('123456', user=user),
+            'A user with no stored seed must be refused, not crashed on.')
+
+        # Narrowness: a stored seed that cannot be decrypted still raises.
+        generate_secret(user)
+        original = helpers.get_encryption_key
+        helpers.get_encryption_key = lambda: Fernet.generate_key()
+        try:
+            self.assertRaises(
+                ValueError, validate_token, '123456', user=user)
+        finally:
+            helpers.get_encryption_key = original
+
     def test_encryption_key_is_read_per_call(self):
         """SEC-02's behavioural proof: every fail-closed assertion above
         injects by rebinding the module's key reader, which exercises the

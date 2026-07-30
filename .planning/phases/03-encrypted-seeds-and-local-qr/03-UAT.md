@@ -147,7 +147,20 @@ documented recovery path for a locked-out user, which is why it is not merely co
 
 - gap_id: G-03-2
   truth: "Submitting a token at @@google-authenticator-token returns a form error, never an HTTP 500"
-  status: failed
+  status: resolved
+  resolved_by: "falsy-secret guard in helpers.validate_token"
+  resolved_at: 2026-07-30
+  resolution: |
+    Fixed directly rather than via a gap-closure plan, at the reporter's request.
+    Guarded in validate_token rather than in its three callers (token.py:96,
+    reset_bar_code.py:94, user_setup.py:68) — all route through it, and
+    reset_bar_code.py had the same unreported exposure.
+    Verified failing first by stashing only the guard: the test errors with the
+    reported `TypeError: Incorrect secret`, and passes with it.
+    The test also pins the guard's narrowness — an undecryptable stored seed must
+    still raise ValueError, since answering "wrong token" to a broken-key condition
+    would turn a fail-closed refusal into a silent downgrade.
+    Suite green at 44 tests, 0 failures, 0 errors.
   reason: "User reported: it yields an error 500 no matter if my OTP is correct or not — TypeError: Incorrect secret"
   severity: major
   test: 1
