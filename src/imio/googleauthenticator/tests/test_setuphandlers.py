@@ -42,7 +42,7 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         self._install()
 
     def test_import_step_declares_registry_dependency(self):
-        """REG-03: the <depends name="plone.app.registry"/> declaration is
+        """REG-02: the <depends name="plone.app.registry"/> declaration is
         recorded on our import step.
 
         This -- not the sorted order below -- is the control. Asserting only
@@ -53,17 +53,26 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         that assertion passes either way and would not catch the deletion.
         Verified empirically during phase-2 verification. Asserting the
         recorded dependency instead fails the moment the declaration goes.
+
+        Requirement id corrected from REG-03 to REG-02 during the phase-2
+        Nyquist audit: REG-02 is the declaration, REG-03 is the sorted-order
+        outcome below. Both docstrings previously read REG-03, leaving REG-02
+        with no test claiming it by id. Note that REG-03's own wording calls
+        the ordering assertion "the control" -- the paragraph above is the
+        evidence that it is not, so REG-02's declaration check is what
+        actually holds the requirement REG-03 was trying to express. See
+        02-VALIDATION.md "Requirement-Text Divergence".
         """
         portal_setup = getToolByName(self.portal, 'portal_setup')
         metadata = portal_setup.getImportStepMetadata(
             'imio.googleauthenticator')
         self.assertIsNotNone(
             metadata,
-            'REG-03: imio.googleauthenticator import step must be registered')
+            'REG-02: imio.googleauthenticator import step must be registered')
         self.assertIn(
             'plone.app.registry',
             metadata['dependencies'],
-            'REG-03: the import step must declare <depends '
+            'REG-02: the import step must declare <depends '
             'name="plone.app.registry"/> -- without it the registry records '
             'may not exist when setupVarious runs, and the resulting '
             'get_app_settings() KeyError is a swallowable PAS exception')
