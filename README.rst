@@ -120,6 +120,73 @@ Buildout
 >>> zcml +=
 >>>     imio.googleauthenticator
 
+Seed encryption key (required)
+------------------------------------------------
+This is the ``Fernet`` key that encrypts every user's TOTP seed at rest, stored as
+``v1$<token>``. Without it set, **three** things stop working -- not only login, which is
+the symptom an operator notices first:
+
+- enrollment fails -- the setup form cannot generate or store a seed.
+- login fails for any user with two-step verification enabled -- refused outright, never
+  silently downgraded to password-only.
+- **new account creation fails entirely.** ``userCreatedHandler`` runs on every
+  ``IPrincipalCreatedEvent``, and with ``globally_enabled`` defaulting on it calls
+  ``get_or_create_secret()``. A missing key raises there, the transaction aborts, and
+  registration plus ``plone.api.user.create()`` both stop working. This is deliberate
+  fail-closed behaviour, not a bug: enrolling a user with no recoverable second factor
+  would be worse.
+
+There is no plaintext fallback, by design.
+
+Generate one with::
+
+    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key())"
+
+Where it goes, and who supplies it -- this is the part a deployer needs, and the part
+this repository does not own:
+
+- as an ``environment-vars`` entry on the Zope instance process, one per ZEO client. It
+  is **per ZEO client, not per database** -- it is never stored in the ZODB, and every
+  client needs the identical value.
+- this package's own ``base.cfg`` deliberately does **not** declare it on ``[instance]``.
+  ``environment-vars`` is whitespace-separated ``NAME value``; an option reference
+  defaulting to empty would emit a bare token and fail the buildout, and a literal
+  placeholder would be worse still -- production would encrypt every seed under a key any
+  reader of this repository can see, while suppressing the CRITICAL warning below because
+  the key would no longer be absent. The deployment buildout supplies ``[instance]``'s
+  copy, exactly the way ``SSO_APPS_CLIENT_SECRET`` already arrives:
+  ``server.dmsmail/base.cfg`` reads it through ``os.getenv()``.
+- for **local development**, run ``export IMIO_GOOGLEAUTHENTICATOR_SEED_KEY=<generated
+  value>`` in your shell before ``bin/instance fg``. Without it, a dev instance starts
+  fine, logs the CRITICAL line below, and cannot enrol anybody -- correct, but confusing
+  if undocumented.
+- ``bin/test`` needs no action: ``base.cfg``'s ``[testenv]`` section carries a throwaway
+  key, and ``[test]``'s ``environment = testenv`` hands it to the generated test runner --
+  which is also how CI inherits it, since CI only runs ``bin/buildout`` then ``bin/test``.
+  ``tests/test_subscribers.py``'s ``test_seed_key_is_present_in_the_test_environment``
+  asserts that this keeps being true.
+
+The failure mode this section exists to document: one ZEO client with a stale or missing
+Puppet fragment does not fail visibly. It produces ``InvalidToken`` for the fraction of
+logins the load balancer happens to route to that client, intermittently, following no
+per-user pattern, with **nothing in the database to inspect** -- the seeds are fine, the
+registry is fine, only that one process's environment is wrong. At boot, that client logs
+one CRITICAL line naming the variable (see below); at runtime, watch for an intermittent
+500 on the token form. Rotating the key makes every existing enrolled seed undecryptable
+and requires every user to re-enrol, so it is not a routine operation.
+
+At Zope startup, a missing key logs one line at CRITICAL naming
+``IMIO_GOOGLEAUTHENTICATOR_SEED_KEY`` and states the consequence; Zope still reaches
+"Ready to handle requests" rather than aborting -- the absence is loud, never fatal to
+the process itself.
+
+The production value ships as a ``concat::fragment`` in the separate
+``industrialisation`` repository (``modules/plone/manifests/buildout.pp``), following the
+same path ``SSO_APPS_CLIENT_SECRET`` already takes (``buildout.pp`` -> the deployment's
+``base.cfg`` -> ``os.getenv()``). This is **not** one of this repository's commits. The
+code above is complete and fully tested without it; the feature is **not deployable**
+until that Puppet change ships.
+
 ZMI
 ------------------------------------------------
 ZMI -> portal_quickinstaller

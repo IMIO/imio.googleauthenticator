@@ -7,7 +7,10 @@ import os
 import unittest2 as unittest
 import xml.dom.minidom
 
+from cryptography.fernet import Fernet
+
 import imio.googleauthenticator
+from imio.googleauthenticator import helpers
 from imio.googleauthenticator import subscribers
 
 
@@ -74,3 +77,32 @@ class TestOnProcessStarting(unittest.TestCase):
             and element.getAttribute('handler') == '.subscribers.on_process_starting'
         ]
         self.assertEqual(1, len(matches))
+
+    def test_seed_key_is_present_in_the_test_environment(self):
+        """SEC-07: this method deliberately asserts on ``os.environ`` rather
+        than setting it -- the opposite of every other test in this phase.
+        That is the point: it is the only assertion in the suite that fails
+        if ``base.cfg``'s ``[testenv]`` regresses, and it is what turns
+        SEC-07's CI-inheritance slot into an observation rather than an
+        assumption. Do not "fix" this into a self-contained test that sets
+        its own key -- that would delete the signal.
+        """
+        key = os.environ.get(helpers.ENV_VAR_NAME)
+        self.assertTrue(
+            key,
+            'SEC-07-empty boundary: base.cfg [testenv] must declare a '
+            'non-empty {0}'.format(helpers.ENV_VAR_NAME))
+
+        # A declared-but-unusable value is the failure this catches -- the
+        # same assertion that proves CI inherits a usable key, not merely a
+        # variable name.
+        Fernet(key)
+
+        # SEC-07 adjacency / the ZEO-skew failure mode, mechanised: a
+        # ciphertext from a different key must not decrypt under this one.
+        foreign_key = Fernet.generate_key()
+        foreign_token = Fernet(foreign_key).encrypt(b'unrelated-seed')
+        foreign_ciphertext = u'{0}{1}'.format(
+            helpers.CIPHERTEXT_VERSION_PREFIX, foreign_token.decode('ascii'))
+        self.assertRaises(
+            ValueError, helpers.decrypt_seed, foreign_ciphertext)
