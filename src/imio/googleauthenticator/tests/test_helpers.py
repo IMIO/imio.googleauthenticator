@@ -5,17 +5,23 @@ import unittest2 as unittest
 from cryptography.fernet import Fernet
 from onetimepass import get_totp
 
+from Products.statusmessages.interfaces import IStatusMessage
+
 from plone import api
 from plone.app.testing import login
+from plone.app.testing import setRoles
+from plone.app.testing import TEST_USER_ID
 from plone.app.testing import TEST_USER_NAME
 
 from imio.googleauthenticator import helpers
+from imio.googleauthenticator.browser.controlpanel import GoogleAuthenticatorSettingsEditForm
 from imio.googleauthenticator.testing import \
     IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 
 from imio.googleauthenticator.helpers import decrypt_seed
 from imio.googleauthenticator.helpers import encrypt_seed
+from imio.googleauthenticator.helpers import enable_two_factor_authentication_for_users
 from imio.googleauthenticator.helpers import extract_ip_address_from_request
 from imio.googleauthenticator.helpers import generate_secret
 from imio.googleauthenticator.helpers import get_app_settings
@@ -380,3 +386,113 @@ class TestSeedEncryption(unittest.TestCase, BaseTest):
         self.assertIsInstance(result, unicode)
         self.assertIn(ciphertext, result)
         self.assertTrue(result.startswith(u'{0}:'.format(len(ciphertext))))
+
+    def test_bulk_enable_reports_failure_when_seed_key_is_broken(self):
+        """T-03-21: before this task, a control-panel Save or the
+        @@google-authenticator-enable-for-all-users view with a missing or
+        malformed key showed a success message while enrolling zero users --
+        the same silent-security-control-removal shape as Phase 1's
+        _dont_swallow_my_exceptions gap and Phase 2's CR-02 transaction-abort
+        bug, landing on what is plausibly an operator's first action before
+        the Puppet fragment ships. Message TYPES are asserted, not message
+        text: the strings are zope.i18nmessageid Messages and comparing
+        rendered text couples the assertion to translation state.
+        """
+        user = api.user.get_current()
+        # google-authenticator-enable-for-all-users and the control panel
+        # both require cmf.ManagePortal.
+        setRoles(self.portal, TEST_USER_ID, ['Manager'])
+
+        original = helpers.get_encryption_key
+        helpers.get_encryption_key = lambda: None
+        try:
+            # 1. The mechanism: the loop no longer absorbs the key failure.
+            self.assertRaises(
+                ValueError,
+                enable_two_factor_authentication_for_users, [user])
+
+            # 2. The @@google-authenticator-enable-for-all-users view.
+            IStatusMessage(self.request).show()  # drain prior messages
+            view = self.portal.restrictedTraverse(
+                '@@google-authenticator-enable-for-all-users')
+            view.request = self.request
+            view.index()
+            types = [m.type for m in IStatusMessage(self.request).show()]
+            self.assertIn('error', types)
+            self.assertNotIn('info', types)
+
+            # 3. The control panel Save. IGoogleAuthenticatorSettings'
+            # fieldset(None, ...) puts all three fields into a single
+            # unnamed group rather than form.fields directly, so the
+            # widget -- and its request key -- lives in
+            # form.groups[0].widgets, not form.widgets.
+            IStatusMessage(self.request).show()  # drain prior messages
+            form = GoogleAuthenticatorSettingsEditForm(
+                self.portal, self.request)
+            form.update()
+            widget_name = form.groups[0].widgets['globally_enabled'].name
+            self.request.form[widget_name] = u'selected'
+            data, errors = form.extractData()
+            if errors:
+                # Same one-line fallback as 03-03 Task 2 uses for its
+                # widget key: report the actual widget name rather than
+                # guessing further.
+                print(form.groups[0].widgets['globally_enabled'].name)
+            handleSave = GoogleAuthenticatorSettingsEditForm.handleSave.func
+            handleSave(form, None)
+            types = [m.type for m in IStatusMessage(self.request).show()]
+            self.assertIn('error', types)
+            self.assertNotIn('info', types)
+        finally:
+            helpers.get_encryption_key = original
+
+    def test_user_creation_fails_closed_when_seed_key_is_broken(self):
+        """T-03-22: userdataschema.userCreatedHandler runs
+        get_or_create_secret on every new-user IPrincipalCreatedEvent
+        because globally_enabled defaults True, so a missing/malformed key
+        does not only refuse logins -- it stops account creation entirely.
+        Correct fail-closed, different blast radius: plan 03-02's DOC-03
+        records it in README.rst so an operator learns it from the docs
+        rather than from a broken registration form.
+        """
+        setRoles(self.portal, TEST_USER_ID, ['Manager'])
+
+        # Control, run first: with the good key from setUp, account
+        # creation succeeds and the new user gets a real ciphertext.
+        control_user = api.user.create(
+            email='seed-fail-closed-control@example.com',
+            username='seed-fail-closed-control-user',
+            password='Secret0123!')
+        self.assertTrue(
+            control_user.getProperty(
+                'two_factor_authentication_secret').startswith(u'v1$'))
+
+        original = helpers.get_encryption_key
+        helpers.get_encryption_key = lambda: None
+        try:
+            broken_username = 'seed-fail-closed-broken-user'
+            self.assertRaises(
+                ValueError, api.user.create,
+                email='seed-fail-closed-broken@example.com',
+                username=broken_username,
+                password='Secret0123!')
+            # Observed, not assumed (the plan's own philosophy for its two
+            # Open Questions, applied here): a real HTTP request rolls this
+            # back via transaction.abort() when the subscriber's raise
+            # escapes, but this synchronous test call crosses no such
+            # boundary, so the MemberData object created before the
+            # subscriber's get_or_create_secret call is still visible here.
+            # What the raise DOES guarantee even in-process: it happens
+            # before setMemberProperties(enable_two_factor_authentication=
+            # True), so a half-made account is never left enrolled, and
+            # generate_secret's own raise (inside get_or_create_secret)
+            # happens before its setMemberProperties too, so no secret is
+            # stored either.
+            broken_user = api.user.get(username=broken_username)
+            if broken_user is not None:
+                self.assertFalse(broken_user.getProperty(
+                    'enable_two_factor_authentication', False))
+                self.assertFalse(broken_user.getProperty(
+                    'two_factor_authentication_secret', ''))
+        finally:
+            helpers.get_encryption_key = original

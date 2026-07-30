@@ -525,6 +525,12 @@ def enable_two_factor_authentication_for_users(users=None):
             if not has_enabled_two_factor_authentication(user):
                 user.setMemberProperties(
                     mapping={'enable_two_factor_authentication': True})
+        except ValueError:
+            # A key failure is not per-user, it is total: skipping every
+            # user and returning normally would report a success that did
+            # not happen. Let it escape so the callers can turn it into an
+            # operator-visible failure instead of a silently absorbed one.
+            raise
         except Exception as e:
             logger.debug(str(e))
 
