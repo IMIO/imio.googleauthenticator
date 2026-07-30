@@ -15,6 +15,7 @@ from Products.statusmessages.interfaces import IStatusMessage
 from zope.schema import TextLine
 
 from imio.googleauthenticator.helpers import get_token_description, validate_token, validate_user_data
+from imio.googleauthenticator.helpers import validate_bar_code_reset_token
 
 logger = logging.getLogger('imio.googleauthenticator')
 
@@ -101,7 +102,7 @@ class ResetBarCodeForm(form.SchemaForm):
                 # Checking if token generated for resetting the bar code image is equal
                 # to the one taken from current request.
                 bar_code_reset_token = user.getProperty('bar_code_reset_token')
-                if bar_code_reset_token != signature_token:
+                if not validate_bar_code_reset_token(bar_code_reset_token, signature_token):
                     reason = _("Invalid bar-code reset token.")
                     IStatusMessage(self.request).addStatusMessage(
                         _("Resetting of the bar-code failed! {0}".format(reason)),
@@ -151,7 +152,7 @@ class ResetBarCodeForm(form.SchemaForm):
 
             # If all goes well, regenerate the token (overwrite_secret=True) and show the bar code image.
             if barcode_field:
-                if user_data_validation_result.result and bar_code_reset_token == token:
+                if user_data_validation_result.result and validate_bar_code_reset_token(bar_code_reset_token, token):
                     barcode_field.field.description = _(get_token_description(user=user, overwrite_secret=False))
                 else:
                     if not user_data_validation_result.result:

@@ -2,6 +2,7 @@
 This helper module contains functions used throughout c.googleauthenticator.
 """
 from hashlib import sha1
+from hmac import compare_digest
 from urllib import unquote, quote
 from urlparse import urlparse
 import base64
@@ -500,6 +501,54 @@ def validate_user_data(request, user, use_browser_hash=True):
         secret_key=secret_key
     )
     return validation_result
+
+
+def validate_bar_code_reset_token(stored_token, submitted_token):
+    """
+    Compares a bar-code reset token against a submitted value in constant
+    time, through ``hmac.compare_digest``, refusing to match on any falsy
+    operand.
+
+    The stored token is written as a py2 ``str``
+    (``request_bar_code_reset.py``'s ``user.setMemberProperties(mapping=
+    {'bar_code_reset_token': str(signature)})``) while the value read off
+    the request is typically ``unicode``. A naive ``compare_digest(a, b)``
+    raises ``TypeError: 'unicode' does not have the buffer interface`` when
+    ``a`` and ``b`` are different types on Python 2, so both operands are
+    coerced to ``str`` bytes first.
+
+    An absent or empty stored token means no reset was ever requested, so it
+    must never match anything -- including an empty submitted value. This is
+    a deliberate behaviour change from the previous ``==``/``!=`` equality
+    tests, which returned ``True`` for two empty strings.
+
+    A non-ASCII ``unicode`` operand is caught and turned into ``False``
+    rather than allowed to escape as ``UnicodeEncodeError`` -- the one place
+    in this module where catching an exception on attacker-controlled,
+    pre-authentication input is the fail-closed behaviour rather than a
+    violation of it: the stored token is always ASCII hex-ish ``ska``
+    output, so a non-ASCII submitted value can only be an attacker probing,
+    and it must be a clean refusal, not a crash.
+
+    Do not log either operand at any level: the stored value is a secret
+    that grants a bar-code reset.
+
+    :param stored_token: The ``bar_code_reset_token`` memberdata property.
+    :param submitted_token: The ``signature`` value read from the request.
+    :return bool:
+    """
+    if not stored_token or not submitted_token:
+        return False
+
+    try:
+        if isinstance(stored_token, unicode):
+            stored_token = stored_token.encode('ascii')
+        if isinstance(submitted_token, unicode):
+            submitted_token = submitted_token.encode('ascii')
+    except UnicodeEncodeError:
+        return False
+
+    return compare_digest(stored_token, submitted_token)
 
 
 def has_enabled_two_factor_authentication(user):

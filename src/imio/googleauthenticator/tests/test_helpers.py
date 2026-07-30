@@ -32,6 +32,7 @@ from imio.googleauthenticator.helpers import get_ip_ranges
 from imio.googleauthenticator.helpers import get_or_create_secret
 from imio.googleauthenticator.helpers import get_secret
 from imio.googleauthenticator.helpers import get_ska_secret_key
+from imio.googleauthenticator.helpers import validate_bar_code_reset_token
 from imio.googleauthenticator.helpers import validate_token
 from ipaddress import IPv4Network
 from ipaddress import IPv4Address
@@ -496,3 +497,52 @@ class TestSeedEncryption(unittest.TestCase, BaseTest):
                     'two_factor_authentication_secret', ''))
         finally:
             helpers.get_encryption_key = original
+
+
+class TestBarCodeResetToken(unittest.TestCase):
+    """BUG-03: validate_bar_code_reset_token is a pure comparison function
+    with no Zope state, so -- unlike every other class in this
+    concern-named file (R7) -- this class carries no layer. The two
+    production call sites in reset_bar_code.py (handleSubmit and
+    updateFields) are covered by this plan's acceptance-criteria greps
+    rather than by an integration test: the bar-code reset flow has zero
+    test coverage today, and building it is COEX-04's business in Phase 7,
+    not this plan's.
+    """
+
+    def test_validate_bar_code_reset_token(self):
+        # All four str/unicode combinations of a matching pair. Each of
+        # these would raise TypeError under a naive hmac.compare_digest
+        # swap, so each is a separate assertion, not a loop over one
+        # representative.
+        self.assertTrue(validate_bar_code_reset_token('abc123', 'abc123'))
+        self.assertTrue(validate_bar_code_reset_token('abc123', u'abc123'))
+        self.assertTrue(validate_bar_code_reset_token(u'abc123', 'abc123'))
+        self.assertTrue(validate_bar_code_reset_token(u'abc123', u'abc123'))
+
+        # A genuine mismatch, same type and same length -- a length-differing
+        # pair would pass even a broken implementation.
+        self.assertFalse(validate_bar_code_reset_token('abc123', 'xyz789'))
+
+        # A mismatch where the two operands differ in length returns False
+        # without raising -- compare_digest accepts unequal lengths and
+        # leaks only the length, which is acceptable here and must not be
+        # "improved" into a raise.
+        self.assertFalse(validate_bar_code_reset_token('abc123', 'ab'))
+
+        # The empty cases all return False. An absent or empty stored token
+        # means no reset was ever requested, so it must never match --
+        # including an empty submitted value. This is the behaviour change
+        # from the previous ==/!= equality tests, which returned True for
+        # two empty strings.
+        self.assertFalse(validate_bar_code_reset_token('', 'abc123'))
+        self.assertFalse(validate_bar_code_reset_token('abc123', ''))
+        self.assertFalse(validate_bar_code_reset_token('', ''))
+        self.assertFalse(validate_bar_code_reset_token(None, 'abc123'))
+
+        # A non-ASCII unicode operand returns False rather than raising
+        # UnicodeEncodeError -- the stored token is always ASCII hex-ish
+        # ska output, so a non-ASCII submitted value can only be an
+        # attacker probing.
+        self.assertFalse(
+            validate_bar_code_reset_token('abc123', u'\xe9\xe9\xe9\xe9\xe9\xe9'))
