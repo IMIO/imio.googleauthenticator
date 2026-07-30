@@ -14,6 +14,8 @@ from imio.googleauthenticator.testing import \
     IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 
+from imio.googleauthenticator.helpers import decrypt_seed
+from imio.googleauthenticator.helpers import encrypt_seed
 from imio.googleauthenticator.helpers import extract_ip_address_from_request
 from imio.googleauthenticator.helpers import generate_secret
 from imio.googleauthenticator.helpers import get_app_settings
@@ -289,3 +291,92 @@ class TestSeedEncryption(unittest.TestCase, BaseTest):
         self.assertEqual(first, second)
         self.assertEqual(
             stored, user.getProperty('two_factor_authentication_secret'))
+
+    def test_seed_encryption_fails_closed(self):
+        """SEC-03 enrollment half: encrypt_seed/generate_secret refuse with
+        the key unset, with the key garbage (not valid base64 at all -- the
+        TypeError-from-binascii branch), and with the key valid base64 but
+        the wrong length (the ValueError branch) -- never falling back to a
+        plaintext store or the input unchanged. Also pins that the
+        exception text names ENV_VAR_NAME and never the key's own value,
+        and that an unknown ciphertext envelope version refuses rather than
+        attempting a decrypt.
+        """
+        user = api.user.get_current()
+        pre_call_property = user.getProperty('two_factor_authentication_secret')
+
+        bad_keys = (
+            lambda: None,
+            lambda: 'not-a-valid-fernet-key',
+            lambda: base64.urlsafe_b64encode('short'),
+        )
+        for bad_key in bad_keys:
+            original = helpers.get_encryption_key
+            helpers.get_encryption_key = bad_key
+            try:
+                self.assertRaises(ValueError, encrypt_seed, 'ABCDEFGH')
+                self.assertRaises(ValueError, generate_secret, user)
+                # No plaintext leaked on the failure path.
+                self.assertEqual(
+                    pre_call_property,
+                    user.getProperty('two_factor_authentication_secret'))
+            finally:
+                helpers.get_encryption_key = original
+
+        # The key value never appears in the exception message -- only the
+        # variable name does.
+        distinctive_key = 'this-is-a-distinctive-bogus-key-value'
+        original = helpers.get_encryption_key
+        helpers.get_encryption_key = lambda: distinctive_key
+        try:
+            try:
+                encrypt_seed('ABCDEFGH')
+                self.fail('expected ValueError')
+            except ValueError as exc:
+                self.assertIn('IMIO_GOOGLEAUTHENTICATOR_SEED_KEY', str(exc))
+                self.assertNotIn(distinctive_key, str(exc))
+        finally:
+            helpers.get_encryption_key = original
+
+        # Version prefix: an unknown/missing envelope version refuses
+        # rather than attempting a decrypt, with the valid key from setUp
+        # still in place.
+        self.assertRaises(ValueError, decrypt_seed, u'no-prefix-here')
+        self.assertRaises(ValueError, decrypt_seed, u'v2$whatever')
+
+    def test_encryption_key_is_read_per_call(self):
+        """SEC-02's behavioural proof: every fail-closed assertion above
+        injects by rebinding the module's key reader, which exercises the
+        callers but never proves the reader itself reads os.environ fresh --
+        a module-scope ``_KEY = os.environ.get(ENV_VAR_NAME)`` would satisfy
+        the source-grep criterion too. This method must NOT rebind that
+        reader; rewriting it to do so would delete the only assertion in
+        this phase that distinguishes a per-call read from a frozen one.
+        """
+        os.environ[helpers.ENV_VAR_NAME] = Fernet.generate_key()
+        ciphertext = encrypt_seed('ABCDEFGH')
+
+        os.environ[helpers.ENV_VAR_NAME] = Fernet.generate_key()
+        self.assertRaises(ValueError, decrypt_seed, ciphertext)
+
+    def test_ciphertext_is_a_safe_ska_key_component(self):
+        """Closes 02-SECURITY.md R-02-02 by assertion rather than carrying
+        the ASCII-by-construction assumption forward a third time:
+        get_ska_secret_key() must survive a real v1$<fernet-token>
+        ciphertext as the ``user_secret`` netstring component.
+        """
+        user = api.user.get_current()
+        # overwrite=True: force a fresh secret encrypted under this test's
+        # own key, rather than trusting a property that may already be set
+        # (memberdata commits inside BaseTest._install()'s testbrowser calls
+        # survive across test methods in this layer -- see TestSkaSecretKey
+        # .setUp's docstring for the same hazard's re-login half).
+        get_or_create_secret(user, overwrite=True)
+        ciphertext = user.getProperty('two_factor_authentication_secret')
+
+        result = get_ska_secret_key(
+            request=self.request, user=user, use_browser_hash=False)
+
+        self.assertIsInstance(result, unicode)
+        self.assertIn(ciphertext, result)
+        self.assertTrue(result.startswith(u'{0}:'.format(len(ciphertext))))
