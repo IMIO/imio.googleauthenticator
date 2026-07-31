@@ -16,6 +16,9 @@ from zope.schema import TextLine
 
 from imio.googleauthenticator.helpers import get_token_description, is_site_local_user, validate_token, \
     validate_user_data
+from imio.googleauthenticator.helpers import is_account_locked
+from imio.googleauthenticator.helpers import register_failed_second_factor
+from imio.googleauthenticator.helpers import reset_failed_second_factor
 from imio.googleauthenticator.helpers import validate_bar_code_reset_token
 
 logger = logging.getLogger('imio.googleauthenticator')
@@ -105,6 +108,19 @@ class ResetBarCodeForm(form.SchemaForm):
                 )
             return
 
+        # Locked accounts get the exact same message as a wrong code, so
+        # the response cannot be used as an oracle -- the lock is checked
+        # before validate_token is ever consulted (MFA-08). Only a real,
+        # site-local account can be locked: this gate sits after both the
+        # user-not-found and is_site_local_user guards above.
+        if is_account_locked(user):
+            reason = _("Invalid token or token expired.")
+            IStatusMessage(self.request).addStatusMessage(
+                _("Resetting of the bar-code failed! {0}".format(reason)),
+                'error'
+                )
+            return
+
         # Validating the GoogleAuthenticator app token
         valid_token = validate_token(token, user=user)
 
@@ -113,6 +129,13 @@ class ResetBarCodeForm(form.SchemaForm):
 
         reason = None
         if valid_token:
+            # The second factor succeeded regardless of what the
+            # bar-code-reset-token comparison below decides, so the
+            # counter/lock reset happens here -- before the try block --
+            # rather than inside it (P5-14): a PropertyValueError from a
+            # mis-declared property must surface, not be caught by the
+            # except Exception below and reported as an unexpected error.
+            reset_failed_second_factor(user)
             try:
                 # Checking if token generated for resetting the bar code image is equal
                 # to the one taken from current request.
@@ -137,6 +160,7 @@ class ResetBarCodeForm(form.SchemaForm):
                 logger.exception("Bar-code reset failed for %r", username)
                 reason = _("An unexpected error occurred.")
         else:
+            register_failed_second_factor(user)
             reason = _("Invalid token or token expired.")
 
         if reason is not None:
