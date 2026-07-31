@@ -49,9 +49,9 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [x] **MFA-02**: Refusal does not leak the protected resource — no response body is served alongside the redirect
 - [x] **MFA-03**: Plugin ordering is set explicitly with `movePluginsTop`, and a test asserts this package's plugin is first among `IAuthenticationPlugin`
 - [x] **MFA-04**: One veto test per credentials extractor — form POST and HTTP Basic — each asserting no session is granted
-- [ ] **MFA-05**: A TOTP code from the immediately preceding time step is accepted (one step of drift, RFC 6238 §6)
-- [ ] **MFA-06**: A TOTP code already consumed is rejected on reuse (RFC 6238 §5.2 MUST NOT), and the rejection is logged without the username in plaintext
-- [ ] **MFA-07**: Only exactly-6-digit input is treated as a candidate token
+- [x] **MFA-05**: A TOTP code from the immediately preceding time step is accepted (one step of drift, RFC 6238 §6)
+- [x] **MFA-06**: A TOTP code already consumed is rejected on reuse (RFC 6238 §5.2 MUST NOT), and the rejection is logged without the username in plaintext
+- [x] **MFA-07**: Only exactly-6-digit input is treated as a candidate token
 - [x] **MFA-08**: After N consecutive failed second-factor attempts the account is locked for the configured duration, and the lock is checked before the token is evaluated so a locked account is not an oracle
 - [x] **MFA-09**: The lock expires on its own; no admin action is required
 - [x] **MFA-10**: N and the lock duration are editable in the control panel, defaulting to 5 and 900 seconds
@@ -188,9 +188,9 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | MFA-02 | Phase 4 | Complete |
 | MFA-03 | Phase 4 | Complete |
 | MFA-04 | Phase 4 | Complete |
-| MFA-05 | Phase 5 | Pending |
-| MFA-06 | Phase 5 | Pending |
-| MFA-07 | Phase 5 | Pending |
+| MFA-05 | Phase 5 | Complete |
+| MFA-06 | Phase 5 | Complete |
+| MFA-07 | Phase 5 | Complete |
 | MFA-08 | Phase 5 | Complete |
 | MFA-09 | Phase 5 | Complete |
 | MFA-10 | Phase 5 | Complete |

@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 05
 current_phase_name: drift-replay-and-lockout
 status: executing
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-07-31T15:33:52.937Z"
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-07-31T15:47:46.861Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 05 execution started
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-31)
 ## Current Position
 
 Phase: 05 (drift-replay-and-lockout) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-07-31 — Phase 05 execution started
 
-Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([█████████░] 88%)**
+Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([█████████░] 94%)**
 
 Phases 5–8 still have no plans, so the 13-plan denominator will grow; the phase figure
 remains the honest one.
@@ -84,6 +84,7 @@ recorded as WR-01 and WR-02 in `04-REVIEW.md`.
 | Phase 04 P03 | 90min | 2 tasks | 3 files |
 | Phase 04 P04 | 50min | 2 tasks | 3 files |
 | Phase 05 P01 | 16min | 3 tasks | 10 files |
+| Phase 05 P02 | 12min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 04-04: DOC-01/DOC-02 README sections added (Zope-root boundary + emergency-user carve-out; the settled credentials_basic_auth 'keep active' decision with WebDAV/FTP/XML-RPC consequence and the service-account+IP-whitelist alternative), each backed by a fact-presence CI test proven load-bearing by a delete-the-section mutation check; 'ZMI -> acl_users' reconciled to read as verification+recovery now that movePluginsTop is profile-authoritative.
 - [Phase ?]: [Phase 5]: 05-01: three int memberdata properties (failed_attempts/locked_until/last_interval) declared and round-trip-proven both directly and via the profile import; max_failed_attempts(5)/lockout_duration(900) added to the control panel with zero new form class; lock gate wired into token.py::handleSubmit before validate_user_data/validate_token, reusing the existing generic error message so a locked account is not an oracle.
 - [Phase ?]: [Phase 5]: 05-01: MFA-12 pinned by a source-grep test (tests/test_pas_plugin.py::test_no_second_factor_state_written_from_the_plugin) asserting pas_plugin.py/subscribers.py never mention the new property names or helper functions, plus a two-request Browser sequence proving the counter survives a request that began in Unauthorized. Both non-vacuity mutation checks (moving the lock gate past the success/failure dispatch; adding a property name to subscribers.py) reproduced red, then restored byte-identical.
+- [Phase ?]: [Phase 5]: 05-02: validate_token rewritten -- TOTP_INTERVAL_SECONDS/_is_six_digit_token/_find_accepted_interval added; drift accepted only backward (current, current-1), replay refused via two_factor_authentication_last_interval with a no-operand INFO log, format gate refuses non-six-ASCII-digit input before the seed is ever fetched. Same-commit regression fix: test_seed_encryption_round_trip now uses get_totp(seed, as_string=True). MFA-05 real-device drift-boundary check deferred to end-of-phase human verification (no running instance/physical device in this environment).
 
 ### Pending Todos
 
@@ -157,6 +159,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-31T15:33:52.925Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-07-31T15:47:46.846Z
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None
