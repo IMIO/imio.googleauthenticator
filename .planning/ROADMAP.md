@@ -163,13 +163,13 @@ Plans:
   4. The challenge fires on both paths, each with its own test: `IChallengePlugin` for requests ending in `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which returns HTTP 200 and never raises. One hook does not cover both.
   5. An exception inside `authenticateCredentials` wipes the credentials dict and refuses the login rather than falling through to `source_users`; and DOC-01 (Zope-root admins architecturally out of reach) and DOC-02 (the basic-auth consequence, naming the service-account alternative for scripts, WebDAV, FTP and XML-RPC) are written.
 
-**Plans**: 1/4 plans executed
+**Plans**: 2/4 plans executed
 
 Plans:
 **Wave 1**
 
 - [x] 04-01-PLAN.md — Tracer: decide-only `authenticateCredentials`, the shared `send_2fa_redirect`, the `IPubBeforeCommit` subscriber and its ZCML, and the body-emptiness control against a real `HTTPResponse` (MFA-02, COEX-08 login-POST half)
-- [ ] 04-02-PLAN.md — `movePluginsTop` re-asserted on every profile application, the ordering and no-`protocol` assertions, and the blocking `credentials_basic_auth` decision checkpoint (MFA-03)
+- [x] 04-02-PLAN.md — `movePluginsTop` re-asserted on every profile application, the ordering and no-`protocol` assertions, and the blocking `credentials_basic_auth` decision checkpoint (MFA-03)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -286,7 +286,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. Rename and Fail-Closed | 4/4 | Complete    | 2026-07-29 |
 | 2. Registry Seeding and Import-Step Ordering | 2/2 | Complete    | 2026-07-29 |
 | 3. Encrypted Seeds and Local QR | 3/3 | Complete    | 2026-07-30 |
-| 4. PAS Boundary | 1/4 | In Progress|  |
+| 4. PAS Boundary | 2/4 | In Progress|  |
 | 5. Drift, Replay and Lockout | 0/TBD | Not started | - |
 | 6. Recovery Codes | 0/TBD | Not started | - |
 | 7. Coexistence with imio.dms.mail | 0/TBD | Not started | - |
