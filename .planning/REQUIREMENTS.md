@@ -102,8 +102,8 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 
 ### Documentation (DOC)
 
-- [ ] **DOC-01**: The Zope-root limitation is documented — MFA covers users and site admins inside the Plone site; root `acl_users` admins are architecturally out of reach for an in-site PAS plugin
-- [ ] **DOC-02**: The basic-auth consequence is documented, naming the supported alternative for scripts and API consumers
+- [x] **DOC-01**: The Zope-root limitation is documented — MFA covers users and site admins inside the Plone site; root `acl_users` admins are architecturally out of reach for an in-site PAS plugin
+- [x] **DOC-02**: The basic-auth consequence is documented, naming the supported alternative for scripts and API consumers
 - [x] **DOC-03**: The required encryption-key environment variable is documented for deployment, including the failure mode when a single ZEO client has a stale value
 - [x] **DOC-04**: `CHANGES.txt` records the rename and that existing databases are discarded rather than migrated
 
@@ -226,8 +226,8 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | QUAL-05 | Phase 8 | Pending |
 | QUAL-06 | Phase 8 | Pending |
 | QUAL-07 | Phase 8 | Pending |
-| DOC-01 | Phase 4 | Pending |
-| DOC-02 | Phase 4 | Pending |
+| DOC-01 | Phase 4 | Complete |
+| DOC-02 | Phase 4 | Complete |
 | DOC-03 | Phase 3 | Complete |
 | DOC-04 | Phase 1 | Complete |
 

@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04
 current_phase_name: pas-boundary
-status: executing
-stopped_at: Completed 04-03-PLAN.md
-last_updated: "2026-07-31T09:22:01.216Z"
+status: verifying
+stopped_at: Completed 04-04-PLAN.md
+last_updated: "2026-07-31T09:31:57.583Z"
 last_activity: 2026-07-31
 last_activity_desc: Phase 04 execution started
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 13
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -29,10 +29,10 @@ See: .planning/PROJECT.md (updated 2026-07-29)
 
 Phase: 04 (pas-boundary) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-31 — Phase 04 execution started
 
-Progress: [██████████████░░░░░░] 9/13 plans executed ([█████████░] 92%) · **3 of 8 roadmap phases complete (38%)**
+Progress: [██████████████░░░░░░] 9/13 plans executed ([██████████] 100%) · **3 of 8 roadmap phases complete (38%)**
 
 Phase 4's 4 plans are authored but not executed. Phases 5–8 still have no plans, so the
 13-plan denominator will grow; the phase figure remains the honest one.
@@ -79,6 +79,7 @@ rated `one-way`. Execution stops there for a human answer.
 | Phase 04 P01 | 70min | 2 tasks | 4 files |
 | Phase 04 P02 | ~15min (continuation) | 3 tasks | 2 files |
 | Phase 04 P03 | 90min | 2 tasks | 3 files |
+| Phase 04 P04 | 50min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 04-02: no profiles/uninstall/ counterpart owed (only applied under the unselected 'deactivate' branch); plan 04-03's test_basic_auth_veto must assert through the normal _extractUserIds path, not a direct authenticateCredentials call.
 - [Phase ?]: [Phase 4]: 04-03: challenge() added as IChallengePlugin (COEX-08 Unauthorized half), sharing send_2fa_redirect with 04-01's IPubBeforeCommit subscriber; Open Question 3 resolved empirically as not-needed since 04-02's movePluginsTop loop already covers any interface classImplements declares
 - [Phase ?]: [Phase 4]: 04-03: five veto tests added (form POST, Basic Auth, both extractors at once, empty credentials, exception path), each proven load-bearing by a recorded mutation check; discovered (by design, not a bug) that HTTP Basic Auth loops forever against this 2FA veto since the client resends the same header on every request including the redirect target
+- [Phase ?]: Phase 04-04: DOC-01/DOC-02 README sections added (Zope-root boundary + emergency-user carve-out; the settled credentials_basic_auth 'keep active' decision with WebDAV/FTP/XML-RPC consequence and the service-account+IP-whitelist alternative), each backed by a fact-presence CI test proven load-bearing by a delete-the-section mutation check; 'ZMI -> acl_users' reconciled to read as verification+recovery now that movePluginsTop is profile-authoritative.
 
 ### Pending Todos
 
@@ -147,6 +149,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-31T09:22:01.202Z
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-07-31T09:31:57.568Z
+Stopped at: Completed 04-04-PLAN.md
 Resume file: None
