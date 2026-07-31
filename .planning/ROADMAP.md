@@ -198,7 +198,13 @@ Plans:
   4. A test asserts a successful second factor resets the failure counter, and that only exactly-6-digit input is treated as a candidate token. This requires a **new** gate in `helpers.py`, checked before `onetimepass` is ever called: the permissive `_is_possible_token` that accepts `"1"` and `"123"` is a private function inside the pinned `onetimepass==0.2.2` egg, so it cannot be patched (corrected during Phase 5 research — the earlier wording implied it lived in this package). N and the duration are editable in the control panel, defaulting to 5 and 900.
   5. Every new memberdata property has a `memberdata_properties.xml` entry and a `setMemberProperties()` → `getProperty()` round-trip test; and a test asserts the failure counter still increments after a request that ends in `Unauthorized`, proving the write lives in the token form view and not on an aborted path.
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Memberdata counter substrate, control-panel policy fields, and the lockout wired end to end on the token form (MFA-08..13)
+- [ ] 05-02-PLAN.md — Drift acceptance, replay rejection and the exact-six-digit gate in `helpers.validate_token`, one commit (MFA-05, MFA-06, MFA-07)
+- [ ] 05-03-PLAN.md — The same counter and lock on `@@reset-bar-code`, closing the anonymous guessing oracle (MFA-08 reset path, MFA-11, MFA-12)
+
 **UI hint**: no
 
 **Phase notes:**
@@ -289,7 +295,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 2. Registry Seeding and Import-Step Ordering | 2/2 | Complete    | 2026-07-29 |
 | 3. Encrypted Seeds and Local QR | 3/3 | Complete    | 2026-07-30 |
 | 4. PAS Boundary | 4/4 | Complete    | 2026-07-31 |
-| 5. Drift, Replay and Lockout | 0/TBD | Not started | - |
+| 5. Drift, Replay and Lockout | 0/3 | Planned | - |
 | 6. Recovery Codes | 0/TBD | Not started | - |
 | 7. Coexistence with imio.dms.mail | 0/TBD | Not started | - |
 | 8. Coverage Instrument and Test Layers | 0/TBD | Not started | - |
