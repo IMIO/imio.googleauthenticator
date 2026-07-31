@@ -163,10 +163,22 @@ Plans:
   4. The challenge fires on both paths, each with its own test: `IChallengePlugin` for requests ending in `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which returns HTTP 200 and never raises. One hook does not cover both.
   5. An exception inside `authenticateCredentials` wipes the credentials dict and refuses the login rather than falling through to `source_users`; and DOC-01 (Zope-root admins architecturally out of reach) and DOC-02 (the basic-auth consequence, naming the service-account alternative for scripts, WebDAV, FTP and XML-RPC) are written.
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — Tracer: decide-only `authenticateCredentials`, the shared `send_2fa_redirect`, the `IPubBeforeCommit` subscriber and its ZCML, and the body-emptiness control against a real `HTTPResponse` (MFA-02, COEX-08 login-POST half)
+- [ ] 04-02-PLAN.md — `movePluginsTop` re-asserted on every profile application, the ordering and no-`protocol` assertions, and the blocking `credentials_basic_auth` decision checkpoint (MFA-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04-03-PLAN.md — `IChallengePlugin.challenge` for the `Unauthorized` path, one veto assertion per extractor with non-vacuity controls, and the exception-path wipe (MFA-01, MFA-04, COEX-08 challenge half)
+- [ ] 04-04-PLAN.md — `README.rst` DOC-01/DOC-02 with fact-presence tests, the reconciled ZMI ordering section, and the changelog (DOC-01, DOC-02)
 
 **Phase notes:**
 
+- **Planning found three mechanical errors in `04-RESEARCH.md`**, each verified against the installed egg and recorded in 04-01-PLAN.md's `<research_corrections>`: `response.setBody('')` is a no-op (`HTTPResponse.py:459` returns before assigning `self.body`); the challenge-path redirect needs `lock=1` because `HTTPResponse.exception` runs `setStatus(Unauthorized)` immediately after calling the challenge (`:799-803`); and `request.get('_2fa_pending')` falls through to form data and cookies (`HTTPRequest.py:1250-1255`), making the research's recommended read attacker-settable. Read from `request.other` only.
 - **Open Decision to settle here, not assume:** whether to deactivate the `credentials_basic_auth` extractor outright. It is the only genuinely order-independent fix, at the cost of site-wide WebDAV/FTP/XML-RPC password auth. **Check `imio.dms.mail` and `server.dmsmail` for basic-auth dependence FIRST**, then choose and record the choice.
 - **Open Decision to settle here:** none other; the `ajax_load` question belongs to Phase 7.
 - The design is decision/redirect/grant split: `authenticateCredentials` **decides only** — whitelist check, 2FA check, first-factor verification, wipe the dict, set `request['_2fa_pending']`, return `None`. It never touches `RESPONSE` and **never writes to the ZODB**. Move the credentials wipe to the top of the 2FA branch so it also runs on the exception path.
@@ -274,7 +286,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. Rename and Fail-Closed | 4/4 | Complete    | 2026-07-29 |
 | 2. Registry Seeding and Import-Step Ordering | 2/2 | Complete    | 2026-07-29 |
 | 3. Encrypted Seeds and Local QR | 3/3 | Complete    | 2026-07-30 |
-| 4. PAS Boundary | 0/TBD | Not started | - |
+| 4. PAS Boundary | 0/4 | Planned     | - |
 | 5. Drift, Replay and Lockout | 0/TBD | Not started | - |
 | 6. Recovery Codes | 0/TBD | Not started | - |
 | 7. Coexistence with imio.dms.mail | 0/TBD | Not started | - |
