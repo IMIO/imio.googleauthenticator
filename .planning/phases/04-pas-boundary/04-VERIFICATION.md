@@ -1,11 +1,12 @@
 ---
 phase: 04-pas-boundary
 verified: 2026-07-31T00:00:00Z
-status: human_needed
+status: passed
 score: 5/5 must-haves verified (roadmap success criteria)
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
+
   - test: "Confirm with iMio operations owners that no cron job, script, WebDAV mount, FTP client or XML-RPC integration authenticates against this Plone site's own acl_users over HTTP Basic Auth."
     expected: "No live external consumer of credentials_basic_auth against this site is found, or any found consumer is migrated to the service-account + ip_addresses_whitelist alternative before deployment."
     why_human: "04-02's own checkpoint decision (kept credentials_basic_auth active) rests on a three-repository grep search explicitly documented as non-exhaustive (04-RESEARCH.md Assumptions Log A1). No test in this repository can prove the absence of an external consumer -- this is exactly the residual risk 04-VALIDATION.md's 'Manual-Only Verifications' table records as 'NOT DONE', and README.rst's own DOC-02 section tells the operator to check this before deploying. It is also the concrete form of 04-02's `verification: backstop` truth ('no assertion in this repository can prove that a future third-party add-on has not displaced the plugin on a live site')."

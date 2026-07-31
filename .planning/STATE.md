@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04
-current_phase_name: pas-boundary
-status: verifying
+current_phase: 5
+current_phase_name: Drift, Replay and Lockout
+status: planning
 stopped_at: Completed 04-04-PLAN.md
-last_updated: "2026-07-31T09:31:57.583Z"
+last_updated: "2026-07-31T12:34:50.761Z"
 last_activity: 2026-07-31
-last_activity_desc: Phase 04 execution started
+last_activity_desc: Phase 04 complete, transitioned to Phase 5
 progress:
   total_phases: 4
   completed_phases: 4
@@ -20,32 +20,34 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-29)
+See: .planning/PROJECT.md (updated 2026-07-31)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 04 — pas-boundary
+**Current focus:** Phase 5 — Drift, Replay and Lockout
 
 ## Current Position
 
-Phase: 04 (pas-boundary) — EXECUTING
-Plan: 4 of 4
-Status: Phase complete — ready for verification
-Last activity: 2026-07-31 — Phase 04 execution started
+Phase: 5 — Drift, Replay and Lockout
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-07-31 — Phase 04 complete, transitioned to Phase 5
 
-Progress: [██████████████░░░░░░] 9/13 plans executed ([██████████] 100%) · **3 of 8 roadmap phases complete (38%)**
+Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete (50%)**
 
-Phase 4's 4 plans are authored but not executed. Phases 5–8 still have no plans, so the
-13-plan denominator will grow; the phase figure remains the honest one.
+Phases 5–8 still have no plans, so the 13-plan denominator will grow; the phase figure
+remains the honest one.
 
-Phase 4 carries one blocking gate the executor will hit: `04-02` Task 2 is a
-`checkpoint:decision` on whether to deactivate the `credentials_basic_auth` extractor,
-rated `one-way`. Execution stops there for a human answer.
+Phase 4 closed on 2026-07-31: all four plans executed, verification passed (5/5 success
+criteria), UAT passed (1 item — the operator confirmation that no external consumer uses
+HTTP Basic Auth against this site), and the security audit closed all 24 threats
+(`04-SECURITY.md`, `threats_open: 0`). Two non-blocking code-review warnings remain open,
+recorded as WR-01 and WR-02 in `04-REVIEW.md`.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 9
+- Total plans completed: 13
 - Average duration: —
 - Total execution time: 0.0 hours
 
@@ -56,6 +58,7 @@ rated `one-way`. Execution stops there for a human answer.
 | 01 | 4 | - | - |
 | 02 | 2 | - | - |
 | 03 | 3 | - | - |
+| 04 | 4 | - | - |
 
 **Recent Trend:**
 
@@ -134,6 +137,8 @@ None yet.
 - **External, Phase 3:** the encryption-key `concat::fragment` lives in the separate `industrialisation` repo. Not one of this roadmap's commits. Phase 3 code is testable without it; the feature is not deployable until it ships.
 - **Phase 3 (from 02-SECURITY.md R-02-02):** T-02-09 was accepted on the grounds that every `get_ska_secret_key()` component is ASCII by construction. Phase 3 changes `user_secret` to `v1$<fernet token>` — base64, so still ASCII, but this assumption must be **re-checked, not re-assumed**, when that lands.
 - **Phase 3 (from 02-SECURITY.md R-02-01):** `browser/controlpanel.py` renders `ska_secret_key` into a form field. Pre-existing and untouched by Phase 2; it is the recorded Phase 3 secret-hygiene deferred idea.
+- **Phase 5 (from 04-SECURITY.md R-04-C):** do NOT attach lockout or replay state to the `send_2fa_redirect` call chain. `challenge()` and the `IPubBeforeCommit` subscriber are write-free in their own bodies, but `send_2fa_redirect` reaches `sign_user_data` → `get_or_create_secret`, which writes a memberdata seed for a 2FA-enabled user who has none. That mint is fail-closed and not attacker-reachable, so it does not reopen T-04-05 or T-04-24 — but the write-free guarantee MFA-12 inherits covers the handler bodies, not everything reachable from them. No test currently pins that branch in either direction.
+- **Phase 5 (from 04-REVIEW.md WR-01/WR-02):** for a user with 2FA enabled but no stored seed, a broken or missing `IMIO_GOOGLEAUTHENTICATOR_SEED_KEY` does not raise synchronously in `authenticateCredentials` — it raises later inside `send_2fa_redirect`, giving an uncontrolled error page instead of a clean refusal. Still fail-closed, no bypass. The fix is an unconditional `check_encryption_key_is_usable()` call plus a test for the never-enrolled state.
 - **Phases 1–7:** `bin/code-analysis` is not clean until Phase 8, so the buildout's pre-commit hook fails until then. Accepted; commits pass with `--no-verify`.
 - **Phase 8:** expect pre-existing test failures to surface when the test-layer isolation is fixed (`plone.testing 4.1.3` has no isolation guard; some tests currently pass *because* of a state leak). Real bugs revealed, not caused.
 - **Phase 8:** the post-fix coverage baseline is genuinely unknown and cannot be estimated before `[run] source` lands. The figure is expected to drop sharply; the drop is the truth.
@@ -149,6 +154,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-31T09:31:57.568Z
-Stopped at: Completed 04-04-PLAN.md
+Last session: 2026-07-31
+Stopped at: Phase 4 complete (executed, verified, UAT passed, security audit clean), ready to plan Phase 5
 Resume file: None
