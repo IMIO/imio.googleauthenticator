@@ -46,7 +46,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 ### Second-factor integrity (MFA)
 
 - [ ] **MFA-01**: A user with 2FA enabled cannot authenticate via `Authorization: Basic` without the second factor
-- [ ] **MFA-02**: Refusal does not leak the protected resource — no response body is served alongside the redirect
+- [x] **MFA-02**: Refusal does not leak the protected resource — no response body is served alongside the redirect
 - [ ] **MFA-03**: Plugin ordering is set explicitly with `movePluginsTop`, and a test asserts this package's plugin is first among `IAuthenticationPlugin`
 - [ ] **MFA-04**: One veto test per credentials extractor — form POST and HTTP Basic — each asserting no session is granted
 - [ ] **MFA-05**: A TOTP code from the immediately preceding time step is accepted (one step of drift, RFC 6238 §6)
@@ -78,7 +78,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [ ] **COEX-05**: The skin layer, `skins.xml`, `registerDirectory` and the `skins/` directory are gone
 - [ ] **COEX-06**: A real `profiles/uninstall/` restores anything the install profile changed
 - [ ] **COEX-07**: Installing this package alongside `imio.dms.mail` leaves both working regardless of install order, verified with both orders
-- [ ] **COEX-08**: The challenge fires on both paths — `IChallengePlugin` for requests ending in `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which returns HTTP 200
+- [x] **COEX-08**: The challenge fires on both paths — `IChallengePlugin` for requests ending in `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which returns HTTP 200
 - [ ] **COEX-09**: Login through the header "Log in" link (not a direct POST) reaches the token form and completes
 
 ### Known bug fixes (BUG)
@@ -185,7 +185,7 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | SEC-07 | Phase 3 | Complete |
 | SEC-08 | Phase 3 | Complete |
 | MFA-01 | Phase 4 | Pending |
-| MFA-02 | Phase 4 | Pending |
+| MFA-02 | Phase 4 | Complete |
 | MFA-03 | Phase 4 | Pending |
 | MFA-04 | Phase 4 | Pending |
 | MFA-05 | Phase 5 | Pending |
@@ -211,7 +211,7 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | COEX-05 | Phase 7 | Pending |
 | COEX-06 | Phase 7 | Pending |
 | COEX-07 | Phase 7 | Pending |
-| COEX-08 | Phase 4 | Pending |
+| COEX-08 | Phase 4 | Complete |
 | COEX-09 | Phase 7 | Pending |
 | BUG-01 | Phase 7 | Pending |
 | BUG-02 | Phase 3 | Complete |

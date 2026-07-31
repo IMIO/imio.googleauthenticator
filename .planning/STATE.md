@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 4
-current_phase_name: PAS Boundary
-status: planned
-stopped_at: "Phase 4 planned — 4 plans in 2 waves, plan-checker passed. Phase 03 shipped as PR #3 (37 commits, gsd/phase-3-encrypted-seeds-and-local-qr -> master), still awaiting review/merge."
-last_updated: "2026-07-31T00:00:00.000Z"
+current_phase: 04
+current_phase_name: pas-boundary
+status: executing
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-07-31T08:37:53.317Z"
 last_activity: 2026-07-31
-last_activity_desc: "Phase 04 planned, 4 plans"
+last_activity_desc: Phase 04 execution started
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 13
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-29)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 4 — PAS Boundary (planned, ready to execute; Phase 03 shipped as PR #3, awaiting merge)
+**Current focus:** Phase 04 — pas-boundary
 
 ## Current Position
 
-Phase: 4 — PAS Boundary
-Plan: 4 plans authored in 2 waves (04-01 tracer, 04-02, 04-03, 04-04)
-Status: Ready to execute — plan-checker passed, no revision iterations needed
-Last activity: 2026-07-31 — Phase 04 planned
+Phase: 04 (pas-boundary) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-07-31 — Phase 04 execution started
 
-Progress: [██████████████░░░░░░] 9/13 plans executed (69%) · **3 of 8 roadmap phases complete (38%)**
+Progress: [██████████████░░░░░░] 9/13 plans executed ([████████░░] 77%) · **3 of 8 roadmap phases complete (38%)**
 
 Phase 4's 4 plans are authored but not executed. Phases 5–8 still have no plans, so the
 13-plan denominator will grow; the phase figure remains the honest one.
@@ -76,6 +76,7 @@ rated `one-way`. Execution stops there for a human answer.
 | Phase 03 P01 | 35min | 5 tasks | 8 files |
 | Phase 03 P02 | 20min | 2 tasks | 4 files |
 | Phase 03 P03 | 45min | 2 tasks | 5 files |
+| Phase 04 P01 | 70min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -109,6 +110,8 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 3]: 03-02: no docs/ cross-reference added -- docs/index.rst is a stale pre-rename duplicate of an old README never kept in sync; README.rst is the deployer-facing shipped artifact DOC-03 targets.
 - [Phase ?]: 03-03: BUG-02 closed by regression test with no production code change -- redirect_url confirmed bound on all three reachable branches of SetupForm.handleSubmit, both by research and by execution (empty diff on user_setup.py).
 - [Phase ?]: 03-03: BUG-03 fixed via one shared validate_bar_code_reset_token helper (hmac.compare_digest with str/unicode coercion) used at both reset_bar_code.py comparison sites, not the one the requirement named.
+- [Phase ?]: [Phase 4]: 04-01: SEC-03's fail-closed guarantee (broken encryption key raises out of _extractUserIds) preserved via a synchronous get_secret(user) pure-read call inside authenticateCredentials, reconciling the plan's decide-only <action> text with its own acceptance criterion that test_login_is_refused_when_seed_key_is_broken keep passing unmodified.
+- [Phase ?]: [Phase 4]: 04-01: Task 2's over-HTTP body-leak assertion submits via Browser.open() with encoded POST data rather than Browser.getControl(...).click() -- _clickSubmit() re-raises mechanize.HTTPError unconditionally and never consults raiseHttpErrors, so the plan's suggested two-switch idiom only works against a directly-posted request.
 
 ### Pending Todos
 
@@ -138,6 +141,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-30T10:12:23.316Z
-Stopped at: Completed 03-03-PLAN.md -- phase 03 code-complete, ready for verification
+Last session: 2026-07-31T08:37:53.299Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
