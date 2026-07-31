@@ -120,6 +120,39 @@ Changelog
   including the supported service-account-plus-IP-whitelist alternative for
   scripts and API consumers.
   [chris-adam]
+- TOTP validation now accepts the immediately preceding 30-second interval
+  as well as the current one, and refuses a code whose interval has
+  already been accepted -- a replay of a code already used to log in no
+  longer succeeds. The accepted interval is recorded per user.
+  [chris-adam]
+- Only exactly six ASCII digits are now treated as a candidate token; every
+  other shape (too short, too long, non-digit, a non-ASCII digit) is
+  refused before the stored seed is ever fetched or decrypted.
+  [chris-adam]
+- Five consecutive failed second-factor attempts now lock an account for
+  900 seconds, evaluated before the submitted code is checked at all, on
+  both ``@@google-authenticator-token`` and ``@@reset-bar-code``. The lock
+  releases itself once its stored epoch passes -- no administrator action
+  is needed -- and a successful second factor clears the counter.
+  [chris-adam]
+- The attempt limit (``max_failed_attempts``) and the lock duration
+  (``lockout_duration``) are new control-panel settings, defaulting to 5
+  and 900 seconds.
+  [chris-adam]
+- **Upgrade note:** this release adds two ``plone.registry`` records
+  (``max_failed_attempts``, ``lockout_duration``) and three
+  ``portal_memberdata`` properties (the failed-attempts counter, the lock
+  epoch, and the last-accepted TOTP interval). It ships **no** GenericSetup
+  upgrade step -- consistent with this same section's existing note that
+  deployers recreate the Plone site rather than migrate it. The
+  ``imio.googleauthenticator:default`` profile must be (re-)imported for
+  these records and properties to exist. The failure mode on a site that
+  is not reimported is loud, not silent:
+  ``registry.forInterface(IGoogleAuthenticatorSettings)`` raises on the two
+  missing records, and ``getProperty(...)`` on an undeclared memberdata
+  property raises ``ValueError`` rather than returning a falsy default --
+  so a lockout that never locks is not among the possible outcomes.
+  [chris-adam]
 
 0.3.0 (unreleased)
 ------------------
