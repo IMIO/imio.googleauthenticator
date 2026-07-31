@@ -11,6 +11,7 @@ from plone.app.testing import quickInstallProduct
 from plone.app.testing import TEST_USER_NAME
 from plone.app.testing import TEST_USER_PASSWORD
 from zope.globalrequest import setRequest
+import imio.googleauthenticator
 from imio.googleauthenticator import helpers
 from imio.googleauthenticator import pas_plugin
 from imio.googleauthenticator.helpers import get_or_create_secret
@@ -343,6 +344,74 @@ class TestPas(unittest.TestCase, BaseTest):
             self.assertIsNone(plugin.authenticateCredentials({'login': None}))
         finally:
             setRequest(None)
+
+    def test_no_second_factor_state_written_from_the_plugin(self):
+        """MFA-12, and the standing R-04-C constraint from 04-SECURITY.md:
+        pas_plugin.py and subscribers.py must write no second-factor state
+        at all -- the write must live in a view that commits, never in a
+        path the publisher's transaction.abort() discards. Read at source
+        level rather than by behavioural probing, so this pins the
+        invariant regardless of which request path a future edit might
+        reach it from.
+
+        Positive controls prove the search itself is not broken: the two
+        properties this plan's helpers.py functions actually read/write
+        really do appear there, and the three helper function names
+        really do appear in browser/forms/token.py (where they are
+        called). ``two_factor_authentication_last_interval`` is plan
+        05-02's property (drift/replay) -- it is checked for absence from
+        pas_plugin.py/subscribers.py here too, but has no positive control
+        in this plan since nothing in helpers.py references it yet.
+        """
+        package_dir = os.path.dirname(imio.googleauthenticator.__file__)
+
+        with open(os.path.join(package_dir, 'pas_plugin.py')) as handle:
+            pas_plugin_source = handle.read()
+        with open(os.path.join(package_dir, 'subscribers.py')) as handle:
+            subscribers_source = handle.read()
+        with open(os.path.join(package_dir, 'helpers.py')) as handle:
+            helpers_source = handle.read()
+        with open(os.path.join(
+                package_dir, 'browser', 'forms', 'token.py')) as handle:
+            token_source = handle.read()
+
+        property_names = (
+            'two_factor_authentication_failed_attempts',
+            'two_factor_authentication_locked_until',
+            'two_factor_authentication_last_interval',
+        )
+        properties_used_by_this_plan = (
+            'two_factor_authentication_failed_attempts',
+            'two_factor_authentication_locked_until',
+        )
+        helper_function_names = (
+            'is_account_locked',
+            'register_failed_second_factor',
+            'reset_failed_second_factor',
+        )
+
+        for name in property_names + helper_function_names:
+            self.assertNotIn(
+                name, pas_plugin_source,
+                'MFA-12: {0!r} must not appear in pas_plugin.py -- the '
+                'write must live in a view that commits'.format(name))
+            self.assertNotIn(
+                name, subscribers_source,
+                'MFA-12: {0!r} must not appear in subscribers.py -- '
+                'reached from a request the publisher aborts'.format(name))
+
+        # Positive controls: the two assertions above must not pass
+        # merely because the search itself is broken.
+        for name in properties_used_by_this_plan:
+            self.assertIn(
+                name, helpers_source,
+                'non-vacuity control: {0!r} must be present in '
+                'helpers.py'.format(name))
+        for name in helper_function_names:
+            self.assertIn(
+                name, token_source,
+                'non-vacuity control: {0!r} must be present in '
+                'token.py'.format(name))
 
     def test_exception_path_still_wipes_credentials(self):
         """ROADMAP success criterion 5: an exception raised after the 2FA

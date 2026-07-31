@@ -30,7 +30,7 @@ unfilled stub and had to be reconstructed by a later audit.
 |----------|-------|
 | **Framework** | `zope.testrunner` via `plone.app.testing` (Plone 4.3 / Python 2.7) — **not** pytest. `unittest2` in test modules |
 | **Config file** | `base.cfg` `[test]` part; pins in `test-4.3.cfg`. No `pytest.ini`/`pyproject.toml` exists and none should be added |
-| **Quick run command** | `bin/test -t test_helpers -t test_token_form -t test_reset_bar_code -t test_generic` |
+| **Quick run command** | `bin/test -t test_helpers -t test_token -t test_reset_bar_code -t test_generic` |
 | **Full suite command** | `make test` (= `bin/test -t '!robot'`) |
 | **Baseline at seed time** | 66 non-robot tests across 10 modules. Phase 4 measured the full suite at 32.3 s wall clock; layer setup dominates, so expect this phase's additions to cost far less than proportionally |
 | **Environment** | `base.cfg` `[testenv]` supplies a throwaway `IMIO_GOOGLEAUTHENTICATOR_SEED_KEY`; `[test]`'s `environment = testenv` bakes it into the generated `bin/test`. Any test that reads or writes an encrypted seed needs it |
@@ -59,16 +59,16 @@ unfilled stub and had to be reconstructed by a later audit.
 | MFA-06 (log) | TBD | TBD | TBD | The replay rejection is logged, and the log line contains no plaintext username | integration (log capture) | `bin/test -t test_replay_rejection_log_has_no_username` | `tests/test_helpers.py` (new) | ⬜ pending |
 | MFA-07 | TBD | TBD | TBD | Only input that is exactly 6 digits reaches TOTP comparison. `"1"`, `"123"`, `"1234567"`, `""`, `"12a456"` and a leading-`+`/whitespace form are all refused before `onetimepass` is called | unit | `bin/test -t test_validate_token_rejects_non_six_digit_input` | `tests/test_helpers.py` (new) | ⬜ pending |
 | MFA-07 (regression) | TBD | TBD | TBD | The existing seed round-trip test still passes under the new format gate — it currently calls `validate_token(get_totp(seed), ...)`, and `get_totp` returns a bare non-zero-padded int, so it must move to `get_totp(seed, as_string=True)` **in the same commit** as the gate | regression | `bin/test -t test_seed_encryption_round_trip` | `tests/test_helpers.py:existing` | ⬜ pending |
-| MFA-08 | TBD | TBD | TBD | 5 consecutive failed second-factor submissions lock the account for 900 s | integration (real `Browser` POST sequence) | `bin/test -t test_lockout_after_five_failures` | `tests/test_token_form.py` (new) | ⬜ pending |
-| MFA-08 (oracle) | TBD | TBD | TBD | While locked, a **correct** code and an **incorrect** code produce byte-identical user-visible outcomes — the lock is evaluated before the token, so the response cannot be used to confirm a guess | integration | `bin/test -t test_locked_account_response_identical_for_valid_and_invalid_code` | `tests/test_token_form.py` (new) | ⬜ pending |
-| MFA-08 (reset path) | TBD | TBD | TBD | The same lock and counter apply to `@@reset-bar-code`, which is anonymously reachable and validates the token before the reset signature. Without this the lockout has a documented bypass — see the scope decision in ROADMAP.md Phase 5 notes | integration (real `Browser` POST sequence) | `bin/test -t test_reset_bar_code_lockout_after_five_failures` | `tests/test_reset_bar_code.py` (new) | ⬜ pending |
-| MFA-09 | TBD | TBD | TBD | The lock releases with no admin action once the stored epoch passes | integration | `bin/test -t test_lockout_expires_without_admin_action` | `tests/test_token_form.py` (new) | ⬜ pending |
-| MFA-10 | TBD | TBD | TBD | Attempt limit and lock duration are editable control-panel fields, defaulting to 5 and 900 | integration (field presence + default value) | `bin/test -t test_control_panel_has_lockout_fields` | `tests/test_generic.py:existing pattern` | ⬜ pending |
-| MFA-11 | TBD | TBD | TBD | A successful second factor sets the failure counter back to zero, so a user who mistypes then succeeds is not one attempt from a lock | integration | `bin/test -t test_successful_second_factor_resets_failed_attempts` | `tests/test_token_form.py` (new) | ⬜ pending |
-| MFA-12 | TBD | TBD | TBD | No second-factor state is written from the PAS plugin or the challenge plugin. Phase 4's tests must still pass **unmodified** | regression | `bin/test -t test_challenge -t test_pas_plugin` | `tests/test_challenge.py:existing`, `tests/test_pas_plugin.py:existing` | ⬜ pending |
-| MFA-12 (survives) | TBD | TBD | TBD | The failure counter is still readable after a request sequence that begins with an `Unauthorized`-ending hit, proving the write happened on a committing path and not one that aborted | integration (two-request `Browser` sequence, per resolved Open Question 2) | `bin/test -t test_failed_attempt_counter_survives_unauthorized_request` | `tests/test_token_form.py` (new) | ⬜ pending |
-| MFA-13 | TBD | TBD | TBD | Each new memberdata property is declared in `memberdata_properties.xml` and survives a `setMemberProperties()` → `getProperty()` round trip. An undeclared property is silently discarded, so this test is the only thing that would catch a missing entry | integration | `bin/test -t test_new_memberdata_properties_round_trip` | `tests/test_helpers.py` (new) | ⬜ pending |
-| MFA-13 (import) | TBD | TBD | TBD | The GenericSetup import of the new `memberdata_properties.xml` entries actually executes and produces the declared types — the roadmap flagged this as never having been exercised | integration | `bin/test -t test_memberdata_properties_import_declares_expected_types` | `tests/test_setuphandlers.py` (new) | ⬜ pending |
+| MFA-08 | 05-01 | 1 | T-05-01 | 5 consecutive failed second-factor submissions lock the account for 900 s | integration (real `Browser` POST sequence) | `bin/test -t test_lockout_after_five_failures` | `tests/test_token.py` (new; decision P5-06 -- named to match the skill's R5 file-to-module rule) | ✅ green |
+| MFA-08 (oracle) | 05-01 | 1 | T-05-03 | While locked, a **correct** code and an **incorrect** code produce indistinguishable user-visible outcomes (no redirect either way, same generic message, unchanged lock epoch) — deviation from "byte-identical" wording, since z3c.form echoes the submitted token back into its own input | integration | `bin/test -t test_locked_account_response_is_the_same_for_a_valid_and_an_invalid_code` | `tests/test_token.py` (new) | ✅ green |
+| MFA-08 (reset path) | 05-03 | TBD | TBD | The same lock and counter apply to `@@reset-bar-code`, which is anonymously reachable and validates the token before the reset signature. Without this the lockout has a documented bypass — see the scope decision in ROADMAP.md Phase 5 notes | integration (real `Browser` POST sequence) | `bin/test -t test_reset_bar_code_lockout_after_five_failures` | `tests/test_reset_bar_code.py` (new) | ⬜ pending |
+| MFA-09 | 05-01 | 1 | T-05-09 | The lock releases with no admin action once the stored epoch passes | integration | `bin/test -t test_lockout_expires_without_admin_action` | `tests/test_token.py` (new) | ✅ green |
+| MFA-10 | 05-01 | 1 | — | Attempt limit and lock duration are editable control-panel fields, defaulting to 5 and 900 | integration (field presence + default value) | `bin/test -t test_control_panel_has_lockout_fields` | `tests/test_generic.py:existing pattern` | ✅ green |
+| MFA-11 | 05-01 | 1 | — | A successful second factor sets the failure counter back to zero, so a user who mistypes then succeeds is not one attempt from a lock | integration | `bin/test -t test_successful_second_factor_resets_failed_attempts` | `tests/test_token.py` (new) | ✅ green |
+| MFA-12 | 05-01 | 1 | T-05-07 | No second-factor state is written from the PAS plugin or the challenge plugin. Phase 4's tests must still pass **unmodified** | regression | `bin/test -t test_challenge -t test_pas_plugin` | `tests/test_challenge.py:existing`, `tests/test_pas_plugin.py::test_no_second_factor_state_written_from_the_plugin` (new) | ✅ green |
+| MFA-12 (survives) | 05-01 | 1 | T-05-07 | The failure counter is still readable after a request sequence that begins with an `Unauthorized`-ending hit, proving the write happened on a committing path and not one that aborted | integration (two-request `Browser` sequence, per resolved Open Question 2) | `bin/test -t test_failed_attempt_counter_survives_unauthorized_request` | `tests/test_token.py` (new) | ✅ green |
+| MFA-13 | 05-01 | 1 | T-05-05 | Each new memberdata property is declared in `memberdata_properties.xml` and survives a `setMemberProperties()` → `getProperty()` round trip. An undeclared property is silently discarded, so this test is the only thing that would catch a missing entry | integration | `bin/test -t test_new_memberdata_properties_round_trip` | `tests/test_helpers.py` (new) | ✅ green |
+| MFA-13 (import) | 05-01 | 1 | T-05-05 | The GenericSetup import of the new `memberdata_properties.xml` entries actually executes and produces the declared types — the roadmap flagged this as never having been exercised | integration | `bin/test -t test_memberdata_properties_import_declares_expected_types` | `tests/test_setuphandlers.py` (new) | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -89,16 +89,18 @@ No framework install, no new config, no new fixture module — `plone.app.testin
       replay-rejected, exact-6-digit-format, replay-log-no-username, and property round-trip
       tests. **In the same commit as the format gate**, change the existing
       `test_seed_encryption_round_trip` call from `get_totp(seed)` to
-      `get_totp(seed, as_string=True)`, or it starts failing
-- [ ] New `tests/test_token_form.py` — no test module currently exercises
-      `browser/forms/token.py::TokenForm.handleSubmit` at all. Covers MFA-08, MFA-09, MFA-11
-      and the MFA-12 counter-survival sequence
+      `get_totp(seed, as_string=True)`, or it starts failing. Partial: the property round-trip
+      test (`test_new_memberdata_properties_round_trip`, new `TestDriftAndReplay` class) landed
+      in plan 05-01; the drift/replay/format-gate methods remain for plan 05-02
+- [x] New `tests/test_token.py` (decision P5-06 -- not `test_token_form.py`) — no test module
+      previously exercised `browser/forms/token.py::TokenForm.handleSubmit` at all. Covers
+      MFA-08, MFA-09, MFA-11 and the MFA-12 counter-survival sequence. Landed in plan 05-01
 - [ ] New `tests/test_reset_bar_code.py` — `tests/test_request_bar_code_reset.py` covers the
       *request* form, not the reset form. Needed for the MFA-08 reset-path row
-- [ ] `tests/test_generic.py` — extend the existing control-panel field-presence pattern
+- [x] `tests/test_generic.py` — extend the existing control-panel field-presence pattern
       (the `IGoogleAuthenticatorSettings['ska_secret_key']`-style lookups already there) to the
-      two new integer fields
-- [ ] `tests/test_setuphandlers.py` — add the GenericSetup import assertion for the new
+      two new integer fields. Landed in plan 05-01
+- [x] `tests/test_setuphandlers.py` — add the GenericSetup import assertion for the new
       `memberdata_properties.xml` entries
 
 ---
