@@ -201,7 +201,12 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 05-01-PLAN.md — Memberdata counter substrate, control-panel policy fields, and the lockout wired end to end on the token form (MFA-08..13)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 05-02-PLAN.md — Drift acceptance, replay rejection and the exact-six-digit gate in `helpers.validate_token`, one commit (MFA-05, MFA-06, MFA-07)
 - [ ] 05-03-PLAN.md — The same counter and lock on `@@reset-bar-code`, closing the anonymous guessing oracle (MFA-08 reset path, MFA-11, MFA-12)
 
