@@ -1,4 +1,5 @@
 import base64
+import logging
 import os
 import time
 import unittest2 as unittest
@@ -757,6 +758,58 @@ class TestDriftAndReplay(unittest.TestCase, BaseTest):
         # not an ASCII digit; must be refused without raising.
         self.assertFalse(
             validate_token(u'\xb2' * 6, user=user), 'non-ASCII digit')
+
+    def test_replay_rejection_log_has_no_username(self):
+        """MFA-06/T-05-04: the replay rejection is logged, and the log
+        record carries no username, no user id, no token and no plaintext
+        seed -- asserted on both the formatted message and the lazy ``%s``
+        arguments, since a lazily-formatted argument would keep a name out
+        of the format string but still put it in the log output.
+
+        Non-vacuity control: the first (accepted) submission must log
+        nothing at all, otherwise a test that captures nothing would pass
+        for the wrong reason.
+        """
+        user = api.user.get_current()
+        seed = helpers.generate_secret(user)
+        user.setMemberProperties(
+            mapping={'two_factor_authentication_last_interval': 0})
+
+        current = int(time.time()) // helpers.TOTP_INTERVAL_SECONDS
+        code = get_hotp(seed, intervals_no=current, as_string=True)
+
+        records = []
+
+        class _ListHandler(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        # The module logger is process-global; a leaked handler or level
+        # change would follow every later test in the run, so both are
+        # restored in a finally block.
+        target_logger = logging.getLogger('imio.googleauthenticator')
+        handler = _ListHandler()
+        previous_level = target_logger.level
+        target_logger.setLevel(logging.INFO)
+        target_logger.addHandler(handler)
+        try:
+            self.assertTrue(validate_token(code, user=user))
+            self.assertEqual(
+                0, len(records), 'accepted submission must log nothing')
+
+            self.assertFalse(validate_token(code, user=user))
+        finally:
+            target_logger.removeHandler(handler)
+            target_logger.setLevel(previous_level)
+
+        self.assertEqual(1, len(records))
+        record = records[0]
+        self.assertGreaterEqual(record.levelno, logging.INFO)
+
+        message = record.getMessage()
+        for forbidden in (TEST_USER_NAME, TEST_USER_ID, code, seed):
+            self.assertNotIn(forbidden, message)
+            self.assertNotIn(forbidden, record.args or ())
 
 
 class TestBarCodeResetToken(unittest.TestCase):
