@@ -9,6 +9,7 @@ import base64
 import io
 import logging
 import os
+import time
 
 from zope.component import getUtility
 from zope.globalrequest import getRequest
@@ -356,6 +357,71 @@ def validate_token(token, user=None):
     validation_result = valid_totp(token=token, secret=secret)
 
     return validation_result
+
+
+def is_account_locked(user):
+    """
+    Tells whether the user's second factor is currently locked out, per
+    ``two_factor_authentication_locked_until``. Equality means NOT locked --
+    the lock releases at the exact epoch it names.
+
+    ``getProperty(...)`` returns ``''`` rather than ``0`` for a Zope-root
+    account (no property sheet), which would raise ``TypeError`` against
+    ``int(time.time())`` without the ``or 0`` coercion.
+
+    :param Products.PlonePAS.tools.memberdata user:
+    :return bool:
+    """
+    locked_until = int(
+        user.getProperty('two_factor_authentication_locked_until') or 0)
+    return locked_until > int(time.time())
+
+
+def register_failed_second_factor(user):
+    """
+    Records one failed second-factor submission for ``user``. If the new
+    count reaches ``max_failed_attempts``, locks the account for
+    ``lockout_duration`` seconds and resets the counter to 0 in the same
+    write -- so both the counter and the lock land together, or neither
+    does.
+
+    No ``try``/``except`` here: a ``PropertyValueError`` from a
+    mis-declared property must reach the developer as a 500, not be
+    downgraded into a lockout that silently never locks.
+
+    :param Products.PlonePAS.tools.memberdata user:
+    """
+    failed_attempts = int(
+        user.getProperty('two_factor_authentication_failed_attempts') or 0)
+    failed_attempts += 1
+
+    settings = get_app_settings()
+    max_failed_attempts = int(settings.max_failed_attempts)
+    lockout_duration = int(settings.lockout_duration)
+
+    if failed_attempts >= max_failed_attempts:
+        user.setMemberProperties(mapping={
+            'two_factor_authentication_failed_attempts': 0,
+            'two_factor_authentication_locked_until':
+                int(time.time()) + lockout_duration,
+        })
+    else:
+        user.setMemberProperties(mapping={
+            'two_factor_authentication_failed_attempts': failed_attempts,
+        })
+
+
+def reset_failed_second_factor(user):
+    """
+    Clears the failed-attempts counter and any active lock for ``user`` in
+    a single write, following a successful second factor.
+
+    :param Products.PlonePAS.tools.memberdata user:
+    """
+    user.setMemberProperties(mapping={
+        'two_factor_authentication_failed_attempts': 0,
+        'two_factor_authentication_locked_until': 0,
+    })
 
 
 def get_browser_hash(request=None):

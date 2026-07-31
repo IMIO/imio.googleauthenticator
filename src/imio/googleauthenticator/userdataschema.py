@@ -3,7 +3,9 @@ import logging
 from plone import api
 
 from zope.component import adapter
-from zope.schema import Bool, TextLine
+from zope.schema import Bool
+from zope.schema import Int
+from zope.schema import TextLine
 from zope.i18nmessageid import MessageFactory
 from zope.interface import implements
 
@@ -29,6 +31,9 @@ class CustomizedUserDataPanel(UserDataPanel):
             'enable_two_factor_authentication',
             'two_factor_authentication_secret',
             'bar_code_reset_token',
+            'two_factor_authentication_failed_attempts',
+            'two_factor_authentication_locked_until',
+            'two_factor_authentication_last_interval',
             )
 
 
@@ -50,6 +55,12 @@ class IEnhancedUserDataSchema(IUserDataSchema):
     :property string two_factor_authentication_secret: Secret key of the user (unique per user). Automatically
                                                        generated.
     :property string bar_code_reset_token: Token to reset users' bar-code. Automatically generated.
+    :property int two_factor_authentication_failed_attempts: Count of consecutive failed
+                                                             second-factor submissions. Automatically generated.
+    :property int two_factor_authentication_locked_until: Epoch until which the second factor is
+                                                          locked out. Automatically generated.
+    :property int two_factor_authentication_last_interval: Last accepted TOTP interval, for replay
+                                                           rejection. Automatically generated.
     """
     enable_two_factor_authentication = Bool(
         title=_('Enable two-step verification.'),
@@ -68,6 +79,24 @@ class IEnhancedUserDataSchema(IUserDataSchema):
 
     bar_code_reset_token = TextLine(
         title = _('Token to reset the bar code'),
+        description = _('Automatically generated'),
+        required = False,
+    )
+
+    two_factor_authentication_failed_attempts = Int(
+        title = _('Failed second-factor attempts'),
+        description = _('Automatically generated'),
+        required = False,
+    )
+
+    two_factor_authentication_locked_until = Int(
+        title = _('Second-factor locked until'),
+        description = _('Automatically generated'),
+        required = False,
+    )
+
+    two_factor_authentication_last_interval = Int(
+        title = _('Last accepted TOTP interval'),
         description = _('Automatically generated'),
         required = False,
     )

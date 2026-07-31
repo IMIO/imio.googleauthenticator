@@ -17,6 +17,9 @@ from Products.statusmessages.interfaces import IStatusMessage
 
 from imio.googleauthenticator.helpers import drop_login_failed_msg
 from imio.googleauthenticator.helpers import extract_request_data
+from imio.googleauthenticator.helpers import is_account_locked
+from imio.googleauthenticator.helpers import register_failed_second_factor
+from imio.googleauthenticator.helpers import reset_failed_second_factor
 from imio.googleauthenticator.helpers import validate_token
 from imio.googleauthenticator.helpers import validate_user_data
 
@@ -82,6 +85,15 @@ class TokenForm(form.SchemaForm):
         if username:
             user = api.user.get(username=username)
 
+            if user is not None and is_account_locked(user):
+                # Locked accounts get the exact same message as a wrong
+                # code, so the response cannot be used as an oracle -- the
+                # lock is checked before validate_user_data/validate_token
+                # are ever consulted (MFA-08).
+                msg = _("Invalid token or token expired.")
+                IStatusMessage(self.request).addStatusMessage(msg, 'error')
+                return
+
             # Validating the signed request data. If invalid (likely tampered
             # with or expired), generate an appropriate error message.
             user_data_validation_result = validate_user_data(
@@ -99,6 +111,9 @@ class TokenForm(form.SchemaForm):
         # self.context.plone_log(token)
 
         if valid_token:
+            if user is not None:
+                reset_failed_second_factor(user)
+
             # We should login the user here. `username` is typically unicode
             # (from self.request.get('auth_user', '')); str(username) would
             # implicitly encode as ASCII in Python 2 and raise
@@ -116,6 +131,8 @@ class TokenForm(form.SchemaForm):
             redirect_url = request_data.get('next_url', context_url)
             self.request.response.redirect(redirect_url)
         else:
+            if user is not None:
+                register_failed_second_factor(user)
             msg = _("Invalid token or token expired.")
             IStatusMessage(self.request).addStatusMessage(msg, 'error')
 

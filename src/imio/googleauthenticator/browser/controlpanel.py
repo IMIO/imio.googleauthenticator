@@ -4,7 +4,7 @@ from zope.component import getUtility
 
 from zope.i18nmessageid import MessageFactory
 from zope.interface import Interface
-from zope.schema import TextLine, Bool, Text
+from zope.schema import TextLine, Bool, Text, Int
 
 from plone.registry.interfaces import IRegistry
 from plone import api
@@ -47,11 +47,28 @@ class IGoogleAuthenticatorSettings(Interface):
         required = False,
         default = u'',
         )
+    max_failed_attempts = Int(
+        title = _("Maximum failed second-factor attempts"),
+        description = _("Number of consecutive failed second-factor (token) submissions "
+                        "allowed before the account is temporarily locked."),
+        required = True,
+        default = 5,
+        min = 1,
+        )
+    lockout_duration = Int(
+        title = _("Lockout duration (seconds)"),
+        description = _("Number of seconds the account stays locked out of the second factor "
+                        "after reaching the maximum failed attempts."),
+        required = True,
+        default = 900,
+        min = 1,
+        )
 
     fieldset(
         None,
         label=None,
-        fields=['ska_secret_key', 'globally_enabled', 'ip_addresses_whitelist',]
+        fields=['ska_secret_key', 'globally_enabled', 'ip_addresses_whitelist',
+                'max_failed_attempts', 'lockout_duration',]
         )
 
 class GoogleAuthenticatorSettingsEditForm(AutoExtensibleForm, form.EditForm):
