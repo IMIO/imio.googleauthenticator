@@ -30,6 +30,19 @@ def _setup_secret_key():
     if not settings.ska_secret_key:
         settings.ska_secret_key = unicode(uuid4())
 
+# MFA-03 decision record (2026-07-31): `credentials_basic_auth` is deliberately
+# left ACTIVE. Deactivating it was considered as defence in depth (ROADMAP.md
+# Open Decision) but rejected: it would mutate a plugin this package does not
+# own, site-wide, with no uninstall counterpart, on evidence limited to three
+# grepped repositories (imio.dms.mail, server.dmsmail, industrialisation) that
+# is explicitly not exhaustive. The Basic Auth credentials path is still
+# vetoed -- tests/test_pas_plugin.py::test_basic_auth_veto (plan 04-03)
+# asserts that directly -- so nothing is left unprotected; what is accepted
+# is that the veto's reach still depends on plugin *ordering*, not on this
+# extractor being absent. This is the load-bearing consequence:
+# test_plugin_is_first_authenticator (below) is therefore the ONLY thing
+# standing between a future plugin reorder and a Basic Auth bypass, and it
+# must never be weakened or deleted.
 def _add_plugin(pas, pluginid=PAS_ID):
     """
     Install and activate imio.googleauthenticator PAS plugin, and (re-)assert
