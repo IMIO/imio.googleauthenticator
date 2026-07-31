@@ -1,9 +1,11 @@
 import base64
 import os
+import time
 import unittest2 as unittest
 
 from cryptography.fernet import Fernet
 from onetimepass import get_totp
+from Products.PlonePAS.sheet import PropertyValueError
 
 from Products.statusmessages.interfaces import IStatusMessage
 
@@ -564,6 +566,89 @@ class TestSeedEncryption(unittest.TestCase, BaseTest):
                     'two_factor_authentication_secret', ''))
         finally:
             helpers.get_encryption_key = original
+
+
+class TestDriftAndReplay(unittest.TestCase, BaseTest):
+    """Concern-named class, like TestIPWhitelisting/TestSkaSecretKey/
+    TestSeedEncryption above: this file groups by concern rather than by
+    module (R7, WR-03 precedent -- see tests/test_setuphandlers.py's class
+    docstring). Plan 05-01 adds the property round-trip method below; plan
+    05-02 adds this class's remaining drift/replay methods.
+    """
+
+    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+
+    def setUp(self):
+        self.app = self.layer['app']
+        self.portal = self.layer['portal']
+        self.request = self.layer['request']
+        self.portal_url = api.portal.get().absolute_url()
+        self._install()
+        # See TestSkaSecretKey.setUp's docstring: PLONE_FIXTURE caches the
+        # test user's property sheets before this add-on's
+        # memberdata_properties.xml is applied, so a re-login is mandatory
+        # or setMemberProperties silently drops the new properties.
+        login(self.portal, TEST_USER_NAME)
+
+        self._previous_key = os.environ.get(helpers.ENV_VAR_NAME)
+        os.environ[helpers.ENV_VAR_NAME] = Fernet.generate_key()
+
+    def tearDown(self):
+        if self._previous_key is None:
+            os.environ.pop(helpers.ENV_VAR_NAME, None)
+        else:
+            os.environ[helpers.ENV_VAR_NAME] = self._previous_key
+
+    def test_new_memberdata_properties_round_trip(self):
+        """MFA-13: each of the three new memberdata properties survives a
+        setMemberProperties() -> getProperty() round trip as a Python int.
+        An undeclared property is silently skipped by setMemberProperties
+        with no exception and no log line, so reading back the declared
+        default 0 instead of the written value is exactly the failure this
+        test exists to catch.
+        """
+        user = api.user.get_current()
+
+        user.setMemberProperties(mapping={
+            'two_factor_authentication_failed_attempts': 3,
+            'two_factor_authentication_locked_until': 1234567890,
+            'two_factor_authentication_last_interval': 42,
+        })
+
+        failed_attempts = user.getProperty(
+            'two_factor_authentication_failed_attempts')
+        locked_until = user.getProperty(
+            'two_factor_authentication_locked_until')
+        last_interval = user.getProperty(
+            'two_factor_authentication_last_interval')
+
+        self.assertEqual(3, failed_attempts)
+        self.assertIsInstance(failed_attempts, int)
+        self.assertEqual(1234567890, locked_until)
+        self.assertIsInstance(locked_until, int)
+        self.assertEqual(42, last_interval)
+        self.assertIsInstance(last_interval, int)
+
+        # MFA-13 precision edge: a float value is refused, not silently
+        # coerced -- this is why production code always int()-coerces
+        # before the write.
+        self.assertRaises(
+            PropertyValueError,
+            user.setMemberProperties,
+            mapping={'two_factor_authentication_locked_until': time.time()})
+
+        # Idempotent-reset edge: writing 0 to an already-0 counter is
+        # accepted and reads back 0.
+        user.setMemberProperties(
+            mapping={'two_factor_authentication_failed_attempts': 0})
+        self.assertEqual(
+            0,
+            user.getProperty('two_factor_authentication_failed_attempts'))
+        user.setMemberProperties(
+            mapping={'two_factor_authentication_failed_attempts': 0})
+        self.assertEqual(
+            0,
+            user.getProperty('two_factor_authentication_failed_attempts'))
 
 
 class TestBarCodeResetToken(unittest.TestCase):

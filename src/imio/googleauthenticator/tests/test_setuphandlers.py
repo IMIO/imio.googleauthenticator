@@ -218,6 +218,40 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
             'MFA-03: re-applying the profile must restore the plugin to first '
             'position after a deliberate displacement')
 
+    def test_memberdata_properties_import_declares_expected_types(self):
+        """MFA-13 (import half): the GenericSetup import of
+        memberdata_properties.xml -- as it actually ships -- registers the
+        three new properties on portal_memberdata with type 'int'. A
+        round-trip test alone (test_helpers.py's
+        test_new_memberdata_properties_round_trip) can pass against a
+        fixture whose property sheet is not the one the profile installs;
+        this asserts the import itself, via portal_memberdata's own
+        property-map API rather than a file read or XML parse.
+
+        The two pre-existing properties are asserted alongside the three
+        new ones as a non-vacuity control: if the whole import silently did
+        not run, those would fail too, and the new-property failure would
+        be ambiguous.
+        """
+        portal_memberdata = getToolByName(self.portal, 'portal_memberdata')
+
+        expected = (
+            ('enable_two_factor_authentication', 'boolean'),
+            ('two_factor_authentication_secret', 'string'),
+            ('two_factor_authentication_failed_attempts', 'int'),
+            ('two_factor_authentication_locked_until', 'int'),
+            ('two_factor_authentication_last_interval', 'int'),
+        )
+        for name, expected_type in expected:
+            self.assertIn(
+                name, portal_memberdata.propertyIds(),
+                'MFA-13: {0!r} must be registered on portal_memberdata by '
+                'the profile import'.format(name))
+            self.assertEqual(
+                expected_type, portal_memberdata.getPropertyType(name),
+                'MFA-13: {0!r} must be declared type {1!r} on '
+                'portal_memberdata'.format(name, expected_type))
+
     def test_plugin_declares_no_challenge_protocol(self):
         """Open Question 3: the plugin declares no `protocol` class attribute.
 

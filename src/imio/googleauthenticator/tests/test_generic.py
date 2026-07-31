@@ -6,11 +6,14 @@ from plone.testing.z2 import Browser
 from plone.app.testing import quickInstallProduct
 from plone.app.testing import SITE_OWNER_NAME, SITE_OWNER_PASSWORD, TEST_USER_NAME, TEST_USER_PASSWORD
 from plone import api
+from plone.supermodel.interfaces import FIELDSETS_KEY
 from zope.i18n import translate
+from zope.schema import Int
 
 import imio.googleauthenticator
 from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 from imio.googleauthenticator.browser.forms.token import TokenForm
+from imio.googleauthenticator.helpers import get_app_settings
 from imio.googleauthenticator.testing import \
     IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
@@ -105,6 +108,40 @@ class TestGeneric(unittest.TestCase, BaseTest):
         """
         title = IGoogleAuthenticatorSettings['ska_secret_key'].title
         self.assertEqual(translate(title, target_language='nl'), u'Geheime Sleutel')
+
+    def test_control_panel_has_lockout_fields(self):
+        """MFA-10: max_failed_attempts and lockout_duration exist on
+        IGoogleAuthenticatorSettings with defaults 5 and 900, are both
+        zope.schema.Int with min=1, and are listed in the interface's
+        fieldset so the existing auto-extensible form renders them --
+        following the same IGoogleAuthenticatorSettings[...] subscript
+        idiom this file already uses for ska_secret_key above. The values
+        are also asserted readable through get_app_settings() after
+        install, proving plone.app.registry seeded the two new records
+        from the blanket <records interface=.../> line with no
+        registry.xml edit (decision P5-03).
+        """
+        max_field = IGoogleAuthenticatorSettings['max_failed_attempts']
+        duration_field = IGoogleAuthenticatorSettings['lockout_duration']
+
+        self.assertIsInstance(max_field, Int)
+        self.assertEqual(5, max_field.default)
+        self.assertEqual(1, max_field.min)
+
+        self.assertIsInstance(duration_field, Int)
+        self.assertEqual(900, duration_field.default)
+        self.assertEqual(1, duration_field.min)
+
+        fieldsets = IGoogleAuthenticatorSettings.queryTaggedValue(
+            FIELDSETS_KEY)
+        all_fields = [
+            name for fieldset in fieldsets for name in fieldset.fields]
+        self.assertIn('max_failed_attempts', all_fields)
+        self.assertIn('lockout_duration', all_fields)
+
+        settings = get_app_settings()
+        self.assertEqual(5, settings.max_failed_attempts)
+        self.assertEqual(900, settings.lockout_duration)
 
     def test_corrected_msgid_renders_in_english(self):
         """D-18's acceptance test and the resolution of RESEARCH Open Question
