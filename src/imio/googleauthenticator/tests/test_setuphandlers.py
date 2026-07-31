@@ -1,12 +1,14 @@
 import unittest2 as unittest
 
 from Products.CMFCore.utils import getToolByName
+from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 
 from plone import api
 from plone.app.testing import applyProfile
 
 from imio.googleauthenticator.helpers import get_app_settings
 from imio.googleauthenticator.helpers import get_ska_secret_key
+from imio.googleauthenticator.setuphandlers import PAS_ID
 from imio.googleauthenticator.testing import \
     IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
@@ -39,6 +41,7 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         self.portal = self.layer['portal']
         self.request = self.layer['request']
         self.portal_url = api.portal.get().absolute_url()
+        self.pas = getToolByName(self.portal, 'acl_users')
         self._install()
 
     def test_import_step_declares_registry_dependency(self):
@@ -149,3 +152,86 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         self.assertEqual(
             known_value, get_app_settings().ska_secret_key,
             'REG-05: re-applying the default profile must not reset ska_secret_key')
+
+    def test_plugin_is_first_authenticator(self):
+        """MFA-03: this IS the security control, not a nice-to-have ordering
+        check.
+
+        authenticateCredentials() vetoes a login by wiping the shared
+        credentials dict in place -- PAS's _extractUserIds loop hands that
+        same dict object to every IAuthenticationPlugin in listing order,
+        with no break on success. If this plugin is not first, an
+        authenticator listed before it (e.g. source_users, password-only)
+        authenticates the user before the wipe ever reaches it, and the
+        second factor silently never runs: no error page, no log line.
+
+        Nothing at request time re-asserts this position. A later add-on
+        calling movePluginsTop for its own plugin displaces this one to
+        index 1 with no warning. The documented recovery is re-applying the
+        'imio.googleauthenticator:default' profile, which re-runs
+        setuphandlers._add_plugin and its movePluginsTop call -- see
+        test_reapply_profile_keeps_plugin_first_and_unique below.
+        """
+        self.assertEqual(
+            PAS_ID,
+            self.pas.plugins.listPlugins(IAuthenticationPlugin)[0][0],
+            'MFA-03: imio.googleauthenticator must be first among '
+            'IAuthenticationPlugin, or the second factor silently never runs')
+
+    def test_reapply_profile_keeps_plugin_first_and_unique(self):
+        """MFA-03 (adjacency + empty probe rows): re-applying the profile is
+        idempotent, and is a real recovery for a displaced plugin.
+
+        First: applying the profile a second time must not raise (activatePlugin
+        raises KeyError: 'Duplicate plugin id' for an already-active plugin,
+        which is why _add_plugin's activation guard checks listPluginIds
+        first) and must leave exactly one PAS_ID entry, still at index 0.
+
+        Second, the case that actually exercises the restructure: displace
+        the plugin deliberately, confirm it really moved (a non-vacuity
+        control -- otherwise the recovery assertion below could pass for the
+        wrong reason), then re-apply the profile and confirm movePluginsTop
+        put it back at index 0. Without this pair the guard-split in Task 1
+        has no test.
+        """
+        applyProfile(self.portal, 'imio.googleauthenticator:default')
+        ids = self.pas.plugins.listPluginIds(IAuthenticationPlugin)
+        self.assertEqual(
+            1, ids.count(PAS_ID),
+            'MFA-03: re-applying the profile must not duplicate the plugin entry')
+        self.assertEqual(
+            PAS_ID,
+            self.pas.plugins.listPlugins(IAuthenticationPlugin)[0][0],
+            'MFA-03: re-applying the profile must leave the plugin first')
+
+        self.pas.plugins.movePluginsDown(IAuthenticationPlugin, [PAS_ID])
+        self.assertNotEqual(
+            PAS_ID,
+            self.pas.plugins.listPlugins(IAuthenticationPlugin)[0][0],
+            'non-vacuity control: the deliberate displacement must actually move '
+            'the plugin, or the recovery assertion below proves nothing')
+
+        applyProfile(self.portal, 'imio.googleauthenticator:default')
+        self.assertEqual(
+            PAS_ID,
+            self.pas.plugins.listPlugins(IAuthenticationPlugin)[0][0],
+            'MFA-03: re-applying the profile must restore the plugin to first '
+            'position after a deliberate displacement')
+
+    def test_plugin_declares_no_challenge_protocol(self):
+        """Open Question 3: the plugin declares no `protocol` class attribute.
+
+        PAS resolves a challenger's protocol group with
+        getattr(challenger, 'protocol', challenger_id)
+        (PluggableAuthService.py:1173), so an unset attribute keeps this
+        challenger in a protocol group of its own. HTTPBasicAuthHelper is the
+        plugin that DOES declare protocol = "http", and PAS's
+        IChallengeProtocolChooser/IRequestTypeSniffer machinery routes
+        WebDAV/FTP/XML-RPC request types to that group -- if this plugin ever
+        joined it (e.g. a future "belt and suspenders" `protocol = 'http'`
+        edit), those clients would receive an HTML redirect instead of a
+        clean 401. This test exists to fail on exactly that edit.
+        """
+        self.assertFalse(
+            hasattr(self.pas[PAS_ID], 'protocol'),
+            'Open Question 3: the plugin must not declare a protocol attribute')

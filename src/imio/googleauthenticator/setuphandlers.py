@@ -32,23 +32,36 @@ def _setup_secret_key():
 
 def _add_plugin(pas, pluginid=PAS_ID):
     """
-    Install and activate imio.googleauthenticator PAS plugin
+    Install and activate imio.googleauthenticator PAS plugin, and (re-)assert
+    that it is first among every plugin type it provides.
+
+    MFA-03: only object creation is guarded by the "already installed" check
+    below. Activation and ordering are re-asserted on *every* profile
+    application, not only on first install -- otherwise reinstalling the
+    profile would be no recovery at all for a plugin some other add-on has
+    since displaced from position 0.
     """
     installed = pas.objectIds()
-    if pluginid in installed:
-        return PAS_TITLE + " already installed."
-    plugin = GoogleAuthenticatorPlugin(pluginid, title=PAS_TITLE)
-    pas._setObject(pluginid, plugin)
-    plugin = pas[plugin.getId()] # get plugin acquisition wrapped!
+    if pluginid not in installed:
+        plugin = GoogleAuthenticatorPlugin(pluginid, title=PAS_TITLE)
+        pas._setObject(pluginid, plugin)
+    plugin = pas[pluginid] # get plugin acquisition wrapped!
     for info in pas.plugins.listPluginTypeInfo():
         interface = info['interface']
         if not interface.providedBy(plugin):
             continue
-        pas.plugins.activatePlugin(interface, plugin.getId())
-        pas.plugins.movePluginsDown(
-            interface,
-            [x[0] for x in pas.plugins.listPlugins(interface)[:-1]],
-        )
+        if plugin.getId() not in pas.plugins.listPluginIds(interface):
+            pas.plugins.activatePlugin(interface, plugin.getId())
+        # MFA-03: this plugin must be first among IAuthenticationPlugin.
+        # authenticateCredentials() vetoes a login by wiping the shared
+        # credentials dict in place, but PAS's _extractUserIds loop
+        # (PluggableAuthService.py:648-667) hands that same dict object to
+        # every authenticator in listing order with no break on success --
+        # the wipe only blinds authenticators listed *after* this one. States
+        # the intent directly rather than relying on our plugin happening to
+        # be the most recently activated entry, which was the previous
+        # (accidental) mechanism for reaching index 0.
+        pas.plugins.movePluginsTop(interface, [plugin.getId()])
 
 def setupVarious(context):
     """
