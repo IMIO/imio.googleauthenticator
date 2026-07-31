@@ -18,7 +18,7 @@ from zope.i18nmessageid import MessageFactory
 
 from Products.statusmessages.interfaces import IStatusMessage
 
-from onetimepass import valid_totp
+from onetimepass import get_hotp
 
 from plone import api
 from plone.registry.interfaces import IRegistry
@@ -41,6 +41,8 @@ ENV_VAR_NAME = 'IMIO_GOOGLEAUTHENTICATOR_SEED_KEY'
 # Literal envelope prefix on every ciphertext this module stores. '$' cannot
 # appear in URL-safe base64 (A-Za-z0-9-_=), so the split is unambiguous.
 CIPHERTEXT_VERSION_PREFIX = 'v1$'
+# RFC 6238 section 5.2's default TOTP time step, in seconds.
+TOTP_INTERVAL_SECONDS = 30
 
 
 def get_encryption_key():
@@ -320,15 +322,93 @@ def get_token_description(user=None, overwrite_secret=False):
     )
 
 
+def _is_six_digit_token(token):
+    """
+    Tells whether ``token`` is a candidate TOTP code: exactly six ASCII
+    digits, nothing else. The pinned ``onetimepass==0.2.2``'s own
+    ``_is_possible_token`` accepts any numeric string of length 1 to 6,
+    through a private function that is not exported and cannot be
+    overridden -- so this gate lives here instead.
+
+    Membership is tested against the literal ASCII digit string rather
+    than ``isdigit()`` alone: in Python 2 ``unicode.isdigit()`` is True
+    for characters like a superscript two, which then raise ``ValueError``
+    out of ``int()`` -- a 500 on a form registered
+    ``permission="zope2.View"`` (decision P5-10).
+
+    :param string token:
+    :return bool:
+    """
+    token = token if isinstance(token, basestring) else str(token)
+    return len(token) == 6 and all(c in '0123456789' for c in token)
+
+
+def _find_accepted_interval(token, secret):
+    """
+    Pure drift-tolerance check: returns the interval number that produced
+    ``token`` for ``secret``, or ``None`` if neither the current interval
+    nor the immediately preceding one matches.
+
+    RFC 6238 drift tolerance is backward-looking only: the candidate tuple
+    is exactly ``(current, current - 1)``, never ``current + 1``. Widening
+    forward would accept a code before the user's device has shown it and
+    double the guessing surface (T-05-13).
+
+    ``onetimepass.valid_hotp`` cannot be reused here: its ``last``/
+    ``trials`` parameters search forward from ``last + 1``, the opposite
+    direction from the tolerance this function needs.
+
+    Does no ZODB access and no logging -- the replay comparison, the log
+    line and the write all belong to ``validate_token`` (decision P5-08).
+
+    :param string token:
+    :param string secret:
+    :return int or None:
+    """
+    current_interval = int(time.time()) // TOTP_INTERVAL_SECONDS
+    for interval in (current_interval, current_interval - 1):
+        if get_hotp(secret, intervals_no=interval) == int(token):
+            return interval
+    return None
+
+
 def validate_token(token, user=None):
     """
-    Validates the given token.
+    Validates the given token, accepting one step of RFC 6238 clock drift
+    and refusing a code whose interval has already been accepted once
+    (replay).
+
+    Order of checks, each a fail-closed gate before the next:
+
+    1. ``token`` must be exactly six ASCII digits (``_is_six_digit_token``),
+       checked before the seed is fetched so garbage input never triggers
+       a decrypt.
+    2. The user must have a decryptable stored seed.
+    3. The token must match the current or immediately preceding interval
+       (``_find_accepted_interval``).
+    4. The matched interval must be strictly greater than
+       ``two_factor_authentication_last_interval`` -- otherwise it has
+       already been accepted once and is refused as a replay (MFA-06). The
+       rejection is logged at INFO with no operand at all: no username, no
+       user id, no token, no secret, no interval number, following
+       ``validate_bar_code_reset_token``'s "do not log either operand"
+       convention (decision P5-11).
+
+    On success, ``two_factor_authentication_last_interval`` is written with
+    the matched interval, so a later submission of the same or an earlier
+    code is refused. This write happens only here, inside
+    ``validate_token``, which is reached only from the three form views
+    (``token.py``, ``reset_bar_code.py``, ``user_setup.py``) and never from
+    ``pas_plugin.py`` or a challenge plugin (MFA-12).
 
     :param string token:
     :return bool:
     """
     if user is None:
         user = api.user.get_current()
+
+    if not _is_six_digit_token(token):
+        return False
 
     secret = get_secret(user)
 
@@ -354,9 +434,20 @@ def validate_token(token, user=None):
         # would downgrade a broken-key refusal into a wrong-token message.
         return False
 
-    validation_result = valid_totp(token=token, secret=secret)
+    last_accepted_interval = int(
+        user.getProperty('two_factor_authentication_last_interval') or 0)
 
-    return validation_result
+    matched = _find_accepted_interval(token, secret)
+    if matched is None:
+        return False
+
+    if matched <= last_accepted_interval:
+        logger.info('TOTP replay rejected')
+        return False
+
+    user.setMemberProperties(
+        mapping={'two_factor_authentication_last_interval': int(matched)})
+    return True
 
 
 def is_account_locked(user):

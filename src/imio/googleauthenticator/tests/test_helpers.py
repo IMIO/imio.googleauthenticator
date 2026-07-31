@@ -4,6 +4,7 @@ import time
 import unittest2 as unittest
 
 from cryptography.fernet import Fernet
+from onetimepass import get_hotp
 from onetimepass import get_totp
 from Products.PlonePAS.sheet import PropertyValueError
 
@@ -282,8 +283,14 @@ class TestSeedEncryption(unittest.TestCase, BaseTest):
         # SEC-01 end-to-end, and the assertion that catches Pitfall A: a
         # real onetimepass token computed from the plaintext seed validates
         # through get_secret -> decrypt_seed.
+        # as_string=True: get_totp's library default returns a bare,
+        # non-zero-padded int, so roughly one attempt in ten produces
+        # fewer than six characters and would fail validate_token's new
+        # exact-six-ASCII-digit gate intermittently. Do not "simplify"
+        # this back to the bare call.
         self.assertTrue(
-            validate_token(get_totp(seed), user=user), 'SEC-01 end-to-end')
+            validate_token(get_totp(seed, as_string=True), user=user),
+            'SEC-01 end-to-end')
 
         # SEC-05: the QR is a locally rendered data: URI, no external host,
         # and the payload decodes to a real PNG.
@@ -649,6 +656,107 @@ class TestDriftAndReplay(unittest.TestCase, BaseTest):
         self.assertEqual(
             0,
             user.getProperty('two_factor_authentication_failed_attempts'))
+
+    def test_validate_token_accepts_previous_interval(self):
+        """MFA-05: a code generated for the interval exactly one step back
+        (current - 1) is accepted, and the stored interval then reads back
+        current - 1.
+        """
+        user = api.user.get_current()
+        seed = helpers.generate_secret(user)
+        user.setMemberProperties(
+            mapping={'two_factor_authentication_last_interval': 0})
+
+        current = int(time.time()) // helpers.TOTP_INTERVAL_SECONDS
+        previous_code = get_hotp(
+            seed, intervals_no=current - 1, as_string=True)
+
+        self.assertTrue(validate_token(previous_code, user=user))
+        self.assertEqual(
+            current - 1,
+            user.getProperty('two_factor_authentication_last_interval'))
+
+    def test_validate_token_rejects_future_interval(self):
+        """MFA-05 boundary: a code generated for the interval one step
+        forward (current + 1) is refused -- the window widens backward
+        only (T-05-13). Non-vacuity control in the same method: the code
+        for `current` from the same seed IS accepted, so the refusal
+        cannot be an artifact of a broken fixture.
+        """
+        user = api.user.get_current()
+        seed = helpers.generate_secret(user)
+        user.setMemberProperties(
+            mapping={'two_factor_authentication_last_interval': 0})
+
+        current = int(time.time()) // helpers.TOTP_INTERVAL_SECONDS
+        future_code = get_hotp(
+            seed, intervals_no=current + 1, as_string=True)
+
+        self.assertFalse(validate_token(future_code, user=user))
+        self.assertEqual(
+            0,
+            user.getProperty('two_factor_authentication_last_interval'))
+
+        # Non-vacuity control: the current interval's own code from the
+        # same seed and fixture IS accepted.
+        current_code = get_hotp(seed, intervals_no=current, as_string=True)
+        self.assertTrue(validate_token(current_code, user=user))
+
+    def test_validate_token_rejects_replayed_interval(self):
+        """MFA-06: a code already accepted is refused on a second
+        submission, because the accepted interval number is stored and any
+        newly matched interval less than or equal to it is a replay.
+        Adjacency asserted explicitly: an interval exactly equal to the
+        stored last-accepted interval is refused, and the next interval up
+        is accepted.
+        """
+        user = api.user.get_current()
+        seed = helpers.generate_secret(user)
+        user.setMemberProperties(
+            mapping={'two_factor_authentication_last_interval': 0})
+
+        current = int(time.time()) // helpers.TOTP_INTERVAL_SECONDS
+        code = get_hotp(seed, intervals_no=current, as_string=True)
+
+        self.assertTrue(validate_token(code, user=user), 'first submission')
+        self.assertFalse(
+            validate_token(code, user=user), 'replayed submission')
+
+        # Adjacency, asserted explicitly.
+        user.setMemberProperties(
+            mapping={'two_factor_authentication_last_interval': current})
+        self.assertFalse(
+            validate_token(code, user=user),
+            'equal to the stored interval is refused')
+
+        user.setMemberProperties(mapping={
+            'two_factor_authentication_last_interval': current - 1})
+        self.assertTrue(
+            validate_token(code, user=user),
+            'the next interval up is accepted')
+
+    def test_validate_token_rejects_non_six_digit_input(self):
+        """MFA-07: only exactly-six-ASCII-digit input is a candidate token.
+        Every other shape is refused before onetimepass is ever called,
+        including a unicode character that satisfies isdigit() but is not
+        an ASCII digit -- refused rather than reaching int(), which would
+        raise ValueError and turn an anonymously reachable form into a 500.
+        """
+        user = api.user.get_current()
+        helpers.generate_secret(user)
+        user.setMemberProperties(
+            mapping={'two_factor_authentication_last_interval': 0})
+
+        self.assertFalse(validate_token('12345', user=user), 'length 5')
+        self.assertFalse(validate_token('1234567', user=user), 'length 7')
+        self.assertFalse(validate_token('', user=user), 'empty')
+        self.assertFalse(validate_token('12a456', user=user), 'non-digit')
+        self.assertFalse(validate_token(' 12345', user=user), 'leading space')
+        self.assertFalse(validate_token('+12345', user=user), 'leading sign')
+        # A unicode superscript-two satisfies isdigit() in Python 2 but is
+        # not an ASCII digit; must be refused without raising.
+        self.assertFalse(
+            validate_token(u'\xb2' * 6, user=user), 'non-ASCII digit')
 
 
 class TestBarCodeResetToken(unittest.TestCase):
