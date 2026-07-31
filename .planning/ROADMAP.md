@@ -195,10 +195,11 @@ Plans:
   1. A test asserts a code from the immediately preceding time step is accepted (RFC 6238 §6), and another asserts a code already consumed is rejected on reuse (RFC 6238 §5.2 MUST NOT). **Both land in one commit** — they are the same six lines on `get_hotp(secret, intervals_no=i)`, and splitting them produces drift-accepted-but-replay-undetected, which is strictly worse than today.
   2. A test asserts the replay rejection is logged, and that the log line carries no plaintext username (ASVS 2.8.4/2.8.5).
   3. A test asserts 5 consecutive failures lock the account for 900 seconds; that the lock is evaluated **before** the token, so a locked account answers identically for a valid and an invalid code and is not an oracle; and that the lock expires on its own with no admin action.
-  4. A test asserts a successful second factor resets the failure counter, and that only exactly-6-digit input is treated as a candidate token (`_is_possible_token` currently accepts `"1"` and `"123"`). N and the duration are editable in the control panel, defaulting to 5 and 900.
+  4. A test asserts a successful second factor resets the failure counter, and that only exactly-6-digit input is treated as a candidate token. This requires a **new** gate in `helpers.py`, checked before `onetimepass` is ever called: the permissive `_is_possible_token` that accepts `"1"` and `"123"` is a private function inside the pinned `onetimepass==0.2.2` egg, so it cannot be patched (corrected during Phase 5 research — the earlier wording implied it lived in this package). N and the duration are editable in the control panel, defaulting to 5 and 900.
   5. Every new memberdata property has a `memberdata_properties.xml` entry and a `setMemberProperties()` → `getProperty()` round-trip test; and a test asserts the failure counter still increments after a request that ends in `Unauthorized`, proving the write lives in the token form view and not on an aborted path.
 
 **Plans**: TBD
+**UI hint**: no
 
 **Phase notes:**
 
@@ -208,6 +209,7 @@ Plans:
 - The ConflictError worry is a non-issue and PROJECT.md's stated reason for memberdata was wrong: storage is an `OOBTree` keyed by user id, so cross-user writes merge and `retry_max_count = 3` handles same-user parallel brute force correctly (the retry re-reads the fresh counter). The decision stands; the hazard to design against is `transaction.abort()`.
 - Control panel follows `imio.dms.mail`'s `RegistryEditForm` + `layout.wrap_form(..., ControlPanelFormWrapper)` pattern.
 - N=5 / 900 s ≈ 1042 days expected time-to-hit for a 6-digit code; NIST SP 800-63B §5.2.2's 100 attempts is a ceiling, not a target.
+- **Lockout scope decided at plan time (2026-07-31):** the counter and lock cover **both** `browser/forms/token.py` **and** `browser/forms/reset_bar_code.py`, not the token form alone. `reset-bar-code` is registered `permission="zope2.View"`, takes its target account from an attacker-supplied `auth_user` query parameter, and calls `validate_token` at `reset_bar_code.py:109` — *before* it checks the signed `bar_code_reset_token` at line 120, with a distinct error message for each failure. Left unmetered it is an anonymous TOTP guessing oracle, which would make this phase's goal untrue while appearing met. Both are browser form views that return 200/302 and commit, so covering both keeps the MFA-12 invariant intact. `user_setup.py` is deliberately **excluded**: it validates against the enrolling user's own in-progress secret, so a counter there would let a user lock themselves out mid-setup.
 
 ### Phase 6: Recovery Codes
 
@@ -252,7 +254,7 @@ Plans:
 - Also confirm in the same browser test that `common_content_filter` reaches the wrapped z3c.form — `plone.z3cform.layout`'s `wrap_form` renders inside `#content` and `el.find()` is a descendant search, so it should be reachable.
 - COEX-04 is the trap: `control_panel_extra.html` (`controlpanel.py:84`) and `request_bar_code_reset_email.pt` (`request_bar_code_reset.py:90`) are reached by `restrictedTraverse` and are **not** overrides. Deleting `skins/` deletes two live templates; convert both in the same commit. The email path has zero test coverage, so CI will not notice.
 - The vendored copies are stale and actively harmful, which is extra reason to delete rather than maintain: `popupforms.js` reverts `msieversion()` to `jQuery.browser.msie` (removed in jQuery 1.9) and drops `dl.portalMessage.warning` from `common_content_filter`, swallowing warning messages in every Plone overlay site-wide.
-- **UI hint** is set because this is the one phase with real frontend surface (login overlay, resource registries, templates). Phases 5 and 6 touch z3c.forms and a control panel but carry no visual design latitude, so they are deliberately unannotated.
+- **UI hint** is set because this is the one phase with real frontend surface (login overlay, resource registries, templates). Phases 5 and 6 touch z3c.forms and a control panel but carry no visual design latitude. Leaving them unannotated does **not** mean "no UI" to the tooling: the UI gate word-matches the phase section against a token list that includes `form`, `view` and `layout`, so `token form view`, `layout.wrap_form` and `RegistryEditForm` make it block for a missing UI-SPEC. Phase 5 therefore carries an explicit `**UI hint**: no`; Phase 6 still needs one added before it is planned.
 
 ### Phase 8: Coverage Instrument and Test Layers
 
