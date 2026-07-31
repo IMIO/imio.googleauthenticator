@@ -107,7 +107,7 @@ These are seeded here so they cannot be lost between research and validation sig
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| A real WebDAV / FTP / XML-RPC client is unaffected (or, if `credentials_basic_auth` is deactivated, is affected exactly as documented) | DOC-02 / the basic-auth decision | The research found no live basic-auth dependence in `imio.dms.mail`, `server.dmsmail` or `industrialisation`, but the search was **not exhaustive across every iMio repo**. No test can prove absence of an external consumer | Before deploying, confirm with the iMio ops owners that no cron job, script, or integration authenticates against this site's `acl_users` over Basic auth. **NOT DONE** |
+| A real WebDAV / FTP / XML-RPC client is unaffected (or, if `credentials_basic_auth` is deactivated, is affected exactly as documented) | DOC-02 / the basic-auth decision | The research found no live basic-auth dependence in `imio.dms.mail`, `server.dmsmail` or `industrialisation`, but the search was **not exhaustive across every iMio repo**. No test can prove absence of an external consumer | Before deploying, confirm with the iMio ops owners that no cron job, script, or integration authenticates against this site's `acl_users` over Basic auth. **DONE** — confirmed by the operator (Chris) on 2026-07-31 during UAT for this phase; recorded as test 1 `result: pass` in `04-UAT.md` |
 
 ---
 
