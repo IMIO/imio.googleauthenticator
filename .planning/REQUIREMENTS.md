@@ -45,10 +45,10 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 
 ### Second-factor integrity (MFA)
 
-- [ ] **MFA-01**: A user with 2FA enabled cannot authenticate via `Authorization: Basic` without the second factor
+- [x] **MFA-01**: A user with 2FA enabled cannot authenticate via `Authorization: Basic` without the second factor
 - [x] **MFA-02**: Refusal does not leak the protected resource — no response body is served alongside the redirect
 - [x] **MFA-03**: Plugin ordering is set explicitly with `movePluginsTop`, and a test asserts this package's plugin is first among `IAuthenticationPlugin`
-- [ ] **MFA-04**: One veto test per credentials extractor — form POST and HTTP Basic — each asserting no session is granted
+- [x] **MFA-04**: One veto test per credentials extractor — form POST and HTTP Basic — each asserting no session is granted
 - [ ] **MFA-05**: A TOTP code from the immediately preceding time step is accepted (one step of drift, RFC 6238 §6)
 - [ ] **MFA-06**: A TOTP code already consumed is rejected on reuse (RFC 6238 §5.2 MUST NOT), and the rejection is logged without the username in plaintext
 - [ ] **MFA-07**: Only exactly-6-digit input is treated as a candidate token
@@ -184,10 +184,10 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | SEC-06 | Phase 3 | Complete |
 | SEC-07 | Phase 3 | Complete |
 | SEC-08 | Phase 3 | Complete |
-| MFA-01 | Phase 4 | Pending |
+| MFA-01 | Phase 4 | Complete |
 | MFA-02 | Phase 4 | Complete |
 | MFA-03 | Phase 4 | Complete |
-| MFA-04 | Phase 4 | Pending |
+| MFA-04 | Phase 4 | Complete |
 | MFA-05 | Phase 5 | Pending |
 | MFA-06 | Phase 5 | Pending |
 | MFA-07 | Phase 5 | Pending |
