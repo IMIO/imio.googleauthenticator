@@ -197,12 +197,25 @@ ZMI -> acl_users
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 1. Choose "google_auth (Google Authenticator plugin (imio.googleauthenticator))".
 
-2. Make sure the "Active plugins" section of "Authentication" has the following plugins in
-   the given order ("google_auth" should come as first - critical!):
+2. Verify the "Active plugins" section of "Authentication" has the following plugins in
+   this order, with "google_auth" first -- critical!:
 
     - google_auth
     - session
     - source_users
+
+   It is critical because ``authenticateCredentials`` wipes the shared credentials dict
+   in place once it decides to challenge -- only authenticators listed *after*
+   ``google_auth`` are blinded by that wipe; one listed before it would still see the
+   original password and could log the user in before the second factor is checked.
+
+   This order is no longer a manual install step: the profile sets it itself with
+   ``movePluginsTop`` and re-asserts it on every re-application, so the step above is a
+   verification, not an instruction. If "google_auth" is ever found out of first place --
+   for example, another add-on's own install step reordered the list after this one ran --
+   the recovery is to re-apply the ``imio.googleauthenticator:default`` profile from
+   ``portal_setup`` -> Import, not to drag the row by hand in the ZMI. The profile is now
+   the authoritative source for this ordering.
 
 Configuration options
 ================================================
@@ -245,6 +258,63 @@ Tested in combination with the following products:
 
 - The `Products.LoginLockout <https://pypi.python.org/pypi/Products.LoginLockout>`_.
   `GoogleAuthenticator` comes as first, `LoginLockout` as second. All works fine.
+
+What two-step verification does not cover
+================================================
+This plugin is registered in the Plone site's own ``acl_users``, so it only ever sees
+logins that the site's own PAS authenticates. An account defined in the **Zope root**
+user folder -- typically the buildout's ``inituser`` ``admin`` -- is authenticated above
+the site: this plugin's password pre-check delegates to the *site's* other
+``IAuthenticationPlugin``\s, none of which can resolve a root account, so it declines to
+veto and the root user folder logs the user in on the password alone. Enrolment refuses
+such an account outright rather than reporting success for a second factor that will
+never be demanded.
+
+There is a second carve-out above even the plugin machinery: ``PluggableAuthService``'s
+own ``_extractUserIds`` tries the emergency user before the authenticator loop runs, and
+again after it, with the upstream comment "Emergency user via HTTP basic auth always
+wins" (``PluggableAuthService.py`` lines 630-636 and 677-679). No plugin ordering, no
+extractor change and nothing in this package reaches that path -- it sits above PAS's
+plugin machinery entirely, and no plugin can close it.
+
+Protecting the Zope root account is therefore a **deployment** concern, not a
+site-configuration one: restrict ``/Control_Panel`` and the root ZMI at the front end, or
+do not ship a root password at all. Nothing inside the Plone site can do it. This is
+deliberately out of scope for this package, which exists to protect in-site users and
+site admins until MFA moves to Keycloak.
+
+HTTP Basic Auth, WebDAV, FTP and XML-RPC
+================================================
+A human account with two-step verification enabled cannot be used over HTTP Basic Auth,
+WebDAV, FTP or XML-RPC, no matter how the site is configured -- none of those protocols
+has anywhere to enter a six-digit code. This follows from the second factor itself, not
+from any setting below.
+
+The ``credentials_basic_auth`` extractor was reviewed for this milestone (MFA-03) and,
+on 2026-07-31, kept **active** rather than deactivated. The review covered three iMio
+repositories -- ``imio.dms.mail``, ``server.dmsmail`` and ``industrialisation`` -- and
+found no live dependency on HTTP Basic Auth against this Plone site's own ``acl_users``:
+the one ``webdav-address`` setting found is commented out everywhere it appears, no
+XML-RPC client was found, one Basic Auth script authenticates *outward* to a different
+site, and ``pack_zeo.sh`` targets the Zope-root ``Control_Panel``, above any Plone
+site's ``acl_users``, so it is unaffected either way. That search was **not exhaustive
+across every iMio repository** -- it cannot prove no external consumer exists. Because
+``credentials_basic_auth`` stays active, the protection on that path is this plugin's
+position at index 0 among ``IAuthenticationPlugin``\s (see "ZMI -> acl_users" above); had
+it instead been deactivated, Basic Auth would stop authenticating against this site's
+``acl_users`` for **any** user, 2FA-enabled or not, and reactivating the extractor in the
+ZMI would reverse that.
+
+For scripts and API consumers that still need Basic Auth, WebDAV, FTP or XML-RPC access:
+use a dedicated service account with ``enable_two_factor_authentication`` left false,
+combined with a source-IP restriction through the existing ``ip_addresses_whitelist``
+control-panel setting (CIDR notation supported -- see "White-listed IP addresses or IP
+ranges" above), which ``authenticateCredentials`` checks before anything else. That is a
+real, already-shipped mechanism, not a promise.
+
+Before deploying, confirm with the operations owners that no cron job, script or
+integration authenticates against this site's ``acl_users`` over Basic Auth -- no test in
+this package can prove the absence of an external consumer.
 
 Implementation details
 ================================================

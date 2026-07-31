@@ -1,3 +1,5 @@
+import os
+
 from Products.CMFCore.utils import getToolByName
 import unittest2 as unittest
 from plone.testing.z2 import Browser
@@ -6,11 +8,29 @@ from plone.app.testing import SITE_OWNER_NAME, SITE_OWNER_PASSWORD, TEST_USER_NA
 from plone import api
 from zope.i18n import translate
 
+import imio.googleauthenticator
 from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 from imio.googleauthenticator.browser.forms.token import TokenForm
 from imio.googleauthenticator.testing import \
     IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
+
+
+def _read_readme():
+    """Read README.rst's full text, resolved relative to the installed package --
+    the same path construction
+    test_readme_documents_the_deployment_key_and_its_failure_mode already uses (that
+    test is left untouched; this helper only backs the two new DOC-01/DOC-02 tests
+    below, to avoid repeating the path construction a third time).
+    """
+    readme = os.path.join(
+        os.path.dirname(imio.googleauthenticator.__file__),
+        os.pardir, os.pardir, os.pardir, 'README.rst')
+    assert os.path.exists(readme), (
+        'README.rst not found at {0} -- if the repository layout moved, '
+        'fix this path rather than deleting the test'.format(readme))
+    with open(readme) as handle:
+        return handle.read()
 
 
 class TestGeneric(unittest.TestCase, BaseTest):
@@ -241,6 +261,76 @@ class TestGeneric(unittest.TestCase, BaseTest):
                 'DOC-03: README.rst must still describe the stale-key ZEO '
                 'failure mode ({0!r}) -- it produces no database-side '
                 'evidence, so the docs are the only diagnosis.'.format(fact))
+
+    def test_readme_documents_zope_root_limitation(self):
+        """DOC-01: what this catches is not deletion of the README but a rewrite
+        that drops the operator-facing scope statement while DOC-01 stays marked
+        Complete -- phase 3's DOC-03 test above is the precedent and the reasoning
+        is identical.
+
+        Asserts on load-bearing *identifiers*, never on prose, so rewording stays
+        free and removing the information does not:
+
+        - ``Control_Panel`` / ``acl_users`` / ``inituser`` -- the boundary and
+          where a Zope-root account actually lives;
+        - a mention of the "emergency user" carve-out (matched
+          case-insensitively, since a sentence-initial capital should not break
+          the assertion) -- PAS's own bypass that sits above this plugin's
+          machinery entirely and that no plugin, ordering or extractor change
+          can close.
+        """
+        text = _read_readme()
+
+        for fact in ('Control_Panel', 'acl_users', 'inituser'):
+            self.assertIn(
+                fact, text,
+                'DOC-01: README.rst must still record {0!r} -- an operator '
+                'needs to know a Zope-root account is architecturally out of '
+                "this plugin's reach.".format(fact))
+
+        self.assertIn(
+            'emergency user', text.lower(),
+            'DOC-01: README.rst must still name PAS\'s own emergency-user '
+            'carve-out -- it sits above the plugin machinery entirely and no '
+            'plugin ordering can close it.')
+
+    def test_readme_documents_basic_auth_consequence(self):
+        """DOC-02: written against the branch MFA-03's checkpoint actually took
+        (2026-07-31, see 04-02-SUMMARY.md): ``credentials_basic_auth`` is kept
+        ACTIVE, not deactivated. A later reversal of that decision without a
+        README update should turn this test red rather than leave a stale
+        README quietly wrong.
+
+        Asserts on load-bearing *identifiers*, never on prose:
+
+        - ``credentials_basic_auth`` -- the settled decision itself;
+        - ``WebDAV`` / ``XML-RPC`` -- the protocols affected alongside Basic
+          Auth, none of which has anywhere to enter a six-digit code;
+        - ``ip_addresses_whitelist`` / ``enable_two_factor_authentication`` --
+          the two already-shipped mechanisms behind the supported
+          service-account alternative.
+        """
+        text = _read_readme()
+
+        for fact in ('credentials_basic_auth', 'WebDAV', 'XML-RPC',
+                     'ip_addresses_whitelist',
+                     'enable_two_factor_authentication'):
+            self.assertIn(
+                fact, text,
+                'DOC-02: README.rst must still record {0!r}.'.format(fact))
+
+        # Branch-specific: credentials_basic_auth was KEPT active (not
+        # deactivated), so the README must name what protects that path
+        # under the "keep" branch -- the plugin's index-0 ordering -- rather
+        # than a "no longer authenticates" statement, which only applies to
+        # the unselected "deactivate" branch.
+        self.assertIn(
+            'index 0', text,
+            'DOC-02: the "keep credentials_basic_auth active" branch was '
+            'taken, so README.rst must name the plugin\'s index-0 ordering '
+            'as what protects that path. If this decision is ever reversed '
+            'to "deactivate", this assertion (and the README paragraph it '
+            'checks) must be updated together.')
 
     def test_imio_is_a_pkg_resources_namespace(self):
         """Catches: empty src/imio/__init__.py, a pkgutil-style declaration, and a
