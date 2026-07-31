@@ -4,15 +4,15 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 4
 current_phase_name: PAS Boundary
-status: shipped
-stopped_at: Phase 03 shipped as PR #3 (37 commits, gsd/phase-3-encrypted-seeds-and-local-qr -> master), awaiting review/merge. Phase 4 not yet planned.
-last_updated: "2026-07-30T18:30:00.000Z"
-last_activity: 2026-07-30
-last_activity_desc: Phase 03 shipped - PR #3
+status: planned
+stopped_at: "Phase 4 planned — 4 plans in 2 waves, plan-checker passed. Phase 03 shipped as PR #3 (37 commits, gsd/phase-3-encrypted-seeds-and-local-qr -> master), still awaiting review/merge."
+last_updated: "2026-07-31T00:00:00.000Z"
+last_activity: 2026-07-31
+last_activity_desc: "Phase 04 planned, 4 plans"
 progress:
-  total_phases: 8
+  total_phases: 4
   completed_phases: 3
-  total_plans: 9
+  total_plans: 13
   completed_plans: 9
 ---
 
@@ -23,19 +23,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-29)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 4 — PAS Boundary (Phase 03 shipped as PR #3, awaiting merge)
+**Current focus:** Phase 4 — PAS Boundary (planned, ready to execute; Phase 03 shipped as PR #3, awaiting merge)
 
 ## Current Position
 
 Phase: 4 — PAS Boundary
-Plan: Not started
-Status: Ready to plan — Phase 03 shipped as PR #3, awaiting review/merge
-Last activity: 2026-07-30 — Phase 03 shipped, PR #3
+Plan: 4 plans authored in 2 waves (04-01 tracer, 04-02, 04-03, 04-04)
+Status: Ready to execute — plan-checker passed, no revision iterations needed
+Last activity: 2026-07-31 — Phase 04 planned
 
-Progress: [████████████████████] 9/9 plans authored (100%) · **3 of 8 roadmap phases complete (38%)**
+Progress: [██████████████░░░░░░] 9/13 plans executed (69%) · **3 of 8 roadmap phases complete (38%)**
 
-The plans figure is 100% only because plans exist for the three executed phases; phases 4–8
-have no plans yet. The phase figure is the honest one.
+Phase 4's 4 plans are authored but not executed. Phases 5–8 still have no plans, so the
+13-plan denominator will grow; the phase figure remains the honest one.
+
+Phase 4 carries one blocking gate the executor will hit: `04-02` Task 2 is a
+`checkpoint:decision` on whether to deactivate the `credentials_basic_auth` extractor,
+rated `one-way`. Execution stops there for a human answer.
 
 ## Performance Metrics
 
