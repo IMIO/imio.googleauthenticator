@@ -72,4 +72,10 @@
        handler=".subscribers.on_process_starting"
        />
 
+    <!-- -*- Redirect a pending 2FA login on the login-POST path (MFA-02/COEX-08) -*- -->
+    <subscriber
+       for="ZPublisher.interfaces.IPubBeforeCommit"
+       handler=".subscribers.redirect_pending_2fa"
+       />
+
 </configure>
