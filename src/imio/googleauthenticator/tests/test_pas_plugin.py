@@ -1,5 +1,6 @@
 from Products.CMFCore.utils import getToolByName
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
+import base64
 import os
 import unittest2 as unittest
 from cryptography.fernet import Fernet
@@ -190,4 +191,199 @@ class TestPas(unittest.TestCase, BaseTest):
             finally:
                 helpers.get_encryption_key = original
         finally:
+            setRequest(None)
+
+    def test_form_post_veto(self):
+        """T-04-20 / MFA-04: a 2FA-enabled user's login-form POST
+        credentials must not authenticate via _extractUserIds -- 'return
+        None' from authenticateCredentials vetoes nothing on its own, PAS
+        accumulates every authenticator's result and returns the first
+        success (PluggableAuthService.py:648-667); the wipe of the shared
+        dict is the only veto the interface offers.
+
+        Non-vacuity control, run FIRST with 2FA still disabled: the
+        identical credentials DO authenticate. Without this control a pass
+        below could be explained by a wrong password in the fixture rather
+        than by the veto -- the easiest mistake to make with any assertion
+        of absence.
+
+        Proven load-bearing by mutation (04-03-SUMMARY.md): commenting out
+        the credentials-wipe loop in authenticateCredentials makes this
+        test go red.
+        """
+        request = self.layer['request']
+        request.form['__ac_name'] = TEST_USER_NAME
+        request.form['__ac_password'] = TEST_USER_PASSWORD
+        setRequest(request)
+        try:
+            user_ids = self.pas._extractUserIds(request, self.pas.plugins)
+            self.assertTrue(
+                user_ids,
+                'non-vacuity control: the same credentials must authenticate '
+                'while 2FA is still disabled, or the veto below proves nothing')
+
+            login(self.portal, TEST_USER_NAME)
+            user = api.user.get_current()
+            user.setMemberProperties(
+                mapping={'enable_two_factor_authentication': True})
+            get_or_create_secret(user, overwrite=True)
+
+            user_ids = self.pas._extractUserIds(request, self.pas.plugins)
+            self.assertFalse(
+                user_ids,
+                'MFA-04: a 2FA-enabled user must not authenticate on a '
+                'login-form POST alone')
+        finally:
+            setRequest(None)
+
+    def test_basic_auth_veto(self):
+        """T-04-20 / MFA-01: a 2FA-enabled user presenting Authorization:
+        Basic must not authenticate via _extractUserIds either.
+
+        Call level per 04-02-SUMMARY.md's explicit guidance: 04-02's
+        checkpoint kept credentials_basic_auth ACTIVE, so this asserts
+        through the normal _extractUserIds path -- the extractor still
+        produces a credentials dict for every request, and this plugin's
+        in-place wipe (first among IAuthenticationPlugin, per
+        test_plugin_is_first_authenticator) must blind it. A direct
+        authenticateCredentials call bypassing extraction would only apply
+        under the (unselected) deactivate branch.
+
+        Non-vacuity control, run FIRST with 2FA still disabled: the
+        identical header DOES authenticate.
+
+        Proven load-bearing by mutation (04-03-SUMMARY.md): commenting out
+        the credentials-wipe loop in authenticateCredentials makes this
+        test go red.
+        """
+        request = self.layer['request']
+        request._auth = 'Basic ' + base64.b64encode(
+            '%s:%s' % (TEST_USER_NAME, TEST_USER_PASSWORD))
+        setRequest(request)
+        try:
+            user_ids = self.pas._extractUserIds(request, self.pas.plugins)
+            self.assertTrue(
+                user_ids,
+                'non-vacuity control: the same Basic Auth header must '
+                'authenticate while 2FA is still disabled, or the veto '
+                'below proves nothing')
+
+            login(self.portal, TEST_USER_NAME)
+            user = api.user.get_current()
+            user.setMemberProperties(
+                mapping={'enable_two_factor_authentication': True})
+            get_or_create_secret(user, overwrite=True)
+
+            user_ids = self.pas._extractUserIds(request, self.pas.plugins)
+            self.assertFalse(
+                user_ids,
+                'MFA-01: a 2FA-enabled user must not authenticate via '
+                'Authorization: Basic alone')
+        finally:
+            setRequest(None)
+
+    def test_both_extractors_at_once_grant_no_session(self):
+        """MFA-04 (adjacency probe row): a single request carrying BOTH
+        form credentials and an Authorization: Basic header for the same
+        2FA-enabled user. PAS's _extractUserIds loop runs the whole
+        authenticator loop once per IExtractionPlugin against that
+        extractor's own credentials dict, with no break on success
+        (PluggableAuthService.py:620-675) -- the two paths separate rather
+        than merge or collide, so the veto has to hold in both passes
+        independently. There is no assertion pinning extractor order, and
+        none should be added -- the invariant this test demonstrates is
+        that order does not matter, because each extractor gets its own
+        full pass.
+
+        Proven load-bearing by mutation (04-03-SUMMARY.md): commenting out
+        the credentials-wipe loop in authenticateCredentials makes this
+        test go red.
+        """
+        login(self.portal, TEST_USER_NAME)
+        user = api.user.get_current()
+        user.setMemberProperties(
+            mapping={'enable_two_factor_authentication': True})
+        get_or_create_secret(user, overwrite=True)
+
+        request = self.layer['request']
+        request.form['__ac_name'] = TEST_USER_NAME
+        request.form['__ac_password'] = TEST_USER_PASSWORD
+        request._auth = 'Basic ' + base64.b64encode(
+            '%s:%s' % (TEST_USER_NAME, TEST_USER_PASSWORD))
+        setRequest(request)
+        try:
+            user_ids = self.pas._extractUserIds(request, self.pas.plugins)
+            self.assertFalse(
+                user_ids,
+                'MFA-04: neither extractor pass may grant a session when '
+                'both carry credentials for the same 2FA-enabled user')
+        finally:
+            setRequest(None)
+
+    def test_empty_credentials_do_not_raise(self):
+        """MFA-04 (empty probe row): authenticateCredentials({}) returns
+        None and raises nothing. credentials.get('login') is falsy, so the
+        branch exits before any user lookup.
+
+        Unreachable through PAS itself, which assigns credentials['login']
+        at PluggableAuthService.py:638 before ever calling an
+        authenticator -- but reachable by a direct call, and with
+        _dont_swallow_my_exceptions = True (RENAME-11) a KeyError here
+        would be an HTTP 500 rather than a declined login. Also covers the
+        empty-string and None-login variants in the same method (WR-03:
+        this is still one requirement, not three).
+        """
+        plugin = self.pas[PAS_ID]
+        request = self.layer['request']
+        setRequest(request)
+        try:
+            self.assertIsNone(plugin.authenticateCredentials({}))
+            self.assertIsNone(
+                plugin.authenticateCredentials({'login': '', 'password': ''}))
+            self.assertIsNone(plugin.authenticateCredentials({'login': None}))
+        finally:
+            setRequest(None)
+
+    def test_exception_path_still_wipes_credentials(self):
+        """ROADMAP success criterion 5: an exception raised after the 2FA
+        branch has begun must leave the shared credentials dict empty, so
+        the refusal holds even in the counterfactual world
+        test_plugin_exception_is_swallowed_without_the_flag documents,
+        where PAS swallows the exception and continues to source_users
+        with whatever is left in the dict.
+
+        Injected via pas_plugin._mark_2fa_pending -- the module-level seam
+        plan 04-01 introduced, rebound the same way this file already
+        rebinds pas_plugin.is_whitelisted_client -- rather than by
+        monkeypatching authenticateCredentials itself.
+
+        Proven load-bearing by a second mutation (04-03-SUMMARY.md): moving
+        the wipe below this call site (rather than to its current position,
+        ahead of first-factor delegation) makes this test go red, which is
+        the only proof that the wipe-before-delegation reordering is
+        load-bearing rather than cosmetic.
+        """
+        login(self.portal, TEST_USER_NAME)
+        user = api.user.get_current()
+        user.setMemberProperties(
+            mapping={'enable_two_factor_authentication': True})
+        get_or_create_secret(user, overwrite=True)
+
+        request = self.layer['request']
+        setRequest(request)
+        original = pas_plugin._mark_2fa_pending
+        pas_plugin._mark_2fa_pending = _boom
+        try:
+            plugin = self.pas[PAS_ID]
+            credentials = {
+                'login': TEST_USER_NAME, 'password': TEST_USER_PASSWORD}
+            self.assertRaises(
+                ValueError, plugin.authenticateCredentials, credentials)
+            self.assertEqual(
+                {}, credentials,
+                'the credentials dict must still be empty on the exception '
+                'exit, or a later authenticator sees the original login/'
+                'password intact')
+        finally:
+            pas_plugin._mark_2fa_pending = original
             setRequest(None)
