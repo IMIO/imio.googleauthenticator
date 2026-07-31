@@ -90,6 +90,36 @@ Changelog
   swallowed it and reported only "An unexpected error occurred.", leaving a
   locked-out user with no working recovery path.
   [chris-adam]
+- A refused login no longer serves the protected page in its response body.
+  Previously a 2FA-gated request returned a 302 whose body still contained
+  the rendered page, readable by any client that does not follow redirects.
+  [chris-adam]
+- The 2FA redirect moved out of the PAS plugin's ``authenticateCredentials``
+  into an ``IPubBeforeCommit`` subscriber and an ``IChallengePlugin``, so it
+  now fires on both the login-form POST (which returns HTTP 200 and never
+  raises) and on requests that end in ``Unauthorized``. The plugin itself no
+  longer touches the response or performs the redirect.
+  [chris-adam]
+- Plugin ordering is now set explicitly with ``movePluginsTop`` and
+  re-asserted every time the ``imio.googleauthenticator:default`` profile is
+  applied, not only on first install. Re-applying the profile now restores
+  the ordering if another add-on has displaced the plugin.
+  [chris-adam]
+- The shared-credentials wipe now runs before delegating to the other
+  authentication plugins, so an exception raised mid-login still refuses
+  the login rather than leaving intact credentials for a later plugin to
+  authenticate on.
+  [chris-adam]
+- Reviewed whether to deactivate the ``credentials_basic_auth`` extractor as
+  defence in depth, and decided to keep it active: see ``README.rst``'s new
+  "HTTP Basic Auth, WebDAV, FTP and XML-RPC" section for the decision, the
+  evidence behind it and its known gap.
+  [chris-adam]
+- ``README.rst`` now documents the Zope-root/emergency-user limitation and
+  the Basic Auth / WebDAV / FTP / XML-RPC consequence of the above decision,
+  including the supported service-account-plus-IP-whitelist alternative for
+  scripts and API consumers.
+  [chris-adam]
 
 0.3.0 (unreleased)
 ------------------
