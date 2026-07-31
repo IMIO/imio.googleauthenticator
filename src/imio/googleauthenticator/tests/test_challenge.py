@@ -6,6 +6,7 @@ sibling ``on_process_starting`` handler, and this module instead covers the
 new cross-file contract between ``pas_plugin.py`` and ``subscribers.py`` --
 a role-match rather than a strict R5 file-name match (04-PATTERNS.md).
 """
+import base64
 import os
 import unittest2 as unittest
 import urllib
@@ -22,12 +23,14 @@ from plone import api
 from plone.app.testing import login
 from plone.app.testing import TEST_USER_NAME
 from plone.app.testing import TEST_USER_PASSWORD
+from plone.testing.z2 import Browser
 
 import imio.googleauthenticator
 from imio.googleauthenticator import helpers
 from imio.googleauthenticator import pas_plugin
 from imio.googleauthenticator import subscribers
 from imio.googleauthenticator.helpers import get_or_create_secret
+from imio.googleauthenticator.setuphandlers import PAS_ID
 from imio.googleauthenticator.testing import \
     IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
@@ -255,4 +258,94 @@ class TestPubBeforeCommitRedirect(unittest.TestCase, BaseTest):
         self.assertTrue(browser.headers['Status'].startswith('302'))
         self.assertIn(
             '@@google-authenticator-token', browser.headers['Location'])
+        self.assertEqual('', browser.contents)
+
+    def test_challenge_declines_without_the_flag(self):
+        """COEX-08 / T-04-23: challenge() is the second entry point that
+        reads the pending flag (the first is subscribers.redirect_pending_2fa,
+        covered by test_request_flag_cannot_be_forged_from_the_query_string
+        above), so it needs its own forgery guard: reading request.other
+        only, never request.form. Without the flag at all, and with the flag
+        forged into request.form instead of request.other, challenge() must
+        decline both times -- no status change, no Location header.
+        """
+        plugin = self.pas[PAS_ID]
+        request = self.layer['request']
+        response = HTTPResponse()
+
+        self.assertFalse(plugin.challenge(request, response))
+        self.assertEqual(200, response.status)
+        self.assertIsNone(response.getHeader('Location'))
+
+        # Forgery guard: the flag in request.form (never request.other)
+        # must not fool this second entry point either.
+        request.form[pas_plugin.REQUEST_KEY_PENDING] = '1'
+        self.assertFalse(plugin.challenge(request, response))
+        self.assertEqual(200, response.status)
+        self.assertIsNone(response.getHeader('Location'))
+
+    def test_challenge_writes_nothing(self):
+        """T-04-24: by the time challenge() runs, HTTPResponse.exception has
+        already been reached from a request whose transaction is aborted
+        (ZPublisher/Publish.py:194,218) -- a write placed here is discarded
+        100% of the time with no exception and no log line. Copies the
+        before/after shape from
+        test_setuphandlers.py::test_get_ska_secret_key_does_not_mutate_registry:
+        an assertion this boring is the only way to notice a write that
+        looks like a security control and does not work.
+        """
+        plugin = self.pas[PAS_ID]
+        user = self._enable_2fa()
+        request = self.layer['request']
+        response = HTTPResponse()
+        pas_plugin._mark_2fa_pending(request, user)
+
+        before = user.getProperty('two_factor_authentication_secret')
+        self.assertTrue(plugin.challenge(request, response))
+        after = user.getProperty('two_factor_authentication_secret')
+        self.assertEqual(before, after)
+
+    def test_challenge_fires_on_unauthorized(self):
+        """COEX-08's Unauthorized half: a 2FA-enabled user who triggers
+        Unauthorized on a resource they are genuinely authorized for is
+        redirected to the token form -- not served the resource, and not
+        sent to Plone's own login_form (the ExtendedCookieAuthHelper
+        challenger, Open Question 3's competing IChallengePlugin).
+
+        Redirects are not auto-followed here: a real HTTP Basic Auth client
+        resends the same ``Authorization`` header on every request in the
+        realm, including the redirect target itself, which re-triggers
+        authenticateCredentials's veto and the IPubBeforeCommit subscriber
+        on THAT request too, looping forever -- confirmed empirically while
+        writing this test. That is an accepted consequence of 04-02's
+        decision to keep ``credentials_basic_auth`` active (T-04-20): Basic
+        Auth is a dead end for a 2FA-enabled user by design, not a path
+        that is supposed to ever complete. This test only needs the single
+        hop ``challenge()`` itself produces.
+        """
+        self._enable_2fa()
+        protected_url = self.portal_url + '/@@personal-information'
+
+        # Non-vacuity control: prove the URL really is protected before
+        # trusting the assertions below. If it were public, Unauthorized
+        # never fires and challenge() is never reached -- an anonymous
+        # request lands on Plone's own require_login instead.
+        anon_browser = Browser(self.app)
+        anon_browser.open(protected_url)
+        self.assertIn('require_login', anon_browser.url)
+        self.assertNotIn('Personal Information', anon_browser.contents)
+
+        credentials = base64.b64encode(
+            '%s:%s' % (TEST_USER_NAME, TEST_USER_PASSWORD))
+        browser = Browser(self.app)
+        browser.addHeader('Authorization', 'Basic %s' % credentials)
+        browser.mech_browser.set_handle_redirect(False)
+        browser.raiseHttpErrors = False
+        browser.open(protected_url)
+
+        self.assertEqual(
+            '302 Moved Temporarily', browser.headers.get('Status'))
+        location = browser.headers.get('Location')
+        self.assertIn('@@google-authenticator-token', location)
+        self.assertIn('auth_user=', location)
         self.assertEqual('', browser.contents)

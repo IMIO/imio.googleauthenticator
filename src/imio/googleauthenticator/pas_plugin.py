@@ -22,6 +22,7 @@ from Products.PluggableAuthService.PluggableAuthService import _SWALLOWABLE_PLUG
 from Products.PluggableAuthService.plugins.BasePlugin import BasePlugin
 from Products.PluggableAuthService.utils import classImplements
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
+from Products.PluggableAuthService.interfaces.plugins import IChallengePlugin
 from Products.PageTemplates.PageTemplateFile import PageTemplateFile
 
 from imio.googleauthenticator.adapter import ICameFrom
@@ -151,8 +152,14 @@ class GoogleAuthenticatorPlugin(BasePlugin):
     # off the plugin instance it is handed, so it is scoped to us: later plugins
     # still get their post-credentials-wipe KeyError swallowed (below), which the
     # veto this plugin performs depends on. The plugin's own inner delegation loop
-    # (which calls reraise() on the *other* plugins) is deliberately left alone --
-    # Phase 4 owns that boundary rework.
+    # (which calls reraise() on the *other* plugins) is deliberately left alone.
+    # Phase 4's boundary rework turned out to be: the credentials wipe now runs
+    # before first-factor delegation (authenticateCredentials below), so it holds
+    # on the exception exit too, and the flag/redirect split (send_2fa_redirect,
+    # challenge() below) means no RESPONSE/REQUEST access survives inside
+    # authenticateCredentials itself -- both redirect entry points (the login-POST
+    # IPubBeforeCommit subscriber and this class's own IChallengePlugin.challenge)
+    # go through the one shared builder instead.
     _dont_swallow_my_exceptions = True
 
     def __init__(self, id, title=None):
@@ -265,6 +272,37 @@ class GoogleAuthenticatorPlugin(BasePlugin):
 
         return None
 
+    def challenge(self, request, response):
+        """
+        IChallengePlugin's other half of COEX-08: fires for requests that end
+        in ``Unauthorized`` (``HTTPResponse.exception`` ->
+        ``PluggableAuthService.challenge`` at
+        ``PluggableAuthService.py:1152-1192``, called once per
+        ``IChallengePlugin`` in listing order) rather than the login-form POST
+        the ``IPubBeforeCommit`` subscriber (``subscribers.redirect_pending_2fa``)
+        already covers -- one hook does not cover both paths.
 
-classImplements(GoogleAuthenticatorPlugin, IAuthenticationPlugin)
+        By the time this runs the transaction is already aborted
+        (``ZPublisher/Publish.py:194,218``), so any write here is discarded
+        silently and forever; this method must stay write-free for Phase 5's
+        MFA-12 (lockout state) to mean anything. It deliberately sets no
+        ``protocol`` attribute -- ``HTTPBasicAuthHelper.protocol = "http"`` is
+        the group PAS's challenger-protocol/``IRequestTypeSniffer`` machinery
+        routes WebDAV/FTP/XML-RPC request types into, and joining it would
+        hand those clients an HTML redirect instead of a clean 401.
+        ``send_2fa_redirect`` issues the redirect with ``lock=1`` because
+        ``HTTPResponse.exception`` overwrites the status with 401
+        immediately after this returns (``HTTPResponse.py:799-803``); an
+        unlocked 302 would be silently overwritten one line later.
+
+        :param ZPublisher.HTTPRequest request:
+        :param ZPublisher.HTTPResponse.HTTPResponse response:
+        :return bool: True if the redirect was applied, False otherwise.
+        """
+        if not request.other.get(REQUEST_KEY_PENDING):
+            return False
+        return send_2fa_redirect(request, response)
+
+
+classImplements(GoogleAuthenticatorPlugin, IAuthenticationPlugin, IChallengePlugin)
 InitializeClass(GoogleAuthenticatorPlugin)
