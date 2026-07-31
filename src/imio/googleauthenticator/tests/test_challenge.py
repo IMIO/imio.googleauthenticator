@@ -8,6 +8,7 @@ a role-match rather than a strict R5 file-name match (04-PATTERNS.md).
 """
 import os
 import unittest2 as unittest
+import urllib
 import xml.dom.minidom
 
 import transaction
@@ -221,3 +222,37 @@ class TestPubBeforeCommitRedirect(unittest.TestCase, BaseTest):
         # effect and must not influence the assertions above.
         self.assertEqual('1', request.get('_2fa_pending'))
         self.assertEqual(TEST_USER_NAME, request.get('_2fa_user_id'))
+
+    def test_no_body_leak_over_http(self):
+        """MFA-02, belt-and-braces: the same emptiness Task 1's
+        ``test_no_body_leak_on_2fa_redirect`` already proves against a
+        direct-call ``HTTPResponse``, reproduced over a real HTTP round
+        trip through ``zope.testbrowser`` 3.11.1 / ``mechanize`` 0.2.5.
+
+        ``set_handle_redirect(False)`` and ``raiseHttpErrors = False`` are
+        both needed, but only against ``Browser.open()`` --
+        ``Browser.getControl(...).click()`` calls ``_clickSubmit()``
+        (``zope/testbrowser/browser.py:407-424``), which re-raises any
+        ``mechanize.HTTPError`` unconditionally and never consults
+        ``raiseHttpErrors`` at all. Submitting the encoded POST directly
+        through ``Browser.open()`` instead of via a clicked control routes
+        through the code path that actually honours the switch
+        (``zope/testbrowser/browser.py:233-259``).
+        """
+        self._enable_2fa()
+
+        browser = self._get_browser()
+        browser.mech_browser.set_handle_redirect(False)
+        browser.raiseHttpErrors = False
+
+        data = urllib.urlencode({
+            '__ac_name': TEST_USER_NAME,
+            '__ac_password': TEST_USER_PASSWORD,
+            'submit': 'Log in',
+        })
+        browser.open(self.portal_url + '/login_form', data)
+
+        self.assertTrue(browser.headers['Status'].startswith('302'))
+        self.assertIn(
+            '@@google-authenticator-token', browser.headers['Location'])
+        self.assertEqual('', browser.contents)
