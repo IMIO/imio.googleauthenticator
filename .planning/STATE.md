@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 5
-current_phase_name: Drift, Replay and Lockout
+current_phase: 05
+current_phase_name: drift-replay-and-lockout
 status: executing
-stopped_at: Completed 04-04-PLAN.md
-last_updated: "2026-07-31T14:53:35.017Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-07-31T15:33:52.937Z"
 last_activity: 2026-07-31
-last_activity_desc: Phase 04 complete, transitioned to Phase 5
+last_activity_desc: Phase 05 execution started
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-31)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 5 — Drift, Replay and Lockout
+**Current focus:** Phase 05 — drift-replay-and-lockout
 
 ## Current Position
 
-Phase: 5 — Drift, Replay and Lockout
-Plan: Not started
+Phase: 05 (drift-replay-and-lockout) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-07-31 — Phase 04 complete, transitioned to Phase 5
+Last activity: 2026-07-31 — Phase 05 execution started
 
-Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete (50%)**
+Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([█████████░] 88%)**
 
 Phases 5–8 still have no plans, so the 13-plan denominator will grow; the phase figure
 remains the honest one.
@@ -83,6 +83,7 @@ recorded as WR-01 and WR-02 in `04-REVIEW.md`.
 | Phase 04 P02 | ~15min (continuation) | 3 tasks | 2 files |
 | Phase 04 P03 | 90min | 2 tasks | 3 files |
 | Phase 04 P04 | 50min | 2 tasks | 3 files |
+| Phase 05 P01 | 16min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,8 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 4]: 04-03: challenge() added as IChallengePlugin (COEX-08 Unauthorized half), sharing send_2fa_redirect with 04-01's IPubBeforeCommit subscriber; Open Question 3 resolved empirically as not-needed since 04-02's movePluginsTop loop already covers any interface classImplements declares
 - [Phase ?]: [Phase 4]: 04-03: five veto tests added (form POST, Basic Auth, both extractors at once, empty credentials, exception path), each proven load-bearing by a recorded mutation check; discovered (by design, not a bug) that HTTP Basic Auth loops forever against this 2FA veto since the client resends the same header on every request including the redirect target
 - [Phase ?]: Phase 04-04: DOC-01/DOC-02 README sections added (Zope-root boundary + emergency-user carve-out; the settled credentials_basic_auth 'keep active' decision with WebDAV/FTP/XML-RPC consequence and the service-account+IP-whitelist alternative), each backed by a fact-presence CI test proven load-bearing by a delete-the-section mutation check; 'ZMI -> acl_users' reconciled to read as verification+recovery now that movePluginsTop is profile-authoritative.
+- [Phase ?]: [Phase 5]: 05-01: three int memberdata properties (failed_attempts/locked_until/last_interval) declared and round-trip-proven both directly and via the profile import; max_failed_attempts(5)/lockout_duration(900) added to the control panel with zero new form class; lock gate wired into token.py::handleSubmit before validate_user_data/validate_token, reusing the existing generic error message so a locked account is not an oracle.
+- [Phase ?]: [Phase 5]: 05-01: MFA-12 pinned by a source-grep test (tests/test_pas_plugin.py::test_no_second_factor_state_written_from_the_plugin) asserting pas_plugin.py/subscribers.py never mention the new property names or helper functions, plus a two-request Browser sequence proving the counter survives a request that began in Unauthorized. Both non-vacuity mutation checks (moving the lock gate past the success/failure dispatch; adding a property name to subscribers.py) reproduced red, then restored byte-identical.
 
 ### Pending Todos
 
@@ -154,6 +157,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-31
-Stopped at: Phase 4 complete (executed, verified, UAT passed, security audit clean), ready to plan Phase 5
+Last session: 2026-07-31T15:33:52.925Z
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None

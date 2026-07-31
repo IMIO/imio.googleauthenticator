@@ -52,12 +52,12 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [ ] **MFA-05**: A TOTP code from the immediately preceding time step is accepted (one step of drift, RFC 6238 §6)
 - [ ] **MFA-06**: A TOTP code already consumed is rejected on reuse (RFC 6238 §5.2 MUST NOT), and the rejection is logged without the username in plaintext
 - [ ] **MFA-07**: Only exactly-6-digit input is treated as a candidate token
-- [ ] **MFA-08**: After N consecutive failed second-factor attempts the account is locked for the configured duration, and the lock is checked before the token is evaluated so a locked account is not an oracle
-- [ ] **MFA-09**: The lock expires on its own; no admin action is required
-- [ ] **MFA-10**: N and the lock duration are editable in the control panel, defaulting to 5 and 900 seconds
-- [ ] **MFA-11**: A successful second factor resets the failure counter
-- [ ] **MFA-12**: No second-factor state is written from the PAS plugin or a challenge plugin; all writes happen in the token form view, which is the only path that commits
-- [ ] **MFA-13**: Every new memberdata property has a `memberdata_properties.xml` entry and a set/get round-trip test, since undeclared properties are silently discarded
+- [x] **MFA-08**: After N consecutive failed second-factor attempts the account is locked for the configured duration, and the lock is checked before the token is evaluated so a locked account is not an oracle
+- [x] **MFA-09**: The lock expires on its own; no admin action is required
+- [x] **MFA-10**: N and the lock duration are editable in the control panel, defaulting to 5 and 900 seconds
+- [x] **MFA-11**: A successful second factor resets the failure counter
+- [x] **MFA-12**: No second-factor state is written from the PAS plugin or a challenge plugin; all writes happen in the token form view, which is the only path that commits
+- [x] **MFA-13**: Every new memberdata property has a `memberdata_properties.xml` entry and a set/get round-trip test, since undeclared properties are silently discarded
 
 ### Recovery codes (RECOV)
 
@@ -191,12 +191,12 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | MFA-05 | Phase 5 | Pending |
 | MFA-06 | Phase 5 | Pending |
 | MFA-07 | Phase 5 | Pending |
-| MFA-08 | Phase 5 | Pending |
-| MFA-09 | Phase 5 | Pending |
-| MFA-10 | Phase 5 | Pending |
-| MFA-11 | Phase 5 | Pending |
-| MFA-12 | Phase 5 | Pending |
-| MFA-13 | Phase 5 | Pending |
+| MFA-08 | Phase 5 | Complete |
+| MFA-09 | Phase 5 | Complete |
+| MFA-10 | Phase 5 | Complete |
+| MFA-11 | Phase 5 | Complete |
+| MFA-12 | Phase 5 | Complete |
+| MFA-13 | Phase 5 | Complete |
 | RECOV-01 | Phase 6 | Pending |
 | RECOV-02 | Phase 6 | Pending |
 | RECOV-03 | Phase 6 | Pending |
