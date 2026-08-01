@@ -108,15 +108,22 @@ class ResetBarCodeForm(form.SchemaForm):
                 )
             return
 
-        # Locked accounts get the exact same message as a wrong code, so
-        # the response cannot be used as an oracle -- the lock is checked
-        # before validate_token is ever consulted (MFA-08). Only a real,
-        # site-local account can be locked: this gate sits after both the
-        # user-not-found and is_site_local_user guards above.
+        # This branch deliberately emits the same assembled wrapper and
+        # reason as the wrong-code path does at the shared
+        # `reason is not None` tail at the bottom of this handler -- the
+        # two must be changed together, or the lock becomes readable
+        # again from the message alone (MFA-08). The gate itself still
+        # runs strictly before `validate_token`, so a locked account
+        # never reaches TOTP arithmetic. This makes a locked account
+        # indistinguishable from an unlocked, enrolled one -- it does
+        # NOT make either indistinguishable from a username that does
+        # not exist or from an account defined outside this Plone site;
+        # the two guards above keep their own distinct messages by
+        # decision P5-17.
         if is_account_locked(user):
             reason = _("Invalid token or token expired.")
             IStatusMessage(self.request).addStatusMessage(
-                _("Resetting of the bar-code failed! {0}".format(reason)),
+                _("Setup failed! {0}".format(reason)),
                 'error'
                 )
             return
