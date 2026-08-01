@@ -11,6 +11,7 @@ the others still pass (decision P5-07).
 """
 import base64
 import os
+import re
 import time
 import unittest2 as unittest
 
@@ -369,3 +370,86 @@ class TestTokenFormLockout(unittest.TestCase, BaseTest):
             user.getProperty('two_factor_authentication_failed_attempts'),
             'MFA-12: the counter must be readable after a request '
             'sequence that began in Unauthorized')
+
+    def test_no_signature_response_is_identical_for_a_locked_and_an_unknown_account(self):
+        """Covers 05-VERIFICATION.md gap ``missing[1]`` / 05-REVIEW.md
+        CR-01, and asserts the requirement-level half of MFA-08 that
+        ``test_locked_account_response_is_the_same_for_a_valid_and_an_invalid_code``
+        cannot reach, because that test always holds a genuinely signed URL
+        obtained through a real password login. Here the caller supplies
+        nothing but a username -- no password, no ``ska`` signature, no
+        ``auth_timestamp``, no code.
+        """
+        self._enable_2fa()
+        locked_user = api.user.get(username=TEST_USER_NAME)
+        locked_user.setMemberProperties(mapping={
+            'two_factor_authentication_locked_until':
+                int(time.time()) + 900})
+        transaction.commit()
+
+        locked_user = api.user.get(username=TEST_USER_NAME)
+        self.assertTrue(
+            helpers.is_account_locked(locked_user),
+            'precondition: the account must actually be locked, or the '
+            'rest of this test is vacuous')
+
+        # Non-vacuity control: an enrolled account that is NOT locked.
+        # Two-way equality (locked vs. nonexistent) could be satisfied by
+        # an unrelated coincidence; three-way equality is what "not an
+        # oracle" actually means.
+        unlocked_username = 'unlocked-enrolled-user'
+        unlocked_user = api.user.create(
+            email='unlocked-enrolled-user@example.com',
+            username=unlocked_username,
+            password='Secret0123!')
+        unlocked_user.setMemberProperties(
+            mapping={'enable_two_factor_authentication': True})
+        get_or_create_secret(unlocked_user, overwrite=True)
+        transaction.commit()
+
+        unknown_username = 'no-such-account-at-all'
+        self.assertIsNone(
+            api.user.get(username=unknown_username),
+            'precondition: this username must not exist')
+
+        # ``globalstatusmessage.pt`` renders each message as
+        # ``<dl class="portalMessage {type}"><dt>{Type}</dt><dd>{text}
+        # </dd></dl>`` -- extracting the ``<dd>`` text is what keeps this
+        # assertion from being defeated by the CSRF token and portal date
+        # that differ elsewhere on the page for reasons unrelated to the
+        # oracle this test is about.
+        message_re = re.compile(
+            r'<dl class="portalMessage error">\s*<dt>.*?</dt>\s*'
+            r'<dd>(.*?)</dd>\s*</dl>', re.DOTALL)
+
+        def _unsigned_message(username):
+            # A fresh, never-``_login_browser``-ed Browser: the URL
+            # carries only ``auth_user``, no ``signature`` and no
+            # ``auth_timestamp``.
+            browser = self._get_browser()
+            browser.open(
+                '{0}/@@google-authenticator-token?auth_user={1}'.format(
+                    self.portal_url, username))
+            self._submit_token(browser, u'000000')
+            match = message_re.search(browser.contents)
+            self.assertIsNotNone(
+                match,
+                'no status message rendered for {0!r}'.format(username))
+            return match.group(1).strip()
+
+        locked_message = _unsigned_message(TEST_USER_NAME)
+        unlocked_message = _unsigned_message(unlocked_username)
+        unknown_message = _unsigned_message(unknown_username)
+
+        self.assertEqual(
+            locked_message, unknown_message,
+            'MFA-08: an unsigned request must not distinguish a locked '
+            'account from one that does not exist')
+        self.assertEqual(
+            locked_message, unlocked_message,
+            'MFA-08: an unsigned request must not distinguish a locked '
+            'account from an unlocked, enrolled one')
+        self.assertNotIn(
+            'Invalid token or token expired.', locked_message,
+            'the lock-branch message must never be reachable by an '
+            'unsigned caller')
