@@ -198,7 +198,7 @@ Plans:
   4. A test asserts a successful second factor resets the failure counter, and that only exactly-6-digit input is treated as a candidate token. This requires a **new** gate in `helpers.py`, checked before `onetimepass` is ever called: the permissive `_is_possible_token` that accepts `"1"` and `"123"` is a private function inside the pinned `onetimepass==0.2.2` egg, so it cannot be patched (corrected during Phase 5 research — the earlier wording implied it lived in this package). N and the duration are editable in the control panel, defaulting to 5 and 900.
   5. Every new memberdata property has a `memberdata_properties.xml` entry and a `setMemberProperties()` → `getProperty()` round-trip test; and a test asserts the failure counter still increments after a request that ends in `Unauthorized`, proving the write lives in the token form view and not on an aborted path.
 
-**Plans**: 3/3 plans executed
+**Plans**: 3/4 plans executed
 
 Plans:
 **Wave 1**
@@ -209,6 +209,10 @@ Plans:
 
 - [x] 05-02-PLAN.md — Drift acceptance, replay rejection and the exact-six-digit gate in `helpers.validate_token`, one commit (MFA-05, MFA-06, MFA-07)
 - [x] 05-03-PLAN.md — The same counter and lock on `@@reset-bar-code`, closing the anonymous guessing oracle (MFA-08 reset path, MFA-11, MFA-12)
+
+**Wave 3** *(gap closure, blocked on Wave 2 completion)*
+
+- [ ] 05-04-PLAN.md — Move the lockout gate in `token.py` to run after signature validation so an unsigned caller can no longer read account lock state, plus the anonymous no-signature test (MFA-08)
 
 **UI hint**: no
 
