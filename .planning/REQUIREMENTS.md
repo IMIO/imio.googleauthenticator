@@ -52,7 +52,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [ ] **MFA-05**: A TOTP code from the immediately preceding time step is accepted (one step of drift, RFC 6238 §6)
 - [ ] **MFA-06**: A TOTP code already consumed is rejected on reuse (RFC 6238 §5.2 MUST NOT), and the rejection is logged without the username in plaintext
 - [ ] **MFA-07**: Only exactly-6-digit input is treated as a candidate token
-- [x] **MFA-08**: After N consecutive failed second-factor attempts the account is locked for the configured duration, and the lock is checked before the token is evaluated so a locked account is not an oracle
+- [ ] **MFA-08**: After N consecutive failed second-factor attempts the account is locked for the configured duration, and the lock is checked before the token is evaluated so a locked account is not an oracle
 - [ ] **MFA-09**: The lock expires on its own; no admin action is required
 - [ ] **MFA-10**: N and the lock duration are editable in the control panel, defaulting to 5 and 900 seconds
 - [ ] **MFA-11**: A successful second factor resets the failure counter
