@@ -85,15 +85,6 @@ class TokenForm(form.SchemaForm):
         if username:
             user = api.user.get(username=username)
 
-            if user is not None and is_account_locked(user):
-                # Locked accounts get the exact same message as a wrong
-                # code, so the response cannot be used as an oracle -- the
-                # lock is checked before validate_user_data/validate_token
-                # are ever consulted (MFA-08).
-                msg = _("Invalid token or token expired.")
-                IStatusMessage(self.request).addStatusMessage(msg, 'error')
-                return
-
             # Validating the signed request data. If invalid (likely tampered
             # with or expired), generate an appropriate error message.
             user_data_validation_result = validate_user_data(
@@ -103,6 +94,20 @@ class TokenForm(form.SchemaForm):
                 IStatusMessage(self.request).addStatusMessage(
                     _("Invalid data. Details: {0}".format(' '.join(
                         user_data_validation_result.reason))), 'error')
+                return
+
+            # The lock gate runs only after validate_user_data has already
+            # succeeded, so an unsigned/unauthenticated caller -- one who
+            # supplies nothing but a username, no password, no signature --
+            # learns nothing about account lock state from this branch
+            # (MFA-08's "not an oracle" half). It still runs strictly before
+            # validate_token, so a locked account never reaches TOTP
+            # arithmetic (MFA-08's "the lock is checked before the token is
+            # evaluated" half). Do not move this gate to either side of that
+            # window.
+            if user is not None and is_account_locked(user):
+                msg = _("Invalid token or token expired.")
+                IStatusMessage(self.request).addStatusMessage(msg, 'error')
                 return
 
         valid_token = validate_token(token, user=user)
