@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 05
 current_phase_name: drift-replay-and-lockout
 status: executing
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-08-01T12:49:05.504Z"
-last_activity: 2026-07-31
+stopped_at: Completed 05-04-PLAN.md
+last_updated: "2026-08-01T13:03:00.491Z"
+last_activity: 2026-08-01
 last_activity_desc: Phase 05 execution started
 progress:
   total_phases: 5
   completed_phases: 5
   total_plans: 17
-  completed_plans: 16
+  completed_plans: 17
 ---
 
 # Project State
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-07-31)
 ## Current Position
 
 Phase: 05 (drift-replay-and-lockout) — EXECUTING
-Plan: 3 of 3
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-07-31 — Phase 05 execution started
+Last activity: 2026-08-01 — Phase 05 execution started
 
 Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([██████████] 100%)**
 
@@ -86,6 +86,7 @@ recorded as WR-01 and WR-02 in `04-REVIEW.md`.
 | Phase 05 P01 | 16min | 3 tasks | 10 files |
 | Phase 05 P02 | 12min | 2 tasks | 2 files |
 | Phase 05 P03 | 12min | 3 tasks | 4 files |
+| Phase 05 P04 | 20min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -131,6 +132,7 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 5]: 05-02: validate_token rewritten -- TOTP_INTERVAL_SECONDS/_is_six_digit_token/_find_accepted_interval added; drift accepted only backward (current, current-1), replay refused via two_factor_authentication_last_interval with a no-operand INFO log, format gate refuses non-six-ASCII-digit input before the seed is ever fetched. Same-commit regression fix: test_seed_encryption_round_trip now uses get_totp(seed, as_string=True). MFA-05 real-device drift-boundary check deferred to end-of-phase human verification (no running instance/physical device in this environment).
 - [Phase ?]: [Phase 5]: 05-03: browser/forms/reset_bar_code.py::handleSubmit metered with the same lock gate/counter as token.py -- lock checked after user-not-found/is_site_local_user guards and before validate_token; success branch calls reset_failed_second_factor before the try block (P5-14) so a PropertyValueError surfaces rather than being swallowed. Non-vacuity mutation (removing register_failed_second_factor) reproduced red, restored byte-identical.
 - [Phase ?]: [Phase 5]: 05-03: filled the MFA-05/06/07 rows in 05-VALIDATION.md that plan 05-02 left as TBD, and fixed a stale test_token_form sampling-command reference -- documented as a Rule 2 documentation-completeness deviation, not a scope change.
+- [Phase ?]: [Phase 5]: 05-04: reordered is_account_locked to run after validate_user_data succeeds and before validate_token in token.py, closing CR-01 (an unsigned caller could learn account lock state from the message string alone). New test proves three-way message equality (locked/unlocked-enrolled/nonexistent) for an anonymous caller with no signature/auth_timestamp; non-vacuity confirmed by reverting the reorder locally and observing the new test go red while the other 6 test_token.py methods stayed green.
 
 ### Pending Todos
 
@@ -162,6 +164,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-31T16:01:52.078Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-08-01T13:03:00.481Z
+Stopped at: Completed 05-04-PLAN.md
 Resume file: None
