@@ -198,7 +198,7 @@ Plans:
   4. A test asserts a successful second factor resets the failure counter, and that only exactly-6-digit input is treated as a candidate token. This requires a **new** gate in `helpers.py`, checked before `onetimepass` is ever called: the permissive `_is_possible_token` that accepts `"1"` and `"123"` is a private function inside the pinned `onetimepass==0.2.2` egg, so it cannot be patched (corrected during Phase 5 research — the earlier wording implied it lived in this package). N and the duration are editable in the control panel, defaulting to 5 and 900.
   5. Every new memberdata property has a `memberdata_properties.xml` entry and a `setMemberProperties()` → `getProperty()` round-trip test; and a test asserts the failure counter still increments after a request that ends in `Unauthorized`, proving the write lives in the token form view and not on an aborted path.
 
-**Plans**: 5 plans (4 executed)
+**Plans**: 5/5 plans executed
 
 Plans:
 **Wave 1**
@@ -216,7 +216,7 @@ Plans:
 
 **Wave 4** *(gap closure, additive — all prior plans already executed)*
 
-- [ ] 05-05-PLAN.md — Make the locked-account and wrong-code failures at `@@reset-bar-code` emit the same assembled status message, plus the anonymous equality test the 05-03 substring criterion could not catch (MFA-08)
+- [x] 05-05-PLAN.md — Make the locked-account and wrong-code failures at `@@reset-bar-code` emit the same assembled status message, plus the anonymous equality test the 05-03 substring criterion could not catch (MFA-08)
 
 **UI hint**: no
 
@@ -308,7 +308,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 2. Registry Seeding and Import-Step Ordering | 2/2 | Complete    | 2026-07-29 |
 | 3. Encrypted Seeds and Local QR | 3/3 | Complete    | 2026-07-30 |
 | 4. PAS Boundary | 4/4 | Complete    | 2026-07-31 |
-| 5. Drift, Replay and Lockout | 4/4 | In Progress|  |
+| 5. Drift, Replay and Lockout | 5/5 | In Progress|  |
 | 6. Recovery Codes | 0/TBD | Not started | - |
 | 7. Coexistence with imio.dms.mail | 0/TBD | Not started | - |
 | 8. Coverage Instrument and Test Layers | 0/TBD | Not started | - |

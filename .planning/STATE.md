@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 05
 current_phase_name: drift-replay-and-lockout
 status: executing
-stopped_at: Completed 05-04-PLAN.md
-last_updated: "2026-08-01T13:03:00.491Z"
+stopped_at: Completed 05-05-PLAN.md
+last_updated: "2026-08-01T14:00:51.949Z"
 last_activity: 2026-08-01
 last_activity_desc: Phase 05 execution started
 progress:
   total_phases: 5
   completed_phases: 5
-  total_plans: 17
-  completed_plans: 17
+  total_plans: 18
+  completed_plans: 18
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-31)
 ## Current Position
 
 Phase: 05 (drift-replay-and-lockout) — EXECUTING
-Plan: 2 of 4
+Plan: 2 of 5
 Status: Ready to execute
 Last activity: 2026-08-01 — Phase 05 execution started
 
@@ -87,6 +87,7 @@ recorded as WR-01 and WR-02 in `04-REVIEW.md`.
 | Phase 05 P02 | 12min | 2 tasks | 2 files |
 | Phase 05 P03 | 12min | 3 tasks | 4 files |
 | Phase 05 P04 | 20min | 2 tasks | 3 files |
+| Phase 05 P05 | 20min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -133,6 +134,7 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 5]: 05-03: browser/forms/reset_bar_code.py::handleSubmit metered with the same lock gate/counter as token.py -- lock checked after user-not-found/is_site_local_user guards and before validate_token; success branch calls reset_failed_second_factor before the try block (P5-14) so a PropertyValueError surfaces rather than being swallowed. Non-vacuity mutation (removing register_failed_second_factor) reproduced red, restored byte-identical.
 - [Phase ?]: [Phase 5]: 05-03: filled the MFA-05/06/07 rows in 05-VALIDATION.md that plan 05-02 left as TBD, and fixed a stale test_token_form sampling-command reference -- documented as a Rule 2 documentation-completeness deviation, not a scope change.
 - [Phase ?]: [Phase 5]: 05-04: reordered is_account_locked to run after validate_user_data succeeds and before validate_token in token.py, closing CR-01 (an unsigned caller could learn account lock state from the message string alone). New test proves three-way message equality (locked/unlocked-enrolled/nonexistent) for an anonymous caller with no signature/auth_timestamp; non-vacuity confirmed by reverting the reorder locally and observing the new test go red while the other 6 test_token.py methods stayed green.
+- [Phase ?]: [Phase 5]: 05-05: reset_bar_code.py locked branch swapped to the wrong-code path's "Setup failed! {0}" wrapper (was "Resetting of the bar-code failed! {0}"), closing 05-03's T-05-03 message-level oracle claim which was false; new test proves two-way message-list equality (locked/unlocked, same and a different account); non-vacuity RED confirmed against unmodified source before the fix.
 
 ### Pending Todos
 
@@ -164,6 +166,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-01T13:03:00.481Z
-Stopped at: Completed 05-04-PLAN.md
+Last session: 2026-08-01T14:00:51.939Z
+Stopped at: Completed 05-05-PLAN.md
 Resume file: None
