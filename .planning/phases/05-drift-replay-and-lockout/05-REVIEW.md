@@ -1,6 +1,6 @@
 ---
 phase: 05-drift-replay-and-lockout
-reviewed: 2026-08-01T13:10:12Z
+reviewed: 2026-08-01T00:00:00Z
 depth: standard
 files_reviewed: 12
 files_reviewed_list:
@@ -17,201 +17,161 @@ files_reviewed_list:
   - src/imio/googleauthenticator/tests/test_token.py
   - src/imio/googleauthenticator/userdataschema.py
 findings:
-  critical: 1
+  critical: 0
   warning: 2
   info: 1
-  total: 4
+  total: 3
 status: issues_found
 ---
 
-# Phase 05: Code Review Report (re-review)
+# Phase 05: Code Review Report
 
-**Reviewed:** 2026-08-01T13:10:12Z
+**Reviewed:** 2026-08-01T00:00:00Z
 **Depth:** standard
 **Files Reviewed:** 12
 **Status:** issues_found
 
 ## Summary
 
-This is a re-review following plan 05-04 (commits `ff28800`, `eee1d29`, `6a3a8ef`), whose
-stated purpose was to close the prior review's CR-01 (`is_account_locked` gate in
-`token.py` leaking lock status to an unauthenticated caller). A `git diff 972ae68..HEAD --
-src/imio/googleauthenticator/` confirms the *only* production/test files touched since the
-prior review are `browser/forms/token.py` and `tests/test_token.py`; every other file in
-scope is byte-identical to what the prior review already examined.
+Judged against the phase's four guarantees -- no replay, one step of backward-only clock
+drift, a persisted lockout counter, and lock-state-indistinguishable failure messages --
+by tracing `validate_token`/`_find_accepted_interval` (drift + replay), `is_account_locked`/
+`register_failed_second_factor`/`reset_failed_second_factor` (lockout), and both
+`browser/forms/token.py` and `browser/forms/reset_bar_code.py` `handleSubmit` call sites
+by hand, then cross-checking each conclusion against the existing test suite.
 
-**CR-01 is genuinely closed, on the merits, not just by commit message.** The lock check
-in `token.py:handleSubmit` was moved to run strictly after `validate_user_data` succeeds,
-so an unsigned caller (no password, no `ska` signature, no `auth_timestamp`) now always
-gets the same generic "Invalid data. Details: ..." message regardless of whether the named
-account is locked, unlocked-and-enrolled, or does not exist at all -- traced the control
-flow by hand and it holds. The new test
-(`test_no_signature_response_is_identical_for_a_locked_and_an_unknown_account`) proves this
-with a genuine three-way equality plus a negative assertion that the lock-branch message
-string is never reachable unsigned, which is real, non-tautological coverage (not just
-"the code runs without raising").
+**A prior round of this review (visible in this file's previous revision) flagged a
+message-prefix mismatch between `reset_bar_code.py`'s locked-account branch
+("Resetting of the bar-code failed! ...") and its wrong-code branch ("Setup failed!
+..."). That defect is gone in the current code**: both branches now render through the
+identical `"Setup failed! {0}".format(reason)` wrapper (`reset_bar_code.py:122-129` and
+`:169-174`), confirmed via `git log` against commit `be31592` ("close the reset-bar-code
+lock-state oracle (MFA-08)"), and it is now covered by
+`test_reset_bar_code.py::test_no_signature_response_is_identical_for_a_locked_and_an_unlocked_account`'s
+three-way message-equality assertion. Per this review's instructions, that resolved finding
+is not carried forward.
 
-**However, the identical class of bug the 05-04 plan set out to close is still present,
-unfixed, in `reset_bar_code.py` -- and is reachable by a strictly weaker attacker than the
-original CR-01 required**, since that endpoint (unlike `token.py`) performs no signature
-check at all before consulting `is_account_locked`. See CR-01 below (fresh numbering for
-this report; the prior CR-01 is resolved and not carried forward). This was present before
-05-04 (introduced in 05-03, commit `b4139b1`) and was not caught by the prior review's
-WR-01, which discussed the shared-counter DoS angle but not this specific
-message-distinguishability defect.
+Independently verified as correct, not merely plausible:
 
-WR-01 (shared lockout counter between `@@reset-bar-code` and the login form) and WR-02
-(new security-critical counters as writable, non-`readonly` schema fields) are unchanged
-in the current code and are independently confirmed as real, live warnings -- not because
-the prior review's classification was inherited, but because tracing the current code
-shows neither has been mitigated. IN-01 (dead `disable_two_factor_authentication_for_users`
-fetch in `controlpanel.py`) is likewise unchanged and still a harmless but real piece of
-dead code.
+- `_find_accepted_interval` only ever tests `(current, current - 1)`, never
+  `current + 1` -- drift tolerance cannot become a second guessing window.
+- The replay gate (`matched <= last_accepted_interval`) is strict; equality (a replayed
+  code) is refused, confirmed against `test_helpers.py::TestDriftAndReplay`.
+- `register_failed_second_factor`'s "counter and lock land together, or neither does"
+  claim holds at the `Products.PlonePAS.sheet.MutablePropertySheet.setProperties` level:
+  every key in the mapping is validated in a first pass before `self._properties.update(...)`
+  runs, so a `PropertyValueError` on one key cannot leave the pair half-written.
+- `is_account_locked`'s `>` (not `>=`) boundary matches the adjacency tests exactly.
+- `token.py`'s and `reset_bar_code.py`'s own locked-vs-wrong-code messages are now
+  byte-identical within each endpoint, and the lock check runs strictly before
+  `validate_token` in both.
 
-## Critical Issues
+Two warnings and one info item remain, detailed below.
 
-### CR-01: `@@reset-bar-code` still lets an unauthenticated caller learn account lock status, via a message-prefix mismatch, with *no signature check at all*
+## Warnings
 
-**File:** `src/imio/googleauthenticator/browser/forms/reset_bar_code.py:111-122` and `:162-167`
-**Issue:**
+### WR-01: `@@reset-bar-code` lets an unauthenticated caller consume the shared lockout counter, with nothing scoping the attempt budget to an IP or session
 
-The locked-account branch:
+**File:** `src/imio/googleauthenticator/browser/forms/reset_bar_code.py:72-171`
+**Issue:** `ResetBarCodeForm.handleSubmit` never calls `validate_user_data` (contrast
+`token.py:90-97`, which does before consulting `is_account_locked`/`validate_token`). The
+only gates before `validate_token`/`register_failed_second_factor` are `api.user.get(username=
+username)` resolving and `is_site_local_user`/`is_account_locked`. An anonymous POST to
+`@@reset-bar-code?auth_user=<any-enrolled-username>` with five wrong six-digit
+`form.widgets.token` submissions requires no password, no `ska` signature and no
+`auth_timestamp` -- nothing beyond the username itself -- and locks that account's second
+factor for `lockout_duration` (default 900s).
 
-```python
-if is_account_locked(user):
-    reason = _("Invalid token or token expired.")
-    IStatusMessage(self.request).addStatusMessage(
-        _("Resetting of the bar-code failed! {0}".format(reason)),
-        'error'
-        )
-    return
-```
+`tests/test_reset_bar_code.py::test_reset_bar_code_lockout_after_five_failures` proves this
+is deliberate and *bounded* for a single account (its own docstring names it "the defect
+being metered", bounded by `lockout_duration`, decisions T-05-08/P5-13). What neither that
+test nor the design bounds is the aggregate case: nothing here rate-limits by IP or session,
+so a single anonymous actor can iterate a list of known/guessed usernames and drive every
+one of them through the same five-submission sequence, locking the entire enrolled user
+base's second factor at once and re-triggering it every `lockout_duration` seconds
+indefinitely. This is asymmetric with `token.py`'s login path, where reaching
+`is_account_locked` first requires a valid `ska`-signed URL -- i.e. the attacker must already
+possess that specific user's password -- so the login path cannot be used to mass-lock
+accounts the attacker has not already compromised. `reset_bar_code.py` is the one path that
+can, by design, at zero authentication cost.
 
-renders **"Resetting of the bar-code failed! Invalid token or token expired."**
-
-The ordinary wrong-code (not locked) branch, reached when `valid_token` is `False`:
-
-```python
-else:
-    register_failed_second_factor(user)
-    reason = _("Invalid token or token expired.")
-
-if reason is not None:
-    IStatusMessage(self.request).addStatusMessage(_("Setup failed! {0}".format(reason)), 'error')
-```
-
-renders **"Setup failed! Invalid token or token expired."**
-
-The comment directly above the locked-branch claims: "Locked accounts get the exact same
-message as a wrong code, so the response cannot be used as an oracle" -- but the two
-branches use *different* top-level message templates (`"Resetting of the bar-code
-failed! {0}"` vs `"Setup failed! {0}"`), even though the embedded `reason` text happens to
-be identical in both cases. The two rendered strings are not equal, and nothing in
-`test_reset_bar_code.py` (grepped for both literal templates: zero matches) ever asserts
-they are, so this was never caught.
-
-Critically, `handleSubmit` on this endpoint performs **no signature/`ska` validation of
-any kind** before reaching either branch (it only checks `user found` -> `is_site_local_user`
--> `is_account_locked` -> `validate_token`; the bar-code-reset-token/signature comparison
-only happens *after* a correct TOTP guess, deep inside the `if valid_token:` branch). So an
-attacker needs nothing but a known or guessed site-local, 2FA-enrolled username -- no
-password, no signature, no `auth_timestamp`, nothing -- to submit a wrong six-digit code at
-
-```
-POST /@@reset-bar-code?auth_user=victim   (form.widgets.token=000000)
-```
-
-and learn, purely from which message template comes back, whether `victim`'s account is
-*currently locked out*. This is a strictly weaker-attacker version of the same "not an
-oracle" property this phase's own design principle (and the just-closed CR-01) requires,
-reachable through a sibling endpoint that 05-04 did not touch.
-
-**Fix:** Make the locked-branch message textually identical to the wrong-code branch's
-final rendering, e.g. by routing both through the same `"Setup failed! {0}"` wrapper
-instead of two separate `addStatusMessage` call sites with different templates:
+**Fix:** A signature requirement can't be added here without breaking the already-tested
+MFA-11 guarantee that a *correct* code at this endpoint clears the counter/lock even with no
+signature supplied (`test_reset_bar_code_lockout_after_five_failures` step 2 depends on
+exactly that). The narrower fix is a rate limit in front of the per-account counter that
+doesn't touch that guarantee -- e.g. an IP- or session-scoped throttle on `@@reset-bar-code`
+POSTs, independent of which `auth_user` is named:
 
 ```python
-if is_account_locked(user):
-    reason = _("Invalid token or token expired.")
+# reset_bar_code.py, ResetBarCodeForm.handleSubmit, before validate_token is ever reached
+if not within_ip_rate_limit(self.request):
+    reason = _("Too many attempts, please try again later.")
     IStatusMessage(self.request).addStatusMessage(
         _("Setup failed! {0}".format(reason)), 'error')
     return
 ```
+(The rate-limit state itself needs the same memberdata-vs-RAM-cache consideration CLAUDE.md
+already documents for the per-user counter -- a per-instance cache would let an attacker
+multiply attempts by rotating ZEO clients.) At minimum, document this as an accepted
+operator-facing risk in README.rst if no throttle is added.
 
-Add a test mirroring
-`test_token.py::test_no_signature_response_is_identical_for_a_locked_and_an_unknown_account`
-for this endpoint: submit a wrong code against a locked account and against an
-unlocked-but-enrolled account through a browser carrying only `auth_user` (no `signature`),
-and assert the two rendered status messages are byte-identical.
-
-## Warnings
-
-### WR-01: `@@reset-bar-code` consumes the shared lockout counter with no signature check at all before guessing (confirmed still present)
-
-**File:** `src/imio/googleauthenticator/browser/forms/reset_bar_code.py:72-164`
-**Issue:** Unchanged since the prior review. `ResetBarCodeForm.handleSubmit` is reachable
-anonymously and never validates the `ska` signature before calling `validate_token`/
-`register_failed_second_factor` -- the signature is only checked after a *correct* TOTP
-guess. An anonymous party who knows a valid, site-local, 2FA-enrolled username can submit
-five wrong guesses at `@@reset-bar-code?auth_user=<victim>` with no signature at all and
-lock the account via the counter shared with the real login form
-(`is_account_locked`/`register_failed_second_factor` in `helpers.py`), denying that user's
-login for `lockout_duration` seconds, repeatably, forever.
-
-Independently re-confirmed as a real, live, zero-authentication DoS primitive against a
-known username's login availability. It is tested and was a documented, conscious tradeoff
-(`test_reset_bar_code_lockout_after_five_failures`, decisions T-05-08/P5-13) and represents
-an improvement over the pre-phase state (previously unthrottled, unlimited TOTP guessing at
-this endpoint). Given the package's ~1-2 year retirement horizon, staying at WARNING (not
-blocking) is proportionate, but note it now compounds with CR-01 above: the same
-unauthenticated caller who can lock the account through this endpoint can also *detect*
-that they succeeded, through the very message-prefix bug CR-01 describes.
-
-**Fix:** Unchanged from prior review. Consider gating `handleSubmit`'s counter-consuming
-path behind `validate_user_data` (mirroring `token.py`'s gate), or track reset-form
-failures under a separate, shorter-lived counter that does not also lock the primary login
-path. At minimum, document as an accepted operator-facing risk in README.rst.
-
-### WR-02: New security-critical counters are writable schema fields with no `readonly` flag (confirmed still present)
+### WR-02: The three new lockout/replay counters are writable, non-`readonly` schema fields, with the personal-preferences form's `omit()` as the only barrier
 
 **File:** `src/imio/googleauthenticator/userdataschema.py:86-102`
-**Issue:** Unchanged since the prior review. `two_factor_authentication_failed_attempts`,
-`two_factor_authentication_locked_until` and `two_factor_authentication_last_interval` are
-plain `Int(required=False)` fields with no `readonly=True`. The only thing preventing an
-end user from self-editing their own lockout/replay state is
-`CustomizedUserDataPanel.__init__`'s `form_fields.omit(...)` (`userdataschema.py:30-37`),
-which is per-view -- `IUserDataSchemaProvider.getSchema()` hands this same schema to every
-consumer of `plone.app.users`' schema machinery, and any future/alternate consumer that
-doesn't apply the same `omit()` would let a user self-unlock
-(`two_factor_authentication_locked_until = 0`) or re-enable a replayed code
-(`two_factor_authentication_last_interval = 0`) by editing their own profile.
+**Issue:** `two_factor_authentication_failed_attempts`, `two_factor_authentication_locked_until`
+and `two_factor_authentication_last_interval` are declared as plain `Int(required=False)`
+with no `readonly=True`. The only thing stopping a user from self-editing their own
+lockout/replay state today is `CustomizedUserDataPanel.__init__`'s
+`form_fields.omit(...)` (`userdataschema.py:30-37`), which is applied per-view.
+`UserDataSchemaProvider.getSchema()` hands the same `IEnhancedUserDataSchema` to every
+consumer of `plone.app.users`' schema machinery, and any future or alternate consumer that
+renders this schema without independently re-applying the same `omit()` call (an admin
+user-management view, a REST/JSON adapter, an XML-RPC exposure of member properties) would
+let an authenticated user write `two_factor_authentication_locked_until = 0` to self-unlock,
+or `two_factor_authentication_last_interval = 0` to re-open a replay window on their own
+account, directly through the ordinary z3c.form/plone.autoform edit machinery, no exploit
+required -- just an omitted `omit()`.
 
-Independently re-confirmed: `omit()` is the sole barrier today, and it is call-site
-specific rather than schema-level, so it is one missed `omit()` call away (e.g. a future
-admin user-management view built directly against `IEnhancedUserDataSchema`) from becoming
-a live self-service bypass of the lockout/replay controls this phase built.
-
-**Fix:** Unchanged from prior review -- add `readonly=True` to the three new fields (and,
-opportunistically, to `two_factor_authentication_secret`/`bar_code_reset_token`) so the
-`omit()` is defense-in-depth rather than the only barrier.
+**Fix:** Add `readonly=True` to the three new fields (and, opportunistically, to
+`two_factor_authentication_secret`/`bar_code_reset_token`, which have the same exposure)
+so the `omit()` calls become defense-in-depth rather than the sole barrier:
+```python
+two_factor_authentication_locked_until = Int(
+    title=_('Second-factor locked until'),
+    description=_('Automatically generated'),
+    required=False,
+    readonly=True,
+)
+```
 
 ## Info
 
-### IN-01: Dead code around `disable_two_factor_authentication_for_users` in `handleSave` (pre-existing, confirmed still present)
+### IN-01: Dead fetch in `GoogleAuthenticatorSettingsEditForm.handleSave`'s disable branch
 
 **File:** `src/imio/googleauthenticator/browser/controlpanel.py:148-152`
-**Issue:** Unchanged since the prior review, and unchanged since well before this phase.
-The `elif globally_enabled is False:` branch fetches `users = api.user.get_users()` and
-never uses it -- the call is commented out
-(`#disable_two_factor_authentication_for_users(users)`), and
-`disable_two_factor_authentication_for_users` is imported (line 117) for a call that never
-happens.
-**Fix:** Either wire the call back in, or drop the dead fetch/import and stale comment; the
-field's own description already documents that unchecking `globally_enabled` intentionally
-leaves existing users untouched, so only the leftover dead code needs cleaning up.
+**Issue:**
+```python
+elif globally_enabled is False:
+    # Disable for all users
+    users = api.user.get_users()
+    #disable_two_factor_authentication_for_users(users)
+    logger.debug('Disabled')
+```
+`users` is fetched (a full `api.user.get_users()` call) and never used -- the only consumer
+is the commented-out line directly below. Pre-existing (not introduced by this phase's own
+`max_failed_attempts`/`lockout_duration` additions to the same file), and intentional in
+effect (the field's own description already documents that unchecking `globally_enabled`
+leaves existing users untouched), but it's dead code worth cleaning up opportunistically
+since this phase already touched the file.
+
+**Fix:**
+```python
+elif globally_enabled is False:
+    logger.debug('Disabled')
+```
 
 ---
 
-_Reviewed: 2026-08-01T13:10:12Z_
+_Reviewed: 2026-08-01T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
