@@ -14,6 +14,7 @@ lockout counter with no bypass -- so it is proven as a single ordered
 sequence of assertions in one method rather than split artificially.
 """
 import os
+import re
 import time
 import unittest2 as unittest
 
@@ -214,3 +215,135 @@ class TestResetBarCodeLockout(unittest.TestCase, BaseTest):
                 'two_factor_authentication_locked_until'),
             'MFA-11: a correct code must clear the lock even when the '
             'bar-code-reset signature check then fails')
+
+    def test_no_signature_response_is_identical_for_a_locked_and_an_unlocked_account(self):
+        """MFA-08 (not an oracle, reset path): covers 05-VERIFICATION.md
+        gap ``missing[1]``. An anonymous caller at ``@@reset-bar-code`` who
+        supplies nothing but a username -- no password, no ``ska``
+        signature, no ``auth_timestamp``, no correct code -- must receive
+        the identical assembled, user-visible status message whether the
+        named account is locked or unlocked-but-enrolled.
+
+        This proves a strictly NARROWER property than
+        ``test_token.py::test_no_signature_response_is_identical_for_a_locked_and_an_unknown_account``,
+        which additionally asserts three-way equality against a
+        NONEXISTENT username. This endpoint's ``user not found`` and
+        ``is_site_local_user`` branches keep their own distinct messages
+        by operator decision P5-17 (see ``05-05-PLAN.md``), so a
+        nonexistent username, and an account defined outside this Plone
+        site, remain distinguishable here. Only the two-way property --
+        a locked account is indistinguishable from an unlocked, enrolled
+        one -- is what this test proves.
+        """
+        user = self._enable_2fa()
+        secret = helpers.get_secret(user)
+        correct_code = get_totp(secret, as_string=True)
+        wrong_code = self._wrong_code(correct_code)
+
+        # A second, distinct, enrolled account. ``tearDown`` only cleans
+        # TEST_USER_NAME, so this account is intentionally left behind
+        # across test methods sharing this layer -- same precedent as
+        # test_token.py's ``unlocked_username`` fixture. Guarded so a
+        # re-run in a warm layer does not raise on re-creation.
+        other_username = 'reset-unlocked-enrolled-user'
+        other_user = api.user.get(username=other_username)
+        if other_user is None:
+            other_user = api.user.create(
+                email='reset-unlocked-enrolled-user@example.com',
+                username=other_username,
+                password='Secret0123!')
+        other_user.setMemberProperties(
+            mapping={'enable_two_factor_authentication': True})
+        get_or_create_secret(other_user, overwrite=True)
+        transaction.commit()
+        other_secret = helpers.get_secret(other_user)
+        other_wrong_code = self._wrong_code(
+            get_totp(other_secret, as_string=True))
+
+        # Lock TEST_USER_NAME directly. Driving five real failures also
+        # works but is slower and proves nothing this test is about --
+        # test_reset_bar_code_lockout_after_five_failures already owns
+        # the threshold.
+        locked_user = api.user.get(username=TEST_USER_NAME)
+        locked_user.setMemberProperties(mapping={
+            'two_factor_authentication_locked_until':
+                int(time.time()) + 900})
+        transaction.commit()
+
+        locked_user = api.user.get(username=TEST_USER_NAME)
+        self.assertTrue(
+            helpers.is_account_locked(locked_user),
+            'precondition: the account must actually be locked, or the '
+            'rest of this test is vacuous')
+
+        # ``globalstatusmessage.pt`` renders each message as
+        # ``<dl class="portalMessage {type}"><dt>{Type}</dt><dd>{text}
+        # </dd></dl>`` -- extracting the ``<dd>`` text keeps this
+        # assertion from being defeated by the CSRF token and portal date
+        # that differ elsewhere on the page for reasons unrelated to the
+        # oracle this test is about. ``findall``, not ``search``:
+        # ``updateFields`` also runs on this POST and adds its own
+        # signature-failure message for an existing user, so the page
+        # carries more than one -- the whole ordered list is what "the
+        # assembled, user-visible message" means here.
+        message_re = re.compile(
+            r'<dl class="portalMessage error">\s*<dt>.*?</dt>\s*'
+            r'<dd>(.*?)</dd>\s*</dl>', re.DOTALL)
+
+        def _unsigned_messages(username, wrong_code_for_account):
+            # A fresh, never-``_login_browser``-ed Browser: the URL
+            # carries only ``auth_user``, no ``signature`` and no
+            # ``auth_timestamp`` parameter at all.
+            browser = self._get_browser()
+            browser.open(
+                '{0}/@@reset-bar-code?auth_user={1}'.format(
+                    self.portal_url, username))
+            self._submit(browser, wrong_code_for_account)
+            matches = [m.strip() for m in
+                       message_re.findall(browser.contents)]
+            self.assertTrue(
+                matches,
+                'no status message rendered for {0!r}'.format(username))
+            return matches
+
+        locked_messages = _unsigned_messages(TEST_USER_NAME, wrong_code)
+
+        # Unlock the same account and repeat the identical request.
+        locked_user.setMemberProperties(mapping={
+            'two_factor_authentication_locked_until': 0})
+        transaction.commit()
+        unlocked_check_user = api.user.get(username=TEST_USER_NAME)
+        self.assertFalse(
+            helpers.is_account_locked(unlocked_check_user),
+            'precondition: the account must be unlocked for this leg')
+        unlocked_messages = _unsigned_messages(TEST_USER_NAME, wrong_code)
+
+        other_check_user = api.user.get(username=other_username)
+        self.assertFalse(
+            helpers.is_account_locked(other_check_user),
+            'precondition: the second account must not be locked')
+        other_unlocked_messages = _unsigned_messages(
+            other_username, other_wrong_code)
+
+        # Assertion 1 (primary): same account, lock toggled -- isolates
+        # lock state with the username held constant.
+        self.assertEqual(
+            locked_messages, unlocked_messages,
+            'MFA-08: an unsigned request at @@reset-bar-code must not '
+            'distinguish a locked account from the same account '
+            'unlocked')
+        # Assertion 2 (control, runs before assertion 3 so a failure is
+        # self-diagnosing): two different unlocked accounts must answer
+        # identically, so anything assertion 3 catches is about the lock
+        # and not about the account.
+        self.assertEqual(
+            unlocked_messages, other_unlocked_messages,
+            'control: two different unlocked, enrolled accounts must '
+            'answer identically, isolating lock state from anything '
+            'account-specific')
+        # Assertion 3 (the literal missing[1] contract).
+        self.assertEqual(
+            locked_messages, other_unlocked_messages,
+            'MFA-08: an unsigned request at @@reset-bar-code must not '
+            'distinguish a locked account from a different unlocked, '
+            'enrolled account')
