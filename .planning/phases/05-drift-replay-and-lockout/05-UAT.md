@@ -8,11 +8,12 @@ updated: 2026-08-01T16:45:00Z
 
 ## Current Test
 
-number: 2
-name: Control-panel lockout fields persist in a live instance
+number: 3
+name: Clock-drift tolerance agrees with a real mobile TOTP app
 expected: |
-  Both "Maximum failed second-factor attempts" and "Lockout duration (seconds)" render with
-  defaults 5 and 900, accept edits, and the edited values are still shown after a page reload.
+  Both the code from the interval just before submission and the code from the current interval
+  are accepted, proving the server's `_find_accepted_interval` arithmetic agrees with an
+  independently-clocked real device rather than only with a code this codebase generated itself.
 awaiting: user response
 
 ## Tests
@@ -44,7 +45,13 @@ persisted.
 
 expected: Both fields render, accept edits, and the edited values are still shown after a page reload.
 why_human: 05-01-PLAN.md carries this as an explicit `verification: backstop` truth. `test_control_panel_has_lockout_fields` checks the schema/registry wiring in-process; it does not drive the real z3c.form edit-and-persist round trip through a browser.
-result: [pending]
+result: pass
+tested_on: server.dmsmail live instance, 2026-08-03
+reported: "Yes, test 2 passed !"
+note: |
+  Confirms the AutoExtensibleForm plus registry.xml wiring works end to end through a real
+  browser, not only via `getUtility(IRegistry)` in the test layer. Tested after commit 452b66c
+  restored site JavaScript, so the control panel was exercised with its scripts working.
 
 ### 3. Clock-drift tolerance agrees with a real mobile TOTP app
 
@@ -103,7 +110,11 @@ phase or spawn Phase 5 gap-closure plans.
 
 ### F-1. No JavaScript runs at all on the deployment — cause found, FIXED in 452b66c
 
-Resolved after this section was first written. The operator read the live registry order off the
+Resolved after this section was first written, and since confirmed working on the affected
+`server.dmsmail` site by the operator on 2026-08-03 after re-importing the profile's `jsregistry`
+import step: overlay forms render as overlays again.
+
+The operator read the live registry order off the
 affected site on 2026-08-03: `++resource++imio.googleauthenticator/main.js` 1st,
 `++resource++imio.googleauthenticator/plone_ecmascript/popupforms.js` 2nd,
 `++resource++plone.app.jquery.js` 3rd.
@@ -197,9 +208,9 @@ link is what authorises the reset.
 ## Summary
 
 total: 6
-passed: 1
+passed: 2
 issues: 0
-pending: 5
+pending: 4
 skipped: 0
 blocked: 0
 
