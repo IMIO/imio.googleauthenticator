@@ -243,12 +243,12 @@ Plans:
   4. The user can regenerate the whole set, and a test asserts every previously issued code stops working.
   5. The user is warned when 3 or fewer codes remain.
 
-**Plans**: 3 plans
+**Plans**: 1/3 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 06-01-PLAN.md — Tracer: the recovery-code substrate end to end — two memberdata properties, the hash/generate/validate-and-consume helpers, the promoted `validate_second_factor` dispatcher at the token form's one call site, and a real browser login with a recovery code (RECOV-02, RECOV-04). Opens with a `checkpoint:decision` on the two one-way choices: the PBKDF2 iteration count and the storage shape.
+- [x] 06-01-PLAN.md — Tracer: the recovery-code substrate end to end — two memberdata properties, the hash/generate/validate-and-consume helpers, the promoted `validate_second_factor` dispatcher at the token form's one call site, and a real browser login with a recovery code (RECOV-02, RECOV-04). Opens with a `checkpoint:decision` on the two one-way choices: the PBKDF2 iteration count and the storage shape.
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -319,7 +319,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 3. Encrypted Seeds and Local QR | 3/3 | Complete    | 2026-07-30 |
 | 4. PAS Boundary | 4/4 | Complete    | 2026-07-31 |
 | 5. Drift, Replay and Lockout | 5/5 | Complete    | 2026-08-03 |
-| 6. Recovery Codes | 0/TBD | Not started | - |
+| 6. Recovery Codes | 1/3 | In Progress|  |
 | 7. Coexistence with imio.dms.mail | 0/TBD | Not started | - |
 | 8. Coverage Instrument and Test Layers | 0/TBD | Not started | - |
 

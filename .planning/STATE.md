@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 6
-current_phase_name: Recovery Codes
+current_phase: 06
+current_phase_name: recovery-codes
 status: executing
-stopped_at: Completed 05-05-PLAN.md
-last_updated: "2026-08-03T14:01:52.076Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-08-03T14:22:08.853Z"
 last_activity: 2026-08-03
-last_activity_desc: Phase 5 complete, transitioned to Phase 6
+last_activity_desc: Phase 06 execution started
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 21
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-31)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 05 — drift-replay-and-lockout
+**Current focus:** Phase 06 — recovery-codes
 
 ## Current Position
 
-Phase: 6 — Recovery Codes
-Plan: Not started
+Phase: 06 (recovery-codes) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-08-03 — Phase 5 complete, transitioned to Phase 6
+Last activity: 2026-08-03 — Phase 06 execution started
 
-Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([██████████] 100%)**
+Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([█████████░] 90%)**
 
 Phases 5–8 still have no plans, so the 13-plan denominator will grow; the phase figure
 remains the honest one.
@@ -89,6 +89,7 @@ recorded as WR-01 and WR-02 in `04-REVIEW.md`.
 | Phase 05 P03 | 12min | 3 tasks | 4 files |
 | Phase 05 P04 | 20min | 2 tasks | 3 files |
 | Phase 05 P05 | 20min | 1 tasks | 3 files |
+| Phase 06 P01 | 45min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,9 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 5]: 05-03: filled the MFA-05/06/07 rows in 05-VALIDATION.md that plan 05-02 left as TBD, and fixed a stale test_token_form sampling-command reference -- documented as a Rule 2 documentation-completeness deviation, not a scope change.
 - [Phase ?]: [Phase 5]: 05-04: reordered is_account_locked to run after validate_user_data succeeds and before validate_token in token.py, closing CR-01 (an unsigned caller could learn account lock state from the message string alone). New test proves three-way message equality (locked/unlocked-enrolled/nonexistent) for an anonymous caller with no signature/auth_timestamp; non-vacuity confirmed by reverting the reorder locally and observing the new test go red while the other 6 test_token.py methods stayed green.
 - [Phase ?]: [Phase 5]: 05-05: reset_bar_code.py locked branch swapped to the wrong-code path's "Setup failed! {0}" wrapper (was "Resetting of the bar-code failed! {0}"), closing 05-03's T-05-03 message-level oracle claim which was false; new test proves two-way message-list equality (locked/unlocked, same and a different account); non-vacuity RED confirmed against unmodified source before the fix.
+- [Phase ?]: [Phase 6]: 06-01 Task 1 checkpoint:decision resolved by orchestrator before executor spawn: option-a -- RECOVERY_CODE_PBKDF2_ITERATIONS = 100000 (measured 0.117s on this buildout's Python 2.7.18 interpreter), salt as a 32-character hex string, hashes as a lines tuple of 64-character hex strings. One-way: rehashing requires the plaintext codes, which are unrecoverable by design.
+- [Phase ?]: [Phase 6]: 06-01: validate_second_factor (not RESEARCH.md's proposed validate_token_or_recovery_code) is the promoted dispatcher name -- the primary noun is 'second factor', and the promote was free since the dispatcher did not exist yet. validate_token stays byte-identical as the demoted TOTP variant handler.
+- [Phase ?]: [Phase 6]: 06-01: recovery codes are consumed by removing the matched stored-hash entry by index (stored[:i] + stored[i+1:]), never by equality filter, so a birthday-collision duplicate hash cannot burn two codes on one use. Neither new memberdata property (salt, hashes) is declared on IEnhancedUserDataSchema -- proven by extending the existing LOCKOUT_STATE_PROPERTIES guard rather than a parallel test; both non-vacuity mutations reproduced red before being trusted.
 
 ### Pending Todos
 
@@ -167,6 +171,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-01T14:00:51.939Z
-Stopped at: Completed 05-05-PLAN.md
+Last session: 2026-08-03T14:22:08.841Z
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None

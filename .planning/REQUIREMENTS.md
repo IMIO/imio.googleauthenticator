@@ -62,9 +62,9 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 ### Recovery codes (RECOV)
 
 - [ ] **RECOV-01**: Enrollment issues 10 single-use recovery codes of 80 bits each (16 base32 characters from `os.urandom(10)`)
-- [ ] **RECOV-02**: Codes are stored hashed with one salt per user; the plaintext codes are never stored
+- [x] **RECOV-02**: Codes are stored hashed with one salt per user; the plaintext codes are never stored
 - [ ] **RECOV-03**: Codes are displayed exactly once, at enrollment, and never redisplayed
-- [ ] **RECOV-04**: A recovery code is accepted in place of a TOTP token, and is consumed on use
+- [x] **RECOV-04**: A recovery code is accepted in place of a TOTP token, and is consumed on use
 - [ ] **RECOV-05**: Recovery-code attempts increment the same failure counter as TOTP attempts, so they are not an unthrottled path
 - [ ] **RECOV-06**: The user can regenerate the whole set, invalidating all previous codes
 - [ ] **RECOV-07**: The user is warned when 3 or fewer codes remain
@@ -198,9 +198,9 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | MFA-12 | Phase 5 | Complete |
 | MFA-13 | Phase 5 | Complete |
 | RECOV-01 | Phase 6 | Pending |
-| RECOV-02 | Phase 6 | Pending |
+| RECOV-02 | Phase 6 | Complete |
 | RECOV-03 | Phase 6 | Pending |
-| RECOV-04 | Phase 6 | Pending |
+| RECOV-04 | Phase 6 | Complete |
 | RECOV-05 | Phase 6 | Pending |
 | RECOV-06 | Phase 6 | Pending |
 | RECOV-07 | Phase 6 | Pending |
