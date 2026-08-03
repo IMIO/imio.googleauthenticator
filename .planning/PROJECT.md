@@ -114,6 +114,38 @@ A second factor that actually holds for in-site users, and that can be deployed 
       each pinned by an identifier-based test so a routine rewrite cannot silently drop them —
       DOC-01, DOC-02
 
+**Drift, replay and lockout** — *Validated in Phase 5: Drift, Replay and Lockout (2026-08-03)*
+
+- ✓ A code from the immediately preceding time step is accepted and a code already consumed is
+      refused on reuse, in one commit. The accepted interval is stored in
+      `two_factor_authentication_last_interval` and any newly matched interval `<=` it is
+      rejected; the candidate tuple is exactly `(current, current - 1)`, so there is no
+      forward-looking window to double the guessing surface. The replay rejection is logged with
+      no operand at all — no username, user id, token, secret or interval number. Confirmed
+      against a real mobile authenticator app, which no in-process test can do, because the
+      in-process test generates its code with the same library and clock as the code under test —
+      MFA-05, MFA-06, MFA-07
+- ✓ Five consecutive failures lock the account for the configured duration, the lock is evaluated
+      before the token is ever evaluated, and it expires on its own with no admin action. A
+      successful second factor clears the counter. Both anonymously reachable endpoints are
+      metered, not just the login form: `@@reset-bar-code` takes its target account from an
+      attacker-supplied query parameter and would otherwise be an unmetered guessing oracle —
+      MFA-08, MFA-09, MFA-11
+- ✓ The attempt ceiling and lock duration are editable in the control panel, defaulting to 5 and
+      900 seconds, and the edited values survive a page reload in a live instance — MFA-10
+- ✓ No second-factor state is written from the PAS plugin or a challenge plugin. Every write
+      originates in `browser/forms/token.py` or `browser/forms/reset_bar_code.py`, both of which
+      return 200 or 302 and therefore commit. This matters because `ZPublisher` aborts the
+      transaction on any request ending in an exception and `Unauthorized` is such an exception,
+      so a counter written in the plugin would be a lockout that silently never locks. Confirmed
+      across four ZEO clients sharing one database: the counter is cumulative, not per-instance —
+      MFA-12
+- ✓ Every new memberdata property has a `memberdata_properties.xml` entry and a set/get
+      round-trip test, because `MutablePropertySheet.setProperties` silently pops an undeclared
+      key with no error. The three counters are deliberately memberdata only and are **not**
+      declared on `IEnhancedUserDataSchema`: as schema fields they crashed the administrator's
+      view of another user's profile and were form-writable — MFA-13
+
 ### Active
 
 **Correctness**
@@ -127,18 +159,11 @@ A second factor that actually holds for in-site users, and that can be deployed 
 
 **Second-factor integrity**
 
-- [ ] Accept one step of clock drift **and** reject a TOTP code already consumed in its window.
-      Same six lines, one commit — split, they produce drift-accepted-but-replay-undetected,
-      which is strictly worse than today
-- [ ] Lock an account after N consecutive failed second-factor attempts, checked *before* the
-      token is evaluated so a locked account is not still an oracle
-- [ ] N and the lock duration are editable in the control panel (defaults N=5, 900s), following
-      `imio.dms.mail`'s `RegistryEditForm` + `layout.wrap_form(..., ControlPanelFormWrapper)`
-      pattern
 - [ ] Single-use recovery codes issued at enrollment, stored hashed with a per-user salt, for
-      self-service recovery. They share the lockout counter, or they are the unthrottled path
-- [ ] All second-factor state writes happen in the token form view. Never in the PAS plugin or
-      a challenge plugin — those paths are aborted
+      self-service recovery. They share the lockout counter, or they are the unthrottled path.
+      Phase 6 therefore adds new writers of the counter Phase 5 introduced, so its plan must
+      extend the source-level guard in `tests/test_pas_plugin.py` to any new module that touches
+      that state — the guard cannot cover files that do not yet exist
 
 **Coexistence with imio.dms.mail**
 
@@ -295,6 +320,11 @@ enumerates the bugs, security gaps, and test-coverage holes referenced above.
 | `authenticateCredentials` decides only; the redirect moved to an `IPubBeforeCommit` subscriber | The PAS method runs inside a request that may be aborted, and the login-form POST never raises, so a redirect issued there could not both cover the HTTP-200 path and survive. The plugin now sets a pending flag in `request.other` and the subscriber issues the redirect. Keeps the plugin write-free, which Phase 5's lockout state depends on | ✓ Shipped Phase 4 |
 | Clear the refusal body with `response.body = ''` plus a lock, not `setBody('')` | `setBody('')` is a no-op in `ZPublisher.HTTPResponse`, so the protected page was still readable out of the 302 by any client that did not follow redirects. The lock (`setBody('', lock=1)`) also stops a later subscriber such as `plone.transformchain` from refilling it | ✓ Shipped Phase 4 |
 | Set plugin order with `movePluginsTop`, re-asserted on every profile application | The previous `movePluginsDown(iface, listPlugins(iface)[:-1])` reached position 0 only while this plugin happened to be the most recently activated entry — an accident, not a statement. Re-asserting on every profile application also makes re-applying the profile a real recovery when a third-party add-on displaces the plugin | ✓ Shipped Phase 4 |
+| Meter `@@reset-bar-code` with the same counter and lock as the login form | Operator decision at plan time, 2026-07-31 (P5-12). Registered `permission="zope2.View"`, it takes its target account from an attacker-supplied `auth_user` parameter and called `validate_token` before checking the reset signature. Left unmetered it was an anonymous TOTP guessing oracle, which would have made the phase goal untrue while appearing met. `user_setup.py` stays deliberately excluded: it validates the enrolling user's own in-progress secret, so a counter there would let a user lock themselves out mid-enrolment | ✓ Shipped Phase 5 |
+| Accept that an anonymous party can lock a named account | Operator decision P5-13. Bounded to the configured duration by self-expiry. Both alternatives are worse: leaving the reset path unmetered restores the guessing oracle, and admin-unlock-only lockout is ruled out in `REQUIREMENTS.md` as a denial-of-service primitive | ✓ Shipped Phase 5 — logged as accepted risk R-05-A |
+| Close only the lock-state oracle at `@@reset-bar-code`, not username existence | Operator decision P5-17, 2026-08-01. The user-not-found and non-site-local branches keep their distinct messages. Username existence is a pre-existing disclosure this Plone site already makes through standard member lookups, it is not the state of a security control, and collapsing those messages would also remove the assurance a legitimate administrator needs that a Zope-root account cannot be gated by this plugin. Fixing it later is strictly additive to the same two branches | ✓ Shipped Phase 5 — logged as accepted risk R-05-B |
+| Keep the replay and lockout counters off `IEnhancedUserDataSchema` | Found in real-deployment testing, 2026-08-03. As schema fields they crashed `plone.app.users`' `@@user-information`, the form an administrator uses to edit another user's profile, because `adapter.py` supplies no accessor for them and `zope.formlib` does a plain `getattr` per rendered field. The `omit()` call that hid them covers `personal-information` only. What makes them persist is their `memberdata_properties.xml` entry, which a schema field neither provides nor replaces, so removing them costs nothing and also removes the write path by which a user could have zeroed their own lock deadline | ✓ Shipped Phase 5 |
+| Pin every `jsregistry.xml` registration to an explicit position | Found in real-deployment testing, 2026-08-03. `BaseRegistry.storeResource` appends, so an unpositioned entry's load order depends on when the profile's import step runs. Installing onto an existing site works; on a fresh site this package's two scripts landed above jQuery, and because cooking merges adjacent resources into one bundle, the `$ is not defined` thrown at the top of `main.js` aborted the bundle before jQuery loaded — every jQuery-dependent script on the site died. Phase 7 supersedes this by deleting both registrations outright | ✓ Shipped Phase 5 (stop-gap; Phase 7 owns the removal) |
 
 ## Evolution
 
@@ -314,4 +344,15 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
+*Last updated: 2026-08-03 — Phase 5 complete (drift, replay and lockout). Phase 5's requirements
+(MFA-05 to MFA-13) moved to Validated, and the four Active "Second-factor integrity" bullets they
+satisfied were removed, leaving only recovery codes, which is Phase 6. Five Phase 5 decisions
+logged: two operator decisions taken at plan time (meter `@@reset-bar-code`, accept that an
+anonymous party can lock a named account), one taken during the phase (close only the lock-state
+oracle, not username existence), and two forced by defects that only real-deployment testing
+found — keeping the counters off the user-profile schema, and pinning every `jsregistry.xml`
+registration to an explicit position. The recovery-codes bullet now carries the note that Phase 6
+adds new writers of Phase 5's counter and must extend the source-level guard that keeps those
+writes off aborted request paths.*
+
 *Last updated: 2026-07-31 — Phase 4 complete (PAS boundary). Phase 4's requirements (MFA-01..04, COEX-08, DOC-01, DOC-02) moved to Validated and four Phase 4 decisions logged, including the operator decision to keep `credentials_basic_auth` active. Phase 3's requirements (SEC-01..08, BUG-02, BUG-03, BUG-05, DOC-03) were also moved to Validated — they had been left in Active because this document was last evolved after Phase 2.*
