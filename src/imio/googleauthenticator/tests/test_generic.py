@@ -394,3 +394,30 @@ class TestGeneric(unittest.TestCase, BaseTest):
         css_ids = portal_css.getResourceIds()
         self.assertIn('++resource++imio.googleauthenticator/main.js', js_ids)
         self.assertIn('++resource++imio.googleauthenticator/main.css', css_ids)
+
+    def test_regenerate_recovery_codes_action_is_registered(self):
+        """RECOV-06: the regeneration path is a rendered portal action, not
+        a URL a user has to type. The available_expr is asserted
+        explicitly, not just the action's existence -- the wrong
+        availability expression would render a "Regenerate recovery codes"
+        link to a user who has never enrolled, a misleading offer of a
+        security control's state, the same class of defect T-03-23 and
+        T-03-21 already documented in this package.
+        """
+        portal_actions = getToolByName(self.portal, 'portal_actions')
+        user_category = portal_actions.user
+        self.assertIn(
+            'regenerate_recovery_codes', user_category.objectIds(),
+            'RECOV-06: the regenerate_recovery_codes action must be '
+            'registered in the "user" action category.')
+        action = user_category['regenerate_recovery_codes']
+        self.assertIn(
+            '@@setup-two-factor-authentication',
+            action.url_expr,
+            'RECOV-06: regeneration must reuse the setup form -- there is '
+            'no dedicated regeneration view.')
+        self.assertIn(
+            'show-disable-two-factor-authentication-link',
+            action.available_expr,
+            'RECOV-06: regeneration must reuse the existing enrolled-user '
+            'availability view, not a new one.')

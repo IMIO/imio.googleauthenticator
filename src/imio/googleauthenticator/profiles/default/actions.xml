@@ -29,6 +29,27 @@
    </property>
    <property name="visible">True</property>
   </object>
-  
+
+  <!-- RECOV-06: regeneration is the setup form itself, re-entered; that
+       form validates a currently valid TOTP code before it writes, so a
+       user holding only a recovery code cannot mint a fresh set from one.
+       No dedicated regeneration view exists or should be added; that
+       device-possession check is the gate. available_expr reuses the same
+       view as disable_two_factor_authentication above (globally enabled
+       and this user has enrolled) rather than adding a fourth
+       SettingsHelper method for the same boolean. -->
+  <object name="regenerate_recovery_codes" meta_type="CMF Action" i18n:domain="imio.googleauthenticator" insert-before="logout">
+   <property name="title" i18n:translate="">Regenerate recovery codes</property>
+   <property name="description" i18n:translate=""></property>
+   <property
+      name="url_expr">string:${globals_view/navigationRootUrl}/@@setup-two-factor-authentication</property>
+   <property name="icon_expr"></property>
+   <property name="available_expr">portal/@@show-disable-two-factor-authentication-link</property>
+   <property name="permissions">
+    <element value="View"/>
+   </property>
+   <property name="visible">True</property>
+  </object>
+
  </object>
 </object>
