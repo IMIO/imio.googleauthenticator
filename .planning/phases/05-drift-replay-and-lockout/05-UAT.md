@@ -95,34 +95,49 @@ through MFA-13), and `05-VERIFICATION.md` scored 19/19 on those. Recorded here s
 observations are not lost, and deliberately kept out of `## Gaps` so they do not block this
 phase or spawn Phase 5 gap-closure plans.
 
-### F-1. Modal forms render as full pages — routed to Phase 7, already planned
+### F-1. No JavaScript runs at all on the deployment — cause NOT established
 
 Observed: the user-actions view does not open under the logged-in user's name, and `@@new-user`
 opens a full page. Both should open in Plone's overlay.
 
-Established from source, not from the running site:
-- `profiles/default/jsregistry.xml` carries `<javascript id="popupforms.js" remove="True"
-  enabled="False" />`, which unregisters Plone's core overlay-wiring script site-wide, and
-  registers this package's vendored copy in its place.
-- `browser/static/plone_ecmascript/popupforms.js` is a stale fork of Plone's file. Against
-  Plone 4.3.20 it differs in exactly three ways: it uses the old `jQuery.browser` API instead
-  of Plone's `msieversion()` helper, it drops `dl.portalMessage.warning` from
-  `common_content_filter`, and it comments out the login-form overlay (lines 60-85). Only the
-  last is intentional.
-- The package also replaces Plone's `login_form.cpt` through a skin layer.
+The browser console (supplied 2026-08-03) shows this is not an overlay problem. Roughly twenty
+errors fire on one page load, all of the form `$ is not defined` or `jQuery is not defined`,
+across packages with nothing to do with this one: Plone's own `table_sorter.js`,
+`collective.js.fancytree`, `ckeditor_vars`, `plonetheme.imioapps`, `collective.contact.plonegroup`,
+`imio.actionspanel`, `plone.formwidget.autocomplete`, and inline scripts in `useractions` itself.
 
-Not established: the runtime cause on the deployment. A first hypothesis — a `jQuery.browser`
-TypeError aborting the document-ready handler before any `prepOverlay` call — was tested and
-rejected: both this buildout and `server.dmsmail` resolve `plone.app.jquery 1.7.2.1`, where
-`jQuery.browser` still exists. Settling it needs the first JavaScript console error on an
-affected page and the enabled/order state of the `popupforms.js` entries at
-`/portal_javascripts/manage_jsForm`, neither of which is readable from the repository.
+**jQuery is absent from the page.** Overlays cannot work as a consequence — `prepOverlay` is a
+jQuery Tools plugin and cannot exist without jQuery — so the full-page forms are a symptom, not
+the defect. This package's `browser/static/main.js` is merely the first victim in console order:
+it calls `$(document).ready(...)` at top level, so it is among the first scripts to touch `$`.
 
-Routing: no new item filed, because ROADMAP Phase 7 already covers this. Success Criterion 2
-names the `remove="True"` line as "a global mutation with no uninstall counterpart, and it is
-why the collision flips on install order"; Success Criterion 3 requires a real
-`profiles/uninstall/`; and the Phase 7 notes already record both stale-copy differences found
-above. This finding upgrades those from a predicted risk to one observed breaking a live site.
+Two hypotheses were formed and both were rejected on evidence:
+- A `jQuery.browser` TypeError in the vendored `popupforms.js` aborting the ready handler before
+  any `prepOverlay` call. Rejected: both this buildout and `server.dmsmail` resolve
+  `plone.app.jquery 1.7.2.1`, where `jQuery.browser` still exists.
+- This package's resources being registered above jQuery. Rejected:
+  `Products.ResourceRegistries` 2.2.13 `BaseRegistry.storeResource` appends
+  (`resources.append(resource)`), and this package's `jsregistry.xml` gives no `insert-before` /
+  `insert-after` / `insert-top` directive, so its entries land at the bottom of the registry.
+
+What is still unknown is why jQuery itself is not on the page, which cannot be determined from
+the repository. It needs the live state of `/portal_javascripts/manage_jsForm` on the affected
+site: whether the jQuery resource is present and enabled, and its position.
+
+Separately, and independent of the above, two real defects in this package were confirmed by
+reading source. `profiles/default/jsregistry.xml` carries `<javascript id="popupforms.js"
+remove="True" enabled="False" />`, which unregisters Plone's core overlay script site-wide with no
+uninstall counterpart, and substitutes `browser/static/plone_ecmascript/popupforms.js`, a stale
+fork that against Plone 4.3.20 uses the old `jQuery.browser` API instead of the `msieversion()`
+helper, drops `dl.portalMessage.warning` from `common_content_filter`, and comments out the
+login-form overlay (lines 60-85, the only intentional change). The package also replaces Plone's
+`login_form.cpt` through a skin layer. Both override resources this package does not own.
+
+Routing: no new item filed. ROADMAP Phase 7 already covers all of it — Success Criterion 2 names
+the `remove="True"` line as "a global mutation with no uninstall counterpart, and it is why the
+collision flips on install order", Success Criterion 3 requires a real `profiles/uninstall/`, and
+the Phase 7 notes already record both stale-copy differences. Whether the missing jQuery is also
+Phase 7's is undecided until the registry state is known.
 
 ### F-2. Bar-code reset request landed on the login page — FIXED, commit a14b012
 
@@ -157,3 +172,39 @@ skipped: 0
 blocked: 0
 
 ## Gaps
+
+- gap_id: G-05-A
+  truth: "Every memberdata property plan 05-01 added can be read and written without breaking any
+    user-profile form. ROADMAP Phase 5 Success Criterion 5 required a memberdata_properties.xml
+    entry and a setMemberProperties/getProperty round-trip test for each new property; both were
+    delivered, but nothing exercised the schema-to-form path those properties also entered."
+  status: resolved
+  reason: "Reported from real-deployment testing on server.dmsmail 2026-08-03: opening another
+    user's profile as an administrator raised AttributeError: 'EnhancedUserDataPanelAdapter' object
+    has no attribute 'two_factor_authentication_failed_attempts'. Plan 05-01 declared the three
+    counters as Int fields on IEnhancedUserDataSchema; adapter.py supplies accessors for only the
+    original three fields, and zope.formlib's setUpEditWidgets does a plain getattr per rendered
+    field. CustomizedUserDataPanel.omit() did not cover it, being registered for the view name
+    personal-information alone, while plone.app.users' @@user-information is not overridden by this
+    package and renders whatever the schema declares."
+  severity: major
+  test: null
+  found_by: field-testing
+  artifacts:
+    - path: "src/imio/googleauthenticator/userdataschema.py"
+      issue: "Three Int schema fields that were never meant to be form fields"
+    - path: "src/imio/googleauthenticator/adapter.py"
+      issue: "No accessors for those three fields; zero test coverage before this gap"
+  missing:
+    - "Remove the three counters from IEnhancedUserDataSchema; memberdata_properties.xml is what
+      makes them persist, and a schema field neither provides nor replaces that"
+    - "Cover the schema-to-adapter invariant so a field added later without an accessor fails in
+      the suite rather than in production"
+  resolved_by: 6634113
+  resolved_at: 2026-08-03
+  also_closes: "Code-review finding WR-02 in 05-REVIEW.md, which flagged that a per-view omit()
+    was the only barrier against a user editing their own two_factor_authentication_locked_until.
+    Fields that no longer exist need no barrier."
+  verification_note: "05-VERIFICATION.md scored 19/19 with gaps: [] and did not catch this. The
+    blind spot was EnhancedUserDataPanelAdapter having no tests at all. tests/test_adapter.py is
+    new and closes it. Suite: 88 tests, 0 failures."
