@@ -188,15 +188,15 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | MFA-02 | Phase 4 | Complete |
 | MFA-03 | Phase 4 | Complete |
 | MFA-04 | Phase 4 | Complete |
-| MFA-05 | Phase 5 | Gaps Found |
-| MFA-06 | Phase 5 | Gaps Found |
-| MFA-07 | Phase 5 | Gaps Found |
-| MFA-08 | Phase 5 | Gaps Found |
-| MFA-09 | Phase 5 | Gaps Found |
-| MFA-10 | Phase 5 | Gaps Found |
-| MFA-11 | Phase 5 | Gaps Found |
-| MFA-12 | Phase 5 | Gaps Found |
-| MFA-13 | Phase 5 | Gaps Found |
+| MFA-05 | Phase 5 | Complete |
+| MFA-06 | Phase 5 | Complete |
+| MFA-07 | Phase 5 | Complete |
+| MFA-08 | Phase 5 | Complete |
+| MFA-09 | Phase 5 | Complete |
+| MFA-10 | Phase 5 | Complete |
+| MFA-11 | Phase 5 | Complete |
+| MFA-12 | Phase 5 | Complete |
+| MFA-13 | Phase 5 | Complete |
 | RECOV-01 | Phase 6 | Pending |
 | RECOV-02 | Phase 6 | Pending |
 | RECOV-03 | Phase 6 | Pending |
