@@ -8,12 +8,12 @@ updated: 2026-08-01T16:45:00Z
 
 ## Current Test
 
-number: 3
-name: Clock-drift tolerance agrees with a real mobile TOTP app
+number: 4
+name: Token endpoint reveals no lock state end-to-end behind the real proxy
 expected: |
-  Both the code from the interval just before submission and the code from the current interval
-  are accepted, proving the server's `_find_accepted_interval` arithmetic agrees with an
-  independently-clocked real device rather than only with a code this codebase generated itself.
+  An anonymous, unsigned request naming a locked account and one naming an unlocked or
+  nonexistent account produce indistinguishable responses end to end: same HTTP status, no
+  proxy-injected error page, no differential caching that would leak lock state.
 awaiting: user response
 
 ## Tests
@@ -62,8 +62,28 @@ of RFC 6238 drift), then submit the code the app displays immediately after the 
 confirm that one is accepted too.
 
 expected: Both the code from the interval just before submission and the code from the current interval are accepted, proving the server's `_find_accepted_interval` arithmetic agrees with an independently-clocked real device.
-why_human: 05-02-PLAN.md carries this as an explicit `verification: backstop` truth. `test_validate_token_accepts_previous_interval` generates its own code with the same library and clock the code under test uses, so it cannot rule out a systematic arithmetic error that would still self-agree.
-result: [pending]
+why_human: 05-02-PLAN.md carries this as an explicit `verification: backstop` truth. `test_validate_token_accepted_previous_interval` generates its own code with the same library and clock the code under test uses, so it cannot rule out a systematic arithmetic error that would still self-agree.
+result: pass
+tested_on: server.dmsmail with a real mobile TOTP app enrolled, 2026-08-03
+reported: "Ok, that works with both the displayed code and the previously displayed code that expired a few seconds ago."
+note: |
+  Drift tolerance confirmed against an independently-clocked device, which is what this test
+  existed for.
+
+  The operator additionally observed, and asked whether it was intended, that logging in, logging
+  out, and logging in again inside the same 30-second window with the same code is refused. It is
+  intended: requirement MFA-06 and ROADMAP Phase 5 Success Criterion 1 require a consumed code to
+  be rejected on reuse, citing RFC 6238 section 5.2's MUST NOT. In `helpers.validate_token`, a
+  successful validation writes the matched interval to the memberdata property
+  `two_factor_authentication_last_interval`, and the next submission is refused by
+  `if matched <= last_accepted_interval:`, which logs `TOTP replay rejected` with no operands.
+
+  Two consequences of that rule, both correct and worth stating so nobody later reads them as
+  defects. It is scoped to the time interval, not the login session, so any second use of the same
+  code fails regardless of what happened in between. And because the comparison is `<=`, the
+  previous interval's code is also refused once a newer one has been accepted, even though drift
+  tolerance would otherwise have accepted it. A legitimate user who logs out and back in must
+  therefore wait for the next code, up to 30 seconds.
 
 ### 4. Token endpoint reveals no lock state end-to-end behind the real proxy
 
@@ -208,9 +228,9 @@ link is what authorises the reset.
 ## Summary
 
 total: 6
-passed: 2
+passed: 3
 issues: 0
-pending: 4
+pending: 3
 skipped: 0
 blocked: 0
 
