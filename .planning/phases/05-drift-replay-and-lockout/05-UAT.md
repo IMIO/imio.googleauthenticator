@@ -8,13 +8,16 @@ updated: 2026-08-01T16:45:00Z
 
 ## Current Test
 
-number: 5
-name: Reset-bar-code endpoint reveals no lock state end-to-end behind the real proxy
+number: 4
+name: Token endpoint reveals no lock state end-to-end behind the real proxy
 expected: |
-  The same comparison as test 4, but against `@@reset-bar-code`: an anonymous, unsigned request
-  naming a locked account and one naming an unlocked but enrolled account produce
-  indistinguishable responses end to end.
-awaiting: user response
+  An anonymous, unsigned request naming a locked account and one naming an unlocked or
+  nonexistent account produce indistinguishable responses end to end: same HTTP status, no
+  proxy-injected error page, no differential caching that would leak lock state.
+awaiting: |
+  A re-run. The first attempt at tests 4 and 5 returned 404 on all four requests, so neither
+  endpoint was exercised. The working URL must be established first -- see attempt_1.rerun_requires
+  under test 4 below.
 
 ## Tests
 
@@ -95,26 +98,35 @@ Compare the two rendered pages byte-for-byte (status line, headers, body).
 
 expected: The two responses are indistinguishable end-to-end — same HTTP status, no proxy-injected error page, no differential caching that would let an external observer learn lock state.
 why_human: 05-04-PLAN.md carries this as an explicit `verification: backstop` truth naming exactly this residual risk: `zope.testbrowser` exercises the view in-process and cannot rule out a difference introduced downstream by the real ZPublisher error/status path or a front-end proxy.
-result: pass
-tested_on: server.dmsmail behind the real front-end proxy, 2026-08-03
-method: |
-  Two anonymous `curl -sSi` requests with no cookies, no `signature` and no `auth_timestamp`,
-  one naming a locked account and one naming an unlocked enrolled account, compared with `diff`
-  over the full response including the status line and all headers.
-reported: |
-  diff reported exactly one differing line, the `Date` header:
-    < Date: Mon, 03 Aug 2026 12:24:55 GMT
-    > Date: Mon, 03 Aug 2026 12:25:57 GMT
-note: |
-  A pass. The two requests were issued 62 seconds apart, which is the whole of the difference; a
-  wall-clock timestamp cannot encode lock state. The HTTP status line, every other header
-  including `Cache-Control`, and the entire response body were byte-identical.
+result: [pending]
+attempt_1:
+  date: 2026-08-03
+  outcome: inconclusive, evidence rejected
+  method: |
+    Two anonymous `curl -sSi` requests against `localhost:8084/gauth-5`, no cookies, no
+    `signature`, no `auth_timestamp`, one naming a locked account and one an unlocked enrolled
+    account, compared with `diff` over the full response.
+  reported: |
+    diff reported one differing line, the `Date` header:
+      < Date: Mon, 03 Aug 2026 12:24:55 GMT
+      > Date: Mon, 03 Aug 2026 12:25:57 GMT
+  why_rejected: |
+    Both captures begin `HTTP/1.1 404 Not Found`. The comparison was therefore between two Plone
+    404 pages, and the token endpoint was never reached, so it establishes nothing about
+    lock-state indistinguishability. Recorded rather than deleted because the run was initially
+    accepted as a pass on the strength of the `diff` output alone, without checking the status
+    line -- the same shape of mistake that let the 05-03 substring acceptance criterion through.
 
-  This is the end-to-end confirmation the in-process test could not give. The test
-  `test_no_signature_response_is_identical_for_a_locked_and_an_unknown_account` in
-  `tests/test_token.py` drives `zope.testbrowser` inside the process and therefore cannot see a
-  difference introduced downstream by the real ZPublisher status path or by the proxy. Nothing
-  was introduced.
+    The site was reached: the body carries `<title>imio-googleauth-phase-5</title>` and
+    `localhost:8084/gauth-5/portal_css/...`, so Plone rendered its own 404 after failing to
+    resolve the view name. This package raises `NotFound` nowhere in its non-test source and both
+    views are registered `for="*"`, so the cause lies in the request path or in the instance on
+    port 8084 not loading the package. The browser session that reproduced earlier findings was on
+    port 8081, and `dev.cfg` adds `imio.googleauthenticator` to two separate eggs lists.
+  rerun_requires: |
+    Responses that are not 404. Establish the working URL from the address bar when the one-time
+    code prompt appears during a real login, then reissue it with `signature`, `valid_until` and
+    `extra` stripped, keeping only `auth_user`.
 
 ### 5. Reset-bar-code endpoint reveals no lock state end-to-end behind the real proxy
 
@@ -126,6 +138,16 @@ comparing the two rendered pages byte-for-byte.
 expected: The two responses are indistinguishable end-to-end, for the same reason as test 4.
 why_human: 05-05-PLAN.md carries this as an explicit `verification: backstop` truth with the identical residual-risk statement, scoped to `@@reset-bar-code`.
 result: [pending]
+attempt_1:
+  date: 2026-08-03
+  outcome: inconclusive, evidence rejected
+  reported: |
+    diff over /tmp/reset-locked.txt and /tmp/reset-unlocked.txt reported one differing line, the
+    `Date` header.
+  why_rejected: |
+    Both captures begin `HTTP/1.1 404 Not Found`, exactly as in test 4's rejected attempt. The
+    `@@reset-bar-code` endpoint was never reached. This is the endpoint plan 05-05 changed, so it
+    is the one whose end-to-end behaviour is least established by anything else.
 
 ### 6. Forward-looking: second-factor state writes stay on committing paths
 
@@ -247,9 +269,9 @@ link is what authorises the reset.
 ## Summary
 
 total: 6
-passed: 4
+passed: 3
 issues: 0
-pending: 2
+pending: 3
 skipped: 0
 blocked: 0
 
