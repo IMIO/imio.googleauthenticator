@@ -116,17 +116,21 @@ attempt_1:
     lock-state indistinguishability. Recorded rather than deleted because the run was initially
     accepted as a pass on the strength of the `diff` output alone, without checking the status
     line -- the same shape of mistake that let the 05-03 substring acceptance criterion through.
+  cause_of_the_404: |
+    A literal backslash before the `?` in the request URL, found by the operator. Zope then reads
+    `@@google-authenticator-token\` as the view name and the remainder as path, which resolves to
+    nothing. A test-environment mistake, not a defect in this package and not related to lock
+    state. The URL needs no backslash when it is already single-quoted for the shell.
 
-    The site was reached: the body carries `<title>imio-googleauth-phase-5</title>` and
-    `localhost:8084/gauth-5/portal_css/...`, so Plone rendered its own 404 after failing to
-    resolve the view name. This package raises `NotFound` nowhere in its non-test source and both
-    views are registered `for="*"`, so the cause lies in the request path or in the instance on
-    port 8084 not loading the package. The browser session that reproduced earlier findings was on
-    port 8081, and `dev.cfg` adds `imio.googleauthenticator` to two separate eggs lists.
+    Two hypotheses were raised before that and both are disproved, recorded so neither is
+    revisited: the view name or site path being wrong (it was neither -- the path was correct
+    apart from the backslash), and the instance on port 8084 not loading the package. On the
+    latter, `bin/instance1` through `bin/instance4` all reference
+    `/srv/src/server.dmsmail/src/imio.googleauthenticator/src`, and `port.cfg` maps 8081 to 8084
+    to instances 1 to 4, so every instance loads it.
   rerun_requires: |
-    Responses that are not 404. Establish the working URL from the address bar when the one-time
-    code prompt appears during a real login, then reissue it with `signature`, `valid_until` and
-    `extra` stripped, keeping only `auth_user`.
+    The same two requests with no backslash before the `?`, and the status line checked before the
+    diff is read.
 
 ### 5. Reset-bar-code endpoint reveals no lock state end-to-end behind the real proxy
 
@@ -145,9 +149,11 @@ attempt_1:
     diff over /tmp/reset-locked.txt and /tmp/reset-unlocked.txt reported one differing line, the
     `Date` header.
   why_rejected: |
-    Both captures begin `HTTP/1.1 404 Not Found`, exactly as in test 4's rejected attempt. The
-    `@@reset-bar-code` endpoint was never reached. This is the endpoint plan 05-05 changed, so it
-    is the one whose end-to-end behaviour is least established by anything else.
+    Both captures begin `HTTP/1.1 404 Not Found`, exactly as in test 4's rejected attempt, and for
+    the same reason: a literal backslash before the `?` in the request URL, so Zope read
+    `@@reset-bar-code\` as the view name. The endpoint was never reached. This is the endpoint plan
+    05-05 changed, so it is the one whose end-to-end behaviour is least established by anything
+    else.
 
 ### 6. Forward-looking: second-factor state writes stay on committing paths
 
