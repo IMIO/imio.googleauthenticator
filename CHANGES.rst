@@ -153,6 +153,21 @@ Changelog
   property raises ``ValueError`` rather than returning a falsy default --
   so a lockout that never locks is not among the possible outcomes.
   [chris-adam]
+- Both JavaScript registrations in ``profiles/default/jsregistry.xml`` now pin
+  their position with ``insert-bottom``. ``BaseRegistry.storeResource`` appends,
+  so without a position directive the load order depended on when the profile's
+  import step happened to run. Installing onto an existing site appended after
+  Plone's own registrations and worked; on a fresh site, where GenericSetup could
+  import this step before Plone registered jQuery, ``main.js`` and the vendored
+  ``popupforms.js`` landed at positions 0 and 1 with
+  ``++resource++plone.app.jquery.js`` at 2. Since cooking merges adjacent
+  compatible resources into a single bundle, the ``$ is not defined`` thrown at
+  the top of ``main.js`` aborted that bundle before jQuery defined itself, so
+  every jQuery-dependent script on the site failed and every Plone overlay form
+  rendered as a full page. Observed on a real deployment. Re-importing the step
+  repairs a site already in that state, because the importer applies the move to
+  an existing resource as well as a new one.
+  [chris-adam]
 - The replay and lockout counters are no longer declared on
   ``IEnhancedUserDataSchema``. They were never form fields in intent -- they are
   written only by ``helpers.py`` through ``setMemberProperties`` and persist by

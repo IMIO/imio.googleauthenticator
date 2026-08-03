@@ -1,4 +1,6 @@
+import os.path
 import unittest2 as unittest
+from xml.dom import minidom
 
 from Products.CMFCore.utils import getToolByName
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
@@ -6,12 +8,26 @@ from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlug
 from plone import api
 from plone.app.testing import applyProfile
 
+import imio.googleauthenticator
 from imio.googleauthenticator.helpers import get_app_settings
 from imio.googleauthenticator.helpers import get_ska_secret_key
 from imio.googleauthenticator.setuphandlers import PAS_ID
 from imio.googleauthenticator.testing import \
     IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
+
+JSREGISTRY_XML = os.path.join(
+    os.path.dirname(imio.googleauthenticator.__file__),
+    'profiles', 'default', 'jsregistry.xml')
+
+# Any one of these on a <javascript> node pins its position explicitly, instead
+# of leaving it to BaseRegistry.storeResource's plain append.
+POSITION_ATTRIBUTES = (
+    'insert-before', 'position-before',
+    'insert-after', 'position-after',
+    'insert-top', 'position-top',
+    'insert-bottom', 'position-bottom',
+    )
 
 
 class TestSetupHandlers(unittest.TestCase, BaseTest):
@@ -269,3 +285,89 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         self.assertFalse(
             hasattr(self.pas[PAS_ID], 'protocol'),
             'Open Question 3: the plugin must not declare a protocol attribute')
+
+    def test_every_javascript_registration_pins_its_position(self):
+        """Each ``<javascript>`` this profile registers must state where it goes.
+
+        ``BaseRegistry.storeResource`` appends, so with no position directive the
+        final order depends on when this profile's import step happens to run.
+        Installing onto an existing site appends after Plone's own registrations
+        and works, which is the only path the test below can exercise. On a fresh
+        site, where GenericSetup may run this step before Plone registers jQuery,
+        both of this package's scripts landed at positions 0 and 1 with
+        ``++resource++plone.app.jquery.js`` at 2 -- observed on a real
+        ``server.dmsmail`` deployment, 2026-08-03. Because cooking merges adjacent
+        compatible resources into a single bundle, the ``$ is not defined`` thrown
+        at the top of ``main.js`` aborted that bundle before jQuery defined
+        itself, so every jQuery-dependent script on the site failed and every
+        Plone overlay form rendered as a full page.
+
+        This asserts the XML directly rather than the resulting order, because
+        the defect is the reliance on append order, and that is visible in the
+        file on any install path. Nodes carrying ``remove="True"`` are skipped:
+        they unregister and have no position.
+        """
+        document = minidom.parse(JSREGISTRY_XML)
+        nodes = document.getElementsByTagName('javascript')
+
+        self.assertTrue(
+            nodes,
+            'Non-vacuity control: no <javascript> nodes were parsed from '
+            '{0}, so the loop below would assert nothing.'.format(
+                JSREGISTRY_XML))
+
+        unpinned = []
+        for node in nodes:
+            if (node.getAttribute('remove') or '').lower() == 'true':
+                continue
+            if not any(node.getAttribute(name) for name in POSITION_ATTRIBUTES):
+                unpinned.append(node.getAttribute('id'))
+
+        self.assertEqual(
+            [], unpinned,
+            'These jsregistry.xml entries pin no position, so their load order '
+            'depends on when the profile is imported: {0}'.format(unpinned))
+
+    def test_registered_javascript_loads_after_jquery(self):
+        """This package's scripts must sit after jQuery and jQuery Tools.
+
+        ``main.js`` calls ``$(document).ready(...)`` at top level and the
+        ``popupforms.js`` copy calls ``jQuery.extend(jQuery.tools.overlay.conf,
+        ...)`` at parse time, so both need those two to have run first.
+
+        Honest limitation: ``BaseTest._install()`` installs onto an already-built
+        site, where Plone's registrations are present and an append lands after
+        them -- so this passes even with the ``insert-bottom`` directives
+        removed. It is the outcome check, not the regression check;
+        ``test_every_javascript_registration_pins_its_position`` above is the one
+        that fails when the directives go away.
+        """
+        registry = getToolByName(self.portal, 'portal_javascripts')
+        resource_ids = [r.getId() for r in registry.getResources()]
+
+        for dependency in ('++resource++plone.app.jquery.js',
+                           '++resource++plone.app.jquerytools.js'):
+            self.assertIn(
+                dependency, resource_ids,
+                'Non-vacuity control: {0!r} is not registered at all, so the '
+                'ordering assertions below are meaningless.'.format(dependency))
+
+        last_dependency = max(
+            resource_ids.index('++resource++plone.app.jquery.js'),
+            resource_ids.index('++resource++plone.app.jquerytools.js'))
+
+        ours = ('++resource++imio.googleauthenticator/main.js',
+                '++resource++imio.googleauthenticator/plone_ecmascript/'
+                'popupforms.js')
+        for resource_id in ours:
+            self.assertIn(
+                resource_id, resource_ids,
+                '{0!r} was not registered by the profile import'.format(
+                    resource_id))
+            self.assertGreater(
+                resource_ids.index(resource_id), last_dependency,
+                '{0!r} loads at position {1}, before jQuery/jQuery Tools '
+                'finish at {2} -- it will throw and, if cooked into the same '
+                'bundle, take jQuery down with it'.format(
+                    resource_id, resource_ids.index(resource_id),
+                    last_dependency))

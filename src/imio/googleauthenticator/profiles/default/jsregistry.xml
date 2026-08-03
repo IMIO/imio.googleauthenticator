@@ -18,12 +18,33 @@
     -->
     <javascript id="popupforms.js" remove="True" enabled="False" />
 
+    <!-- insert-bottom is load-bearing on both entries below; do not drop it.
+
+         Both scripts depend on code registered earlier in this registry:
+         main.js calls $(document).ready(...) at top level, and the popupforms.js
+         copy calls jQuery.extend(jQuery.tools.overlay.conf, ...) at parse time,
+         so they need plone.app.jquery and then plone.app.jquerytools to have run.
+
+         Without an explicit position, BaseRegistry.storeResource simply appends,
+         which means the final order depends on WHEN this profile's import step
+         happens to run. Installing onto an existing site appends after Plone's
+         own registrations and works. On a fresh site, where GenericSetup may
+         import this step before Plone registers jQuery, these two landed at
+         positions 0 and 1 with ++resource++plone.app.jquery.js at 2. Since
+         cooking merges adjacent compatible resources into one bundle, the
+         "$ is not defined" thrown by main.js aborted the bundle before jQuery
+         defined itself. Every jQuery-dependent script on the site then failed,
+         and every Plone overlay form rendered as a full page.
+
+         The importer applies the move for an existing resource as well as a new
+         one, so re-importing this step repairs a site already in that state. -->
+
     <javascript cacheable="True" compression="none" cookable="True"
-                enabled="True" expression=""
+                enabled="True" expression="" insert-bottom="True"
                 id="++resource++imio.googleauthenticator/main.js" inline="False"/>
 
     <javascript cacheable="True" compression="none" cookable="True"
-                enabled="True" expression=""
+                enabled="True" expression="" insert-bottom="True"
                 id="++resource++imio.googleauthenticator/plone_ecmascript/popupforms.js" inline="False"/>
 
 </object>
