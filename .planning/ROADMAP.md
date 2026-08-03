@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Registry Seeding and Import-Step Ordering** - New Plone sites install cleanly, and the ordering that makes them clean is asserted rather than accidental (completed 2026-07-29)
 - [x] **Phase 3: Encrypted Seeds and Local QR** - Seeds are Fernet-encrypted at rest, never sent to Google, and never fall back to plaintext (completed 2026-07-30)
 - [x] **Phase 4: PAS Boundary** - The second factor cannot be bypassed by any credentials extractor, and the refusal leaks nothing (completed 2026-07-31)
-- [ ] **Phase 5: Drift, Replay and Lockout** - A replayed code fails, brute force stops at N attempts, and the counters actually persist
+- [x] **Phase 5: Drift, Replay and Lockout** - A replayed code fails, brute force stops at N attempts, and the counters actually persist (completed 2026-08-03)
 - [ ] **Phase 6: Recovery Codes** - A user who loses their phone gets back in without an admin, on a throttled path
 - [ ] **Phase 7: Coexistence with imio.dms.mail** - Both packages install in either order with no vendored JavaScript, no skin layer, and no open redirect
 - [ ] **Phase 8: Coverage Instrument and Test Layers** - The build fails when tests fail, the coverage number means something, and `bin/code-analysis` exits 0
@@ -308,7 +308,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 2. Registry Seeding and Import-Step Ordering | 2/2 | Complete    | 2026-07-29 |
 | 3. Encrypted Seeds and Local QR | 3/3 | Complete    | 2026-07-30 |
 | 4. PAS Boundary | 4/4 | Complete    | 2026-07-31 |
-| 5. Drift, Replay and Lockout | 5/5 | In Progress|  |
+| 5. Drift, Replay and Lockout | 5/5 | Complete    | 2026-08-03 |
 | 6. Recovery Codes | 0/TBD | Not started | - |
 | 7. Coexistence with imio.dms.mail | 0/TBD | Not started | - |
 | 8. Coverage Instrument and Test Layers | 0/TBD | Not started | - |
