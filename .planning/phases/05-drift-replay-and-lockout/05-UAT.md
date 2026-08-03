@@ -128,9 +128,30 @@ attempt_1:
     latter, `bin/instance1` through `bin/instance4` all reference
     `/srv/src/server.dmsmail/src/imio.googleauthenticator/src`, and `port.cfg` maps 8081 to 8084
     to instances 1 to 4, so every instance loads it.
+attempt_2:
+  date: 2026-08-03
+  outcome: inconclusive, evidence rejected
+  method: |
+    Same two requests with the backslash removed. Both returned `HTTP/1.1 200 OK`, and the
+    orchestrator diffed the captured files itself rather than trusting a reported diff: identical
+    but for the `Date` header, with byte-identical sizes of 19956 each.
+  why_rejected: |
+    Wrong HTTP method. The lock gate is at `token.py:108`, inside `handleSubmit`, which is the
+    `@button.buttonAndHandler(_('Verify'))` handler declared at `token.py:64`. z3c.form runs a
+    button handler only when the form is submitted, so a GET carrying just `auth_user` renders the
+    form and reaches neither `validate_user_data` nor `is_account_locked`. Two identical 200s
+    therefore show only that the form page renders identically, which is weaker than the
+    requirement. The in-process test does a real POST: `_submit` in `tests/test_reset_bar_code.py`
+    fills `form.widgets.token` and clicks `Verify`.
+
+    This was the second incorrect instruction issued for this test, after the backslash run. Both
+    are recorded so the next attempt starts from what the endpoint actually needs.
   rerun_requires: |
-    The same two requests with no backslash before the `?`, and the status line checked before the
-    diff is read.
+    A POST. The rendered form gives the exact fields: `form.widgets.token` (required),
+    `form.widgets.qr_code` (`required=False`, omit it) and the button `form.buttons.verify`,
+    `enctype="multipart/form-data"`, and no `_authenticator` CSRF field, so nothing has to be
+    scraped first. Hold the username constant and toggle the lock between the two POSTs, which is
+    what the in-process test's primary assertion does.
 
 ### 5. Reset-bar-code endpoint reveals no lock state end-to-end behind the real proxy
 
@@ -154,6 +175,27 @@ attempt_1:
     `@@reset-bar-code\` as the view name. The endpoint was never reached. This is the endpoint plan
     05-05 changed, so it is the one whose end-to-end behaviour is least established by anything
     else.
+attempt_2:
+  date: 2026-08-03
+  outcome: inconclusive, evidence rejected
+  method: |
+    Same two requests with the backslash removed. Both returned `HTTP/1.1 200 OK`, and the
+    orchestrator diffed the captured files itself: identical but for the `Date` header, with
+    byte-identical sizes of 22261 each.
+  why_rejected: |
+    Wrong HTTP method, the same defect as test 4's attempt 2. `is_account_locked` sits at
+    `reset_bar_code.py:123`, inside `handleSubmit`, the `@button.buttonAndHandler(_('Verify'))`
+    handler at line 72. A GET renders the form and never calls it, so the branch plan 05-05
+    rewrote was not executed and the matching responses say nothing about it.
+  rerun_requires: |
+    A POST with `form.widgets.token` set to a wrong six-digit code and `form.buttons.verify`
+    present, sent as `multipart/form-data`. Hold the account constant and toggle its lock between
+    the two POSTs.
+
+    One caveat specific to this endpoint: a wrong code against an unlocked account calls
+    `register_failed_second_factor`, so each unlocked POST increments the failure counter. Repeated
+    runs will lock the account and make the comparison vacuous. Clear the counter with
+    `reset_failed_second_factor` before the unlocked leg.
 
 ### 6. Forward-looking: second-factor state writes stay on committing paths
 
