@@ -811,6 +811,121 @@ class TestDriftAndReplay(unittest.TestCase, BaseTest):
             self.assertNotIn(forbidden, message)
             self.assertNotIn(forbidden, record.args or ())
 
+    def test_recovery_code_storage_and_validation_edges(self):
+        """RECOV-01/RECOV-02: the deliberate, one-commit-later companion to
+        06-01's Task 2 end-to-end Browser test. That test already proved
+        persistence across a real request boundary; this method is the
+        explicit MFA-13 artifact the project convention requires --
+        round-trip-with-declared-types for both new properties, the
+        plaintext-absence guarantee, the one-salt/ten-hashes counts, every
+        RECOV-01 refusal edge, the unicode/str equivalence, and validating
+        from any position in the stored tuple.
+        """
+        user = api.user.get_current()
+
+        # MFA-13 round trip: declared types survive setMemberProperties ->
+        # getProperty for both new properties.
+        salt = '0' * 32
+        hashes = tuple('a' * 64 for _i in range(3))
+        user.setMemberProperties(mapping={
+            'two_factor_authentication_recovery_codes_salt': salt,
+            'two_factor_authentication_recovery_codes_hashes': hashes,
+        })
+        stored_salt = user.getProperty(
+            'two_factor_authentication_recovery_codes_salt')
+        stored_hashes = user.getProperty(
+            'two_factor_authentication_recovery_codes_hashes')
+        self.assertEqual(salt, stored_salt, 'MFA-13')
+        self.assertIsInstance(stored_salt, str)
+        self.assertEqual(tuple(hashes), tuple(stored_hashes), 'MFA-13')
+
+        # Empty-tuple round trip: reads back as an empty sequence, not ''.
+        user.setMemberProperties(mapping={
+            'two_factor_authentication_recovery_codes_hashes': (),
+        })
+        empty_hashes = user.getProperty(
+            'two_factor_authentication_recovery_codes_hashes')
+        self.assertEqual(0, len(empty_hashes), 'MFA-13')
+        self.assertNotEqual('', empty_hashes, 'MFA-13')
+
+        # Plaintext absence, counts and shape, after a real generation.
+        codes = helpers.generate_recovery_codes(user)
+        stored_salt = user.getProperty(
+            'two_factor_authentication_recovery_codes_salt')
+        stored_hashes = user.getProperty(
+            'two_factor_authentication_recovery_codes_hashes')
+
+        self.assertEqual(1, len(set([stored_salt])), 'RECOV-02: one salt')
+        self.assertEqual(32, len(stored_salt), 'RECOV-02')
+        self.assertEqual(10, len(codes), 'RECOV-02: ten codes')
+        self.assertEqual(10, len(stored_hashes), 'RECOV-02: ten hashes')
+        for code in codes:
+            self.assertEqual(16, len(code), 'RECOV-02')
+            self.assertNotIn('=', code, 'RECOV-02')
+            self.assertNotIn(code, stored_salt, 'RECOV-02')
+        for stored_hash in stored_hashes:
+            self.assertEqual(64, len(stored_hash), 'RECOV-02')
+            for code in codes:
+                self.assertNotIn(code, stored_hash, 'RECOV-02')
+
+        # Refusal scenarios -- shape gate, then the empty-salt/empty-hashes
+        # gate, all returning False rather than raising.
+        self.assertFalse(
+            helpers.validate_recovery_code('', user=user), 'RECOV-01')
+        self.assertFalse(
+            helpers.validate_recovery_code('A', user=user), 'RECOV-01')
+        self.assertFalse(
+            helpers.validate_recovery_code('A' * 17, user=user), 'RECOV-01')
+        self.assertFalse(
+            helpers.validate_recovery_code(codes[0][:-1] + '0', user=user),
+            'RECOV-01')
+
+        no_salt_user = api.user.create(
+            email='no-salt-recovery-user@example.com',
+            username='no-salt-recovery-user',
+            password='Secret0123!')
+        self.assertFalse(
+            helpers.validate_recovery_code(codes[0], user=no_salt_user),
+            'RECOV-01: no stored salt must refuse, not raise')
+
+        empty_hashes_user = api.user.create(
+            email='empty-hashes-recovery-user@example.com',
+            username='empty-hashes-recovery-user',
+            password='Secret0123!')
+        empty_hashes_user.setMemberProperties(mapping={
+            'two_factor_authentication_recovery_codes_salt': '0' * 32,
+            'two_factor_authentication_recovery_codes_hashes': (),
+        })
+        self.assertFalse(
+            helpers.validate_recovery_code(codes[0], user=empty_hashes_user),
+            'RECOV-01: an empty stored hash tuple must refuse, not raise')
+
+        # unicode vs. str equivalence; non-ASCII refusal.
+        unicode_code = unicode(codes[0])
+        self.assertTrue(
+            helpers.validate_recovery_code(unicode_code, user=user),
+            'a unicode submission of the real code must validate '
+            'identically to the same value as str')
+        self.assertFalse(
+            helpers.validate_recovery_code(u'\xe9' * 16, user=user),
+            'a non-ASCII unicode submission must refuse, not raise')
+
+        remaining = user.getProperty(
+            'two_factor_authentication_recovery_codes_hashes')
+        self.assertEqual(
+            9, len(remaining),
+            'precondition: exactly one code consumed above')
+
+        # Validates from any position in the stored tuple, including last.
+        last_code = codes[-1]
+        self.assertTrue(
+            helpers.validate_recovery_code(last_code, user=user),
+            'a code must validate regardless of its position in the '
+            'stored tuple, including the last')
+        remaining = user.getProperty(
+            'two_factor_authentication_recovery_codes_hashes')
+        self.assertEqual(8, len(remaining))
+
 
 class TestBarCodeResetToken(unittest.TestCase):
     """BUG-03: validate_bar_code_reset_token is a pure comparison function

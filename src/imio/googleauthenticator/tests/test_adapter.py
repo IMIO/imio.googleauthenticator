@@ -14,13 +14,16 @@ from imio.googleauthenticator.testing import \
 from imio.googleauthenticator.tests.base import BaseTest
 from imio.googleauthenticator.userdataschema import IEnhancedUserDataSchema
 
-# The three counters plan 05-01 introduced. Named here only to pin the
-# decision that they are memberdata, not form fields -- the test above this
-# list works off the schema itself and needs no such enumeration.
+# The three counters plan 05-01 introduced, plus the two recovery-code
+# properties plan 06-01 introduced. Named here only to pin the decision that
+# they are memberdata, not form fields -- the test above this list works off
+# the schema itself and needs no such enumeration.
 LOCKOUT_STATE_PROPERTIES = (
     'two_factor_authentication_failed_attempts',
     'two_factor_authentication_locked_until',
     'two_factor_authentication_last_interval',
+    'two_factor_authentication_recovery_codes_salt',
+    'two_factor_authentication_recovery_codes_hashes',
     )
 
 
