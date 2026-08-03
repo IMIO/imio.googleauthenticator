@@ -243,7 +243,17 @@ Plans:
   4. The user can regenerate the whole set, and a test asserts every previously issued code stops working.
   5. The user is warned when 3 or fewer codes remain.
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 06-01-PLAN.md — Tracer: the recovery-code substrate end to end — two memberdata properties, the hash/generate/validate-and-consume helpers, the promoted `validate_second_factor` dispatcher at the token form's one call site, and a real browser login with a recovery code (RECOV-02, RECOV-04). Opens with a `checkpoint:decision` on the two one-way choices: the PBKDF2 iteration count and the storage shape.
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06-02-PLAN.md — Issue the codes at enrollment, render them exactly once in the same response (no redirect, no stored plaintext), and add a `regenerate_recovery_codes` portal action reusing the existing availability view (RECOV-01, RECOV-03, RECOV-06)
+- [ ] 06-03-PLAN.md — The shared lockout counter proven at the real form, the "3 or fewer remain" warning on the success path only, and the MFA-12 source guard extended to this phase's new writers (RECOV-05, RECOV-07)
 
 **Phase notes:**
 
