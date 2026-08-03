@@ -1,7 +1,7 @@
 ---
 phase: 05-drift-replay-and-lockout
 verified: 2026-08-01T16:30:00Z
-status: human_needed
+status: passed
 score: 19/19 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
@@ -9,26 +9,33 @@ re_verification:
   previous_status: gaps_found
   previous_score: 18/19
   gaps_closed:
+
     - "A locked account is not an oracle at @@reset-bar-code to an anonymous, unsigned caller (closed by plan 05-05, commit be31592: the locked branch now emits the identical \"Setup failed! {0}\" wrapper the wrong-code branch uses, and the false adjacent comment was replaced with an honest, scoped one)."
   gaps_remaining: []
   regressions: []
 gaps: []
 human_verification:
+
   - test: "Restart a real ZEO cluster with two or more clients sharing the same ZODB, enable 2FA for a test account, submit failed second-factor attempts split across clients (e.g. 3 against client A, 2 against client B), and confirm the account still locks at the 5th cumulative failure rather than each client independently allowing 4."
     expected: "The lock triggers on the cumulative count across clients, because the counter lives in a memberdata property (ZODB-backed, not RAM), not on a per-instance count that a client-rotating attacker could multiply."
     why_human: "05-01-PLAN.md must_haves carries this as an explicit `verification: backstop` truth. The integration-test layer runs a single process against a single ZODB connection; it cannot exercise real inter-client consistency, which requires an actual multi-client ZEO deployment."
+
   - test: "In a running Plone instance (not the test layer), open the Google Authenticator control panel as a Manager, confirm 'Maximum failed second-factor attempts' and 'Lockout duration (seconds)' render with defaults 5 and 900, change both, save, reload the page, and confirm the new values persisted."
     expected: "Both fields render, accept edits, and the edited values are still shown after a page reload -- proving the AutoExtensibleForm/registry.xml wiring works end-to-end in a live instance, not just via `getUtility(IRegistry)` in a test."
     why_human: "05-01-PLAN.md must_haves carries this as an explicit `verification: backstop` truth. `test_control_panel_has_lockout_fields` (test_generic.py:112) checks the schema/registry wiring in-process; it does not drive the real z3c.form edit-and-persist round trip through a browser."
+
   - test: "With a real Google Authenticator (or compatible TOTP) mobile app enrolled against a test account, wait until the app's displayed code is within roughly 1-29 seconds of rolling over to the next 30-second interval, submit that about-to-expire code, and confirm it is still accepted (one step of RFC 6238 drift), then submit the code the app displays immediately after the rollover and confirm that one is accepted too."
     expected: "Both the code from the interval just before submission and the code from the current interval are accepted, proving the server's `_find_accepted_interval` arithmetic (comparing against `current` and `current - 1`) agrees with an independently-clocked, real mobile device rather than only with `onetimepass.get_hotp` called in-process against the same clock the assertion uses."
     why_human: "05-02-PLAN.md must_haves carries this as an explicit `verification: backstop` truth. `test_validate_token_accepts_previous_interval` (test_helpers.py:661) generates its own code with the same library and clock the code under test uses, so it cannot rule out a systematic arithmetic error that would still self-agree."
+
   - test: "Deploy the current build behind whatever front-end proxy/load balancer the target environment actually uses. As an anonymous, unauthenticated caller with no `signature`/`auth_timestamp` query parameters, submit `@@google-authenticator-token?auth_user=<a-locked-account>` and, separately, `@@google-authenticator-token?auth_user=<an-unlocked-or-nonexistent-account>`. Compare the two rendered pages byte-for-byte (status line, headers, body)."
     expected: "The two responses are indistinguishable end-to-end, not merely at the `zope.testbrowser` in-process level -- same HTTP status, no proxy-injected error page, no differential caching behavior that would let an external observer learn lock state."
     why_human: "05-04-PLAN.md must_haves carries this as an explicit `verification: backstop` truth, naming exactly this residual risk: `zope.testbrowser` exercises the view in-process and cannot rule out a difference introduced downstream by the real ZPublisher error/status path or a front-end proxy."
+
   - test: "Same deployment/proxy setup as above, but against `@@reset-bar-code?auth_user=<locked-account>` versus `@@reset-bar-code?auth_user=<unlocked-but-enrolled-account>`, both anonymous and unsigned, comparing the two rendered pages byte-for-byte."
     expected: "The two responses are indistinguishable end-to-end for the same reason as the token-form case above."
     why_human: "05-05-PLAN.md must_haves carries this as an explicit `verification: backstop` truth with the identical residual-risk statement, scoped to `@@reset-bar-code` instead of `@@google-authenticator-token`."
+
   - test: "Code-review only: confirm no future call site writing second-factor state (a property named `two_factor_authentication_*` or a call to `register_failed_second_factor`/`reset_failed_second_factor`) is ever added to `pas_plugin.py`, `subscribers.py`, or any other non-committing code path, as the codebase evolves after this phase."
     expected: "All second-factor state writes continue to originate only from `browser/forms/token.py` and `browser/forms/reset_bar_code.py`, both committing views."
     why_human: "05-03-PLAN.md must_haves records this explicitly as a `verification: backstop` truth: the current source-level guard (a grep-based test) covers `pas_plugin.py` and `subscribers.py` as they exist today, but cannot prove the invariant against files that do not yet exist. Not actionable today; recorded so a future reviewer checks it rather than assuming it is automatically enforced."
