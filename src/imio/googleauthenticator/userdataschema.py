@@ -4,7 +4,6 @@ from plone import api
 
 from zope.component import adapter
 from zope.schema import Bool
-from zope.schema import Int
 from zope.schema import TextLine
 from zope.i18nmessageid import MessageFactory
 from zope.interface import implements
@@ -26,14 +25,20 @@ class CustomizedUserDataPanel(UserDataPanel):
     def __init__(self, context, request):
         super(CustomizedUserDataPanel, self).__init__(context, request)
 
-        # Removing certain fields from form
+        # Removing certain fields from form.
+        #
+        # This omit() only covers the view it is registered for,
+        # ``personal-information``. It is NOT a general protection: plone.app.users'
+        # ``@@user-information``, the form an administrator uses to edit another
+        # user's profile, is not overridden here and renders whatever the schema
+        # declares. Anything that must never reach a profile form therefore has to
+        # be kept off ``IEnhancedUserDataSchema`` altogether, not merely omitted
+        # here -- which is why the replay and lockout counters are memberdata
+        # properties with no schema field. See tests/test_adapter.py.
         self.form_fields = self.form_fields.omit(
             'enable_two_factor_authentication',
             'two_factor_authentication_secret',
             'bar_code_reset_token',
-            'two_factor_authentication_failed_attempts',
-            'two_factor_authentication_locked_until',
-            'two_factor_authentication_last_interval',
             )
 
 
@@ -55,12 +60,18 @@ class IEnhancedUserDataSchema(IUserDataSchema):
     :property string two_factor_authentication_secret: Secret key of the user (unique per user). Automatically
                                                        generated.
     :property string bar_code_reset_token: Token to reset users' bar-code. Automatically generated.
-    :property int two_factor_authentication_failed_attempts: Count of consecutive failed
-                                                             second-factor submissions. Automatically generated.
-    :property int two_factor_authentication_locked_until: Epoch until which the second factor is
-                                                          locked out. Automatically generated.
-    :property int two_factor_authentication_last_interval: Last accepted TOTP interval, for replay
-                                                           rejection. Automatically generated.
+
+    The replay and lockout counters -- ``two_factor_authentication_failed_attempts``,
+    ``two_factor_authentication_locked_until`` and
+    ``two_factor_authentication_last_interval`` -- are deliberately NOT declared here.
+    They are internal state, written only by ``helpers.py`` via
+    ``setMemberProperties`` and read only via ``getProperty``; what makes them
+    persist is their ``profiles/default/memberdata_properties.xml`` entry, which a
+    schema field neither provides nor replaces. Declaring them here would render
+    them on every profile form that this package does not override -- crashing
+    ``@@user-information`` with ``AttributeError``, since ``adapter.py`` supplies no
+    accessor for them -- and would make a user's own lockout deadline
+    form-writable. See ``tests/test_adapter.py``.
     """
     enable_two_factor_authentication = Bool(
         title=_('Enable two-step verification.'),
@@ -79,24 +90,6 @@ class IEnhancedUserDataSchema(IUserDataSchema):
 
     bar_code_reset_token = TextLine(
         title = _('Token to reset the bar code'),
-        description = _('Automatically generated'),
-        required = False,
-    )
-
-    two_factor_authentication_failed_attempts = Int(
-        title = _('Failed second-factor attempts'),
-        description = _('Automatically generated'),
-        required = False,
-    )
-
-    two_factor_authentication_locked_until = Int(
-        title = _('Second-factor locked until'),
-        description = _('Automatically generated'),
-        required = False,
-    )
-
-    two_factor_authentication_last_interval = Int(
-        title = _('Last accepted TOTP interval'),
         description = _('Automatically generated'),
         required = False,
     )

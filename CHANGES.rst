@@ -153,6 +153,20 @@ Changelog
   property raises ``ValueError`` rather than returning a falsy default --
   so a lockout that never locks is not among the possible outcomes.
   [chris-adam]
+- The replay and lockout counters are no longer declared on
+  ``IEnhancedUserDataSchema``. They were never form fields in intent -- they are
+  written only by ``helpers.py`` through ``setMemberProperties`` and persist by
+  virtue of their ``memberdata_properties.xml`` entry, which a schema field
+  neither provides nor replaces. Declaring them broke
+  ``plone.app.users``' ``@@user-information``, the form an administrator uses to
+  edit another user's profile: that view is not overridden by this package, so it
+  rendered all six schema fields, and ``adapter.py`` supplies an accessor for only
+  the original three -- ``AttributeError: 'EnhancedUserDataPanelAdapter' object
+  has no attribute 'two_factor_authentication_failed_attempts'``. The
+  ``omit()`` in ``CustomizedUserDataPanel`` never covered it, being registered for
+  ``personal-information`` alone. Removing the fields also removes the write path
+  by which a user could have set their own lockout deadline to zero.
+  [chris-adam]
 - ``@@request-bar-code-reset`` no longer redirects to the portal root once it
   has sent the reset email. The caller reaches that form from the token form,
   by which point the PAS plugin has cleared their ``__ac`` cookie, so they are
