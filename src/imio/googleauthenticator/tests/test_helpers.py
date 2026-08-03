@@ -606,6 +606,14 @@ class TestDriftAndReplay(unittest.TestCase, BaseTest):
             os.environ.pop(helpers.ENV_VAR_NAME, None)
         else:
             os.environ[helpers.ENV_VAR_NAME] = self._previous_key
+        # BaseTest._install() commits inside a real testbrowser (see the
+        # cross-test leakage note in setUp), so a recovery-code salt/hash
+        # set minted by one test method could otherwise survive into the
+        # next one in this class.
+        api.user.get_current().setMemberProperties(mapping={
+            'two_factor_authentication_recovery_codes_salt': '',
+            'two_factor_authentication_recovery_codes_hashes': (),
+        })
 
     def test_new_memberdata_properties_round_trip(self):
         """MFA-13: each of the three new memberdata properties survives a
@@ -925,6 +933,82 @@ class TestDriftAndReplay(unittest.TestCase, BaseTest):
         remaining = user.getProperty(
             'two_factor_authentication_recovery_codes_hashes')
         self.assertEqual(8, len(remaining))
+
+    def test_recovery_code_regeneration_invalidates_the_previous_set(self):
+        """RECOV-06: regeneration overwrites the salt and the hash list in
+        one write (generate_recovery_codes's own setMemberProperties call),
+        so every code from a previous set is refused afterwards, even a
+        value drawn again by coincidence, and a fresh set of ten replaces
+        it regardless of how many hashes were stored before.
+        """
+        user = api.user.get_current()
+
+        first_codes = helpers.generate_recovery_codes(user)
+        first_salt = user.getProperty(
+            'two_factor_authentication_recovery_codes_salt')
+        self.assertEqual(10, len(first_codes), 'RECOV-06')
+
+        second_codes = helpers.generate_recovery_codes(user)
+        second_hashes = user.getProperty(
+            'two_factor_authentication_recovery_codes_hashes')
+        second_salt = user.getProperty(
+            'two_factor_authentication_recovery_codes_salt')
+        self.assertNotEqual(
+            first_salt, second_salt,
+            'RECOV-06: regeneration must mint a fresh salt, not reuse the '
+            'previous one.')
+        self.assertEqual(10, len(second_codes), 'RECOV-06')
+        self.assertEqual(10, len(second_hashes), 'RECOV-06')
+
+        for code in first_codes:
+            self.assertFalse(
+                helpers.validate_recovery_code(code, user=user),
+                'RECOV-06: every code from the first set must be refused '
+                'after regeneration.')
+        for code in second_codes:
+            self.assertTrue(
+                helpers.validate_recovery_code(code, user=user),
+                'RECOV-06: every code from the second set must validate '
+                'once, on first use.')
+
+        remaining = user.getProperty(
+            'two_factor_authentication_recovery_codes_hashes')
+        self.assertEqual(
+            0, len(remaining),
+            'RECOV-06: precondition -- all ten of the second set were just '
+            'consumed above.')
+
+        # Regenerating from zero, one, and ten stored hashes each yields
+        # exactly ten stored hashes.
+        helpers.generate_recovery_codes(user)
+        self.assertEqual(
+            10,
+            len(user.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')),
+            'RECOV-06: regenerating from zero stored hashes must yield ten.')
+
+        user.setMemberProperties(mapping={
+            'two_factor_authentication_recovery_codes_hashes':
+                (user.getProperty(
+                    'two_factor_authentication_recovery_codes_hashes')[0],),
+        })
+        self.assertEqual(
+            1, len(user.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')),
+            'precondition: exactly one hash stored')
+        helpers.generate_recovery_codes(user)
+        self.assertEqual(
+            10,
+            len(user.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')),
+            'RECOV-06: regenerating from one stored hash must yield ten.')
+
+        helpers.generate_recovery_codes(user)
+        self.assertEqual(
+            10,
+            len(user.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')),
+            'RECOV-06: regenerating from ten stored hashes must yield ten.')
 
 
 class TestBarCodeResetToken(unittest.TestCase):

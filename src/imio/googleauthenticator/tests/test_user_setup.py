@@ -51,18 +51,29 @@ class TestSetupForm(unittest.TestCase, BaseTest):
     branch per scenario below:
 
     1. valid_token True, no exception: redirect_url is bound inside the
-       try: at "redirect_url = ...@@personal-information", reason stays
-       None, so the "if reason is not None:" fallback is skipped.
+       try: to None, immediately after generate_recovery_codes mints the
+       ten codes (RECOV-03: this is a deliberate behaviour change from the
+       "redirect_url = ...@@personal-information" this scenario used to
+       assert -- the success response now renders the codes in place of
+       redirecting). reason stays None, so the "if reason is not None:"
+       fallback is skipped and no redirect happens.
     2. valid_token True, an exception raised inside the try: (here, from
        the first IStatusMessage(self.request) call): reason is set to
-       "An unexpected error occurred." without reaching the redirect_url
-       assignment inside the try; the "if reason is not None:" block then
-       binds redirect_url to "...@@setup-two-factor-authentication".
+       "An unexpected error occurred." without reaching either the
+       generate_recovery_codes call or the redirect_url assignment inside
+       the try; the "if reason is not None:" block then binds redirect_url
+       to "...@@setup-two-factor-authentication".
     3. valid_token False: reason is set directly, same fallback binds
        redirect_url to the same "...@@setup-two-factor-authentication"
        target as scenario 2.
-    redirect_url is bound on all three reachable paths -- there is no
-    fourth branch that skips both assignments.
+    4. valid_token True, generate_recovery_codes itself raises: the same
+       fallback as scenarios 2 and 3 -- generate_recovery_codes runs inside
+       the same try:, so its failure hits the existing
+       "except Exception: logger.exception(...)" branch and redirect_url is
+       bound by the same "if reason is not None:" block. No new failure
+       branch, no new message string.
+    redirect_url is bound on all four reachable paths -- there is no fifth
+    branch that skips every assignment.
     """
 
     layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
@@ -119,7 +130,26 @@ class TestSetupForm(unittest.TestCase, BaseTest):
         # scenario's stale token value. Both this test file's own
         # mechanics, not a production bug.
         self.request.other.clear()
+        # HTTPRequest.__init__ normally seeds other['RESPONSE'] alongside
+        # self.response (ZPublisher/HTTPRequest.py); clearing ``other``
+        # above drops that alias. A real request always has it, so restore
+        # it here rather than in every caller -- render() on the unwrapped
+        # form (used by test_recovery_codes_are_issued_once_at_enrollment)
+        # needs request.RESPONSE to resolve the Plone default page
+        # template macros.
+        self.request.other['RESPONSE'] = self.request.response
+        # HTTPRequest.__init__ also seeds other['URL'] alongside RESPONSE;
+        # z3c.form.form.Form.action calls request.getURL() unconditionally,
+        # and Plone's default standalone form page template (rendered by
+        # the unwrapped SetupForm's own render(), used below and by
+        # test_recovery_codes_are_issued_once_at_enrollment) reads that
+        # property. A real request always has both; restore them here
+        # rather than in every caller of this helper.
+        self.request.other['URL'] = self.portal_url
         form = SetupForm(self.portal, self.request)
+        # FormWrapper.__init__ (plone.z3cform.layout) sets this on the
+        # wrapped form instance in production.
+        form.__name__ = 'setup-two-factor-authentication'
         form.update()
         widget_name = form.widgets['token'].name
         if widget_name != 'form.widgets.token':
@@ -196,7 +226,11 @@ class TestSetupForm(unittest.TestCase, BaseTest):
         real_validate_token = user_setup.validate_token
         real_is_status_message = user_setup.IStatusMessage
 
-        # Scenario 1: valid_token True, nothing raises.
+        # Scenario 1: valid_token True, nothing raises. RECOV-03 deliberate
+        # behaviour change: this used to assert a redirect to
+        # /@@personal-information; it now asserts no redirect at all (the
+        # response renders the ten codes instead), plus the codes
+        # themselves.
         user_setup.validate_token = lambda *args, **kwargs: True
         try:
             form = self._build_form('123456')
@@ -205,10 +239,17 @@ class TestSetupForm(unittest.TestCase, BaseTest):
             user_setup.validate_token = real_validate_token
         self.assertIsNot(result, False)
         location = self.request.response.getHeader('location')
-        self.assertIsNotNone(location)
-        self.assertTrue(location.endswith('/@@personal-information'))
+        self.assertIsNone(
+            location,
+            'RECOV-03: the success response must not redirect -- it '
+            'renders the codes in the same response instead. (Was: '
+            'asserted to end with /@@personal-information.)')
         self.assertTrue(
             user.getProperty('enable_two_factor_authentication', False))
+        self.assertIsInstance(form.issued_recovery_codes, list)
+        self.assertEqual(10, len(form.issued_recovery_codes))
+        for code in form.issued_recovery_codes:
+            self.assertEqual(16, len(code))
         self._clear_location()
 
         # Scenario 2: valid_token True, the first IStatusMessage call
@@ -233,6 +274,10 @@ class TestSetupForm(unittest.TestCase, BaseTest):
         self.assertIsNotNone(location)
         self.assertTrue(
             location.endswith('/@@setup-two-factor-authentication'))
+        self.assertIsNone(
+            form.issued_recovery_codes,
+            'No codes must be minted when the try: raises before reaching '
+            'generate_recovery_codes.')
         self._clear_location()
 
         # Scenario 3: valid_token False.
@@ -246,6 +291,9 @@ class TestSetupForm(unittest.TestCase, BaseTest):
         self.assertIsNotNone(location)
         self.assertTrue(
             location.endswith('/@@setup-two-factor-authentication'))
+        self.assertIsNone(
+            form.issued_recovery_codes,
+            'No codes must be minted when the token itself is rejected.')
         self._clear_location()
 
         # Scenario 4: empty token, real validate_token. This is the BUG-02
@@ -256,3 +304,74 @@ class TestSetupForm(unittest.TestCase, BaseTest):
         result = SetupForm.handleSubmit.func(form, None)
         self.assertFalse(result)
         self.assertIsNone(self.request.response.getHeader('location'))
+
+        # Scenario 5: valid_token True, generate_recovery_codes itself
+        # raises. Same module-attribute-rebinding technique already used
+        # above for validate_token/IStatusMessage. Must land in the
+        # existing except Exception: path -- no UnboundLocalError/
+        # NameError, and the same failure redirect as scenarios 2 and 3.
+        def _raise_instead(user):
+            raise ValueError('deliberate: generate_recovery_codes failure')
+
+        real_generate_recovery_codes = user_setup.generate_recovery_codes
+        user_setup.validate_token = lambda *args, **kwargs: True
+        user_setup.generate_recovery_codes = _raise_instead
+        try:
+            form = self._build_form('123456')
+            try:
+                SetupForm.handleSubmit.func(form, None)
+            except (UnboundLocalError, NameError):
+                self.fail(
+                    'handleSubmit raised UnboundLocalError/NameError when '
+                    'generate_recovery_codes itself raised -- redirect_url '
+                    'was not bound')
+        finally:
+            user_setup.validate_token = real_validate_token
+            user_setup.generate_recovery_codes = real_generate_recovery_codes
+        location = self.request.response.getHeader('location')
+        self.assertIsNotNone(location)
+        self.assertTrue(
+            location.endswith('/@@setup-two-factor-authentication'))
+        self._clear_location()
+
+    def test_recovery_codes_are_issued_once_at_enrollment(self):
+        """RECOV-03: the render() half, which test_handleSubmit cannot
+        reach because it calls the handler function directly rather than
+        going through the wrapped view's update/render cycle. Proves both
+        halves of "shown exactly once": the codes appear in the response
+        that mints them, and a fresh form instance's render() shows none of
+        them -- meaningful only against a *new* instance, since
+        issued_recovery_codes lives on the instance, not anywhere shared.
+        """
+        real_validate_token = user_setup.validate_token
+        user_setup.validate_token = lambda *args, **kwargs: True
+        try:
+            form = self._build_form('123456')
+            SetupForm.handleSubmit.func(form, None)
+        finally:
+            user_setup.validate_token = real_validate_token
+        self._clear_location()
+
+        codes = form.issued_recovery_codes
+        self.assertIsInstance(codes, list)
+        self.assertEqual(10, len(codes))
+
+        markup = form.render()
+        for code in codes:
+            self.assertIn(
+                code, markup,
+                'RECOV-03: every issued code must appear in the response '
+                'that minted it.')
+        self.assertIn(
+            'shown only this one time', markup,
+            'RECOV-03: the one-time warning must be present, so a future '
+            'template edit cannot silently drop the one thing that tells '
+            'the user to write the codes down.')
+
+        fresh_form = self._build_form('')
+        fresh_markup = fresh_form.render()
+        for code in codes:
+            self.assertNotIn(
+                code, fresh_markup,
+                'RECOV-03: a fresh form instance must never redisplay a '
+                'previously issued code.')
