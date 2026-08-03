@@ -8,12 +8,12 @@ updated: 2026-08-01T16:45:00Z
 
 ## Current Test
 
-number: 4
-name: Token endpoint reveals no lock state end-to-end behind the real proxy
+number: 5
+name: Reset-bar-code endpoint reveals no lock state end-to-end behind the real proxy
 expected: |
-  An anonymous, unsigned request naming a locked account and one naming an unlocked or
-  nonexistent account produce indistinguishable responses end to end: same HTTP status, no
-  proxy-injected error page, no differential caching that would leak lock state.
+  The same comparison as test 4, but against `@@reset-bar-code`: an anonymous, unsigned request
+  naming a locked account and one naming an unlocked but enrolled account produce
+  indistinguishable responses end to end.
 awaiting: user response
 
 ## Tests
@@ -95,7 +95,26 @@ Compare the two rendered pages byte-for-byte (status line, headers, body).
 
 expected: The two responses are indistinguishable end-to-end — same HTTP status, no proxy-injected error page, no differential caching that would let an external observer learn lock state.
 why_human: 05-04-PLAN.md carries this as an explicit `verification: backstop` truth naming exactly this residual risk: `zope.testbrowser` exercises the view in-process and cannot rule out a difference introduced downstream by the real ZPublisher error/status path or a front-end proxy.
-result: [pending]
+result: pass
+tested_on: server.dmsmail behind the real front-end proxy, 2026-08-03
+method: |
+  Two anonymous `curl -sSi` requests with no cookies, no `signature` and no `auth_timestamp`,
+  one naming a locked account and one naming an unlocked enrolled account, compared with `diff`
+  over the full response including the status line and all headers.
+reported: |
+  diff reported exactly one differing line, the `Date` header:
+    < Date: Mon, 03 Aug 2026 12:24:55 GMT
+    > Date: Mon, 03 Aug 2026 12:25:57 GMT
+note: |
+  A pass. The two requests were issued 62 seconds apart, which is the whole of the difference; a
+  wall-clock timestamp cannot encode lock state. The HTTP status line, every other header
+  including `Cache-Control`, and the entire response body were byte-identical.
+
+  This is the end-to-end confirmation the in-process test could not give. The test
+  `test_no_signature_response_is_identical_for_a_locked_and_an_unknown_account` in
+  `tests/test_token.py` drives `zope.testbrowser` inside the process and therefore cannot see a
+  difference introduced downstream by the real ZPublisher status path or by the proxy. Nothing
+  was introduced.
 
 ### 5. Reset-bar-code endpoint reveals no lock state end-to-end behind the real proxy
 
@@ -228,9 +247,9 @@ link is what authorises the reset.
 ## Summary
 
 total: 6
-passed: 3
+passed: 4
 issues: 0
-pending: 3
+pending: 2
 skipped: 0
 blocked: 0
 
