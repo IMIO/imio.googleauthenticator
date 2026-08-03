@@ -86,6 +86,67 @@ expected: All second-factor state writes continue to originate only from `browse
 why_human: 05-03-PLAN.md records this explicitly as a `verification: backstop` truth. The current grep-based guard covers `pas_plugin.py` and `subscribers.py` as they exist today but cannot prove the invariant against files that do not yet exist. Not actionable today; recorded so a future reviewer checks it rather than assuming it is enforced automatically.
 result: [pending]
 
+## Field Findings (not Phase 5 gaps)
+
+Two problems reported from real-deployment testing on `server.dmsmail`, fresh site, new user
+"cadam", 2026-08-03. Neither is a Phase 5 requirement failure — Phase 5 covers clock drift,
+replay rejection, lockout, lock-state indistinguishability and counter persistence (MFA-05
+through MFA-13), and `05-VERIFICATION.md` scored 19/19 on those. Recorded here so the
+observations are not lost, and deliberately kept out of `## Gaps` so they do not block this
+phase or spawn Phase 5 gap-closure plans.
+
+### F-1. Modal forms render as full pages — routed to Phase 7, already planned
+
+Observed: the user-actions view does not open under the logged-in user's name, and `@@new-user`
+opens a full page. Both should open in Plone's overlay.
+
+Established from source, not from the running site:
+- `profiles/default/jsregistry.xml` carries `<javascript id="popupforms.js" remove="True"
+  enabled="False" />`, which unregisters Plone's core overlay-wiring script site-wide, and
+  registers this package's vendored copy in its place.
+- `browser/static/plone_ecmascript/popupforms.js` is a stale fork of Plone's file. Against
+  Plone 4.3.20 it differs in exactly three ways: it uses the old `jQuery.browser` API instead
+  of Plone's `msieversion()` helper, it drops `dl.portalMessage.warning` from
+  `common_content_filter`, and it comments out the login-form overlay (lines 60-85). Only the
+  last is intentional.
+- The package also replaces Plone's `login_form.cpt` through a skin layer.
+
+Not established: the runtime cause on the deployment. A first hypothesis — a `jQuery.browser`
+TypeError aborting the document-ready handler before any `prepOverlay` call — was tested and
+rejected: both this buildout and `server.dmsmail` resolve `plone.app.jquery 1.7.2.1`, where
+`jQuery.browser` still exists. Settling it needs the first JavaScript console error on an
+affected page and the enabled/order state of the `popupforms.js` entries at
+`/portal_javascripts/manage_jsForm`, neither of which is readable from the repository.
+
+Routing: no new item filed, because ROADMAP Phase 7 already covers this. Success Criterion 2
+names the `remove="True"` line as "a global mutation with no uninstall counterpart, and it is
+why the collision flips on install order"; Success Criterion 3 requires a real
+`profiles/uninstall/`; and the Phase 7 notes already record both stale-copy differences found
+above. This finding upgrades those from a predicted risk to one observed breaking a live site.
+
+### F-2. Bar-code reset request landed on the login page — FIXED, commit a14b012
+
+Observed: logging in prompted for a one-time code; with no code available the user followed the
+bar-code reset link, submitted their username, and arrived at the login page rather than at a
+reset view.
+
+Root cause: `browser/forms/request_bar_code_reset.py` redirected to the portal root after
+sending the reset email. The caller arrives from the token form, by which point the PAS plugin
+has cleared their `__ac` cookie, so they are anonymous; on a site whose root is not anonymously
+viewable that redirect lands them on the login form, and the "email sent" confirmation is never
+read. Present since the initial upstream import (`4faeac2`); no test covered the redirect
+target. Phase 5 never touched the file.
+
+Fix: the handler now returns without redirecting, re-rendering its own form — which is
+registered `permission="zope2.View"` and so stays readable while anonymous — with the
+confirmation on it, matching what its failure branch already did. Regression test
+`test_successful_request_keeps_the_caller_on_the_form` asserts the response carries no
+`Location` header and that the confirmation message is queued. Suite: 85 tests, 0 failures.
+
+Separate, not a defect: reaching the reset view directly is not the design.
+`@@request-bar-code-reset` emails a signed link to `@@reset-bar-code`, and the signature in that
+link is what authorises the reset.
+
 ## Summary
 
 total: 6
