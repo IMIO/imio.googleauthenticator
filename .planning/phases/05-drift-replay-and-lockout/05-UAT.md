@@ -1,23 +1,14 @@
 ---
-status: testing
+status: complete
 phase: 05-drift-replay-and-lockout
 source: [05-VERIFICATION.md]
 started: 2026-08-01T16:45:00Z
-updated: 2026-08-01T16:45:00Z
+updated: 2026-08-03T13:00:00Z
 ---
 
 ## Current Test
 
-number: 4
-name: Token endpoint reveals no lock state end-to-end behind the real proxy
-expected: |
-  An anonymous, unsigned request naming a locked account and one naming an unlocked or
-  nonexistent account produce indistinguishable responses end to end: same HTTP status, no
-  proxy-injected error page, no differential caching that would leak lock state.
-awaiting: |
-  A re-run. The first attempt at tests 4 and 5 returned 404 on all four requests, so neither
-  endpoint was exercised. The working URL must be established first -- see attempt_1.rerun_requires
-  under test 4 below.
+[testing complete]
 
 ## Tests
 
@@ -98,7 +89,8 @@ Compare the two rendered pages byte-for-byte (status line, headers, body).
 
 expected: The two responses are indistinguishable end-to-end — same HTTP status, no proxy-injected error page, no differential caching that would let an external observer learn lock state.
 why_human: 05-04-PLAN.md carries this as an explicit `verification: backstop` truth naming exactly this residual risk: `zope.testbrowser` exercises the view in-process and cannot rule out a difference introduced downstream by the real ZPublisher error/status path or a front-end proxy.
-result: [pending]
+result: pass
+tested_on: server.dmsmail port 8084 behind the real front-end proxy, 2026-08-03, on attempt 3
 attempt_1:
   date: 2026-08-03
   outcome: inconclusive, evidence rejected
@@ -152,6 +144,31 @@ attempt_2:
     `enctype="multipart/form-data"`, and no `_authenticator` CSRF field, so nothing has to be
     scraped first. Hold the username constant and toggle the lock between the two POSTs, which is
     what the in-process test's primary assertion does.
+attempt_3:
+  date: 2026-08-03
+  outcome: pass
+  method: |
+    Two anonymous multipart POSTs to
+    `@@google-authenticator-token?auth_user=<account>` carrying
+    `form.widgets.token=000000` and `form.buttons.verify=Verify`, no cookies, no `signature`, no
+    `auth_timestamp`, against the same account with its lock toggled between them. Captured with
+    `curl -sSi` to `/tmp/p4-locked.txt` and `/tmp/p4-unlocked.txt`; the orchestrator read both
+    files and diffed them directly rather than trusting a reported diff.
+  evidence: |
+    Both `HTTP/1.1 200 OK`, both 20208 bytes, `diff` reporting only the `Date` header.
+
+    Each response carries exactly one rendered status message,
+    `Invalid data. Details: Invalid signature!`. That is the message emitted where
+    `validate_user_data` fails in `token.py`, immediately followed by `return`, which sits ABOVE
+    the lock gate at line 108. Execution therefore stopped at signature validation and never
+    consulted the lock.
+  why_this_is_a_pass: |
+    Stronger than message equality between two lock branches: the response shows the unsigned
+    request returning before any lock logic is reached, so lock state cannot have influenced it
+    whatever that state was. This is precisely what plan 05-04 set out to achieve by moving the
+    gate to run after signature validation. No proxy error page, no status-code difference, and
+    identical caching headers, which is what the backstop truth asked and what `zope.testbrowser`
+    in-process could not establish.
 
 ### 5. Reset-bar-code endpoint reveals no lock state end-to-end behind the real proxy
 
@@ -162,7 +179,8 @@ comparing the two rendered pages byte-for-byte.
 
 expected: The two responses are indistinguishable end-to-end, for the same reason as test 4.
 why_human: 05-05-PLAN.md carries this as an explicit `verification: backstop` truth with the identical residual-risk statement, scoped to `@@reset-bar-code`.
-result: [pending]
+result: pass
+tested_on: server.dmsmail port 8084 behind the real front-end proxy, 2026-08-03, on attempt 3
 attempt_1:
   date: 2026-08-03
   outcome: inconclusive, evidence rejected
@@ -196,6 +214,33 @@ attempt_2:
     `register_failed_second_factor`, so each unlocked POST increments the failure counter. Repeated
     runs will lock the account and make the comparison vacuous. Clear the counter with
     `reset_failed_second_factor` before the unlocked leg.
+attempt_3:
+  date: 2026-08-03
+  outcome: pass
+  method: |
+    Two anonymous multipart POSTs to `@@reset-bar-code?auth_user=<account>` carrying
+    `form.widgets.token=000000` and `form.buttons.verify=Verify`, no cookies, no `signature`, no
+    `auth_timestamp`, against the same account with its lock toggled between them and the failure
+    counter cleared before the unlocked leg. Captured to `/tmp/p5-locked.txt` and
+    `/tmp/p5-unlocked.txt`; the orchestrator read both files and diffed them directly.
+  evidence: |
+    Both `HTTP/1.1 200 OK`, both 22423 bytes, `diff` reporting only the `Date` header. Headers
+    otherwise identical, including `Content-Length: 22056`, `Expires`, and
+    `Set-Cookie: statusmessages="deleted"`, so no differential caching and no proxy error page.
+
+    Both responses carry the same ordered pair of rendered status messages:
+      1. `Invalid signature!`   -- added by `updateFields`
+      2. `Setup failed! Invalid token or token expired.`   -- added by `handleSubmit`
+    The second one proves the POST passed the `if not user:` and `is_site_local_user` guards and
+    reached the lock and wrong-code region, which is the branch plan 05-05 rewrote. The two-message
+    list is exactly what 05-05-PLAN.md predicted and why its own test compares the ordered list
+    rather than a single extracted message.
+  limitation: |
+    Identical responses cannot by themselves separate "identical because the property holds" from
+    "identical because the account was not in fact locked on the first leg"; that rests on the
+    procedure having been followed. What this run establishes beyond the in-process test, and what
+    the backstop truth actually asked for, is that nothing downstream of the view -- response
+    status, front-end proxy, caching headers -- introduces a difference. Nothing did.
 
 ### 6. Forward-looking: second-factor state writes stay on committing paths
 
@@ -206,7 +251,40 @@ call to `register_failed_second_factor` / `reset_failed_second_factor`) is added
 
 expected: All second-factor state writes continue to originate only from `browser/forms/token.py` and `browser/forms/reset_bar_code.py`, both committing views.
 why_human: 05-03-PLAN.md records this explicitly as a `verification: backstop` truth. The current grep-based guard covers `pas_plugin.py` and `subscribers.py` as they exist today but cannot prove the invariant against files that do not yet exist. Not actionable today; recorded so a future reviewer checks it rather than assuming it is enforced automatically.
-result: [pending]
+result: pass
+scope_of_the_pass: current state only, 2026-08-03
+current_state_evidence: |
+  Every write of second-factor state in non-test source originates in a committing browser form
+  view. Verified across the whole package, which is broader than the automated guard's two files:
+
+    register_failed_second_factor   called from token.py:140, reset_bar_code.py:170
+    reset_failed_second_factor      called from token.py:120, reset_bar_code.py:145
+    validate_token                  called from token.py:113, reset_bar_code.py:132,
+                                    user_setup.py:87
+                                    -- it is the sole writer of
+                                    two_factor_authentication_last_interval
+
+  Nothing in `pas_plugin.py` or `subscribers.py`, which the automated guard in
+  `tests/test_pas_plugin.py` enforces by asserting the three property names and the three helper
+  function names are absent from both files, with positive controls proving the search works.
+
+  `userdataschema.py` matches a grep for the counter names only in the docstring added by commit
+  6634113; its single `setMemberProperties` call writes `enable_two_factor_authentication`, which
+  is not a counter.
+
+  This matters because `ZPublisher` aborts the transaction on any request ending in an exception
+  and `Unauthorized` is such an exception, so a counter written in the authentication plugin would
+  be a lockout that silently never locks (MFA-12).
+standing_obligation: |
+  The forward-looking half of this item is not testable by any means available today: it asks that
+  no FUTURE call site be added on a non-committing path, and a grep cannot cover files that do not
+  yet exist. Recorded as a standing review obligation rather than left blocking this phase.
+
+  It lands squarely in Phase 6 (Recovery Codes), whose ROADMAP Success Criterion 3 requires a
+  failed recovery-code attempt to increment the SAME counter as a failed TOTP attempt. Phase 6
+  therefore adds new writers of this state by design, and is the phase where this invariant is
+  most likely to be broken. Whoever plans Phase 6 should extend the
+  `tests/test_pas_plugin.py` source-level guard to any new module that touches the counters.
 
 ## Field Findings (not Phase 5 gaps)
 
@@ -317,9 +395,9 @@ link is what authorises the reset.
 ## Summary
 
 total: 6
-passed: 3
+passed: 6
 issues: 0
-pending: 3
+pending: 0
 skipped: 0
 blocked: 0
 
