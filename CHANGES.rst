@@ -153,6 +153,14 @@ Changelog
   property raises ``ValueError`` rather than returning a falsy default --
   so a lockout that never locks is not among the possible outcomes.
   [chris-adam]
+- ``@@request-bar-code-reset`` no longer redirects to the portal root once it
+  has sent the reset email. The caller reaches that form from the token form,
+  by which point the PAS plugin has cleared their ``__ac`` cookie, so they are
+  anonymous: on any site whose root is not anonymously viewable the redirect
+  sent them to the login form, the "email sent" confirmation was never read,
+  and the bounce looked like the reset had failed. The form now re-renders
+  itself with the confirmation, as its failure branch already did.
+  [chris-adam]
 
 0.3.0 (unreleased)
 ------------------
