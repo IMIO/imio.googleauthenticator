@@ -1,11 +1,13 @@
 """
 This helper module contains functions used throughout c.googleauthenticator.
 """
+from hashlib import pbkdf2_hmac
 from hashlib import sha1
 from hmac import compare_digest
 from urllib import unquote, quote
 from urlparse import urlparse
 import base64
+import binascii
 import io
 import logging
 import os
@@ -43,6 +45,28 @@ ENV_VAR_NAME = 'IMIO_GOOGLEAUTHENTICATOR_SEED_KEY'
 CIPHERTEXT_VERSION_PREFIX = 'v1$'
 # RFC 6238 section 5.2's default TOTP time step, in seconds.
 TOTP_INTERVAL_SECONDS = 30
+
+# How many recovery codes a set contains (RECOV-02).
+RECOVERY_CODE_COUNT = 10
+# 80 bits of os.urandom per code -- a keyspace with no dictionary to walk,
+# which is the actual defence (the PBKDF2 iteration count below is
+# insurance on top of this, not a substitute for it).
+RECOVERY_CODE_ENTROPY_BYTES = 10
+# base32(10 bytes) is exactly 16 characters with no '=' padding, since 80
+# bits is an exact multiple of base32's 5-bit block.
+RECOVERY_CODE_LENGTH = 16
+# 128 bits of os.urandom for the one per-user salt.
+RECOVERY_CODE_SALT_BYTES = 16
+# RFC 4648 base32 alphabet, uppercase only -- normalization uppercases
+# first, so a lowercase paste is accepted and a digit 0/1/8/9 (not in this
+# alphabet) is refused.
+RECOVERY_CODE_ALPHABET = frozenset('ABCDEFGHIJKLMNOPQRSTUVWXYZ234567')
+# Measured on this buildout's Python 2.7.18 interpreter this session:
+# 100,000 iterations = 0.117s. Scales linearly on a slower host. Insurance
+# on top of the 80-bit entropy above, not the primary defence -- Task 1's
+# checkpoint:decision selected option-a over the pre-agreed 20k-200k
+# envelope (STATE.md records the decision and its rationale).
+RECOVERY_CODE_PBKDF2_ITERATIONS = 100000
 
 
 def get_encryption_key():
@@ -513,6 +537,185 @@ def reset_failed_second_factor(user):
         'two_factor_authentication_failed_attempts': 0,
         'two_factor_authentication_locked_until': 0,
     })
+
+
+def _normalize_recovery_code_input(token):
+    """
+    Coerces a submitted recovery-code candidate to the canonical form the
+    stored hash was computed over: strip ``-`` and space (presentation-only,
+    RESEARCH Pitfall 2 -- they never enter a hash), uppercase, then
+    ASCII-encode to ``str``. z3c.form hands ``handleSubmit`` a ``unicode``
+    value, so this is where the Python 2 type problem is solved once.
+
+    :param token: A ``str`` or ``unicode`` submitted value.
+    :return str: ``''`` on a non-ASCII ``unicode`` value, so the shape gate
+        downstream refuses rather than letting ``UnicodeEncodeError``
+        escape -- the same fail-closed reasoning
+        ``validate_bar_code_reset_token`` already records for its own
+        ``except UnicodeEncodeError: return False``.
+    """
+    token = (token or '').replace('-', '').replace(' ', '').upper()
+    try:
+        if isinstance(token, unicode):
+            token = token.encode('ascii')
+    except UnicodeEncodeError:
+        return ''
+    return token
+
+
+def _is_recovery_code_shape(token):
+    """
+    The RECOV-01 input-validation gate: ``token`` must be exactly
+    ``RECOVERY_CODE_LENGTH`` characters, every one of them in
+    ``RECOVERY_CODE_ALPHABET``. Mirrors ``_is_six_digit_token``'s existing
+    precedent -- run before the KDF is ever reached, so garbage input costs
+    no PBKDF2 work.
+
+    :param str token: Already normalized (see ``_normalize_recovery_code_input``).
+    :return bool:
+    """
+    return (
+        len(token) == RECOVERY_CODE_LENGTH and
+        all(c in RECOVERY_CODE_ALPHABET for c in token))
+
+
+def _hash_recovery_code(code, salt):
+    """
+    Hashes one recovery code under one salt with PBKDF2-HMAC-SHA256. Both
+    operands are ASCII-encoded to ``str`` first if they arrive as
+    ``unicode``, since ``getProperty`` may hand either back.
+
+    :param code: The plaintext recovery code.
+    :param salt: The per-user salt.
+    :return str: 64 ASCII hex characters (``binascii.hexlify`` of the
+        32-byte SHA-256 digest).
+    """
+    if isinstance(code, unicode):
+        code = code.encode('ascii')
+    if isinstance(salt, unicode):
+        salt = salt.encode('ascii')
+    digest = pbkdf2_hmac(
+        'sha256', code, salt, RECOVERY_CODE_PBKDF2_ITERATIONS)
+    return binascii.hexlify(digest)
+
+
+def generate_recovery_codes(user):
+    """
+    Mints a fresh set of ``RECOVERY_CODE_COUNT`` recovery codes for
+    ``user``, under one newly-minted per-user salt, and stores only the
+    salt and the hashes -- never the plaintext. The plaintext is returned
+    for the one response that displays it and is never logged (following
+    ``generate_secret``'s discipline: its commented-out ``logger.debug``
+    marker is not replicated here, and no equivalent line is added for a
+    code, a salt or a hash at any level).
+
+    The salt and hash tuple are written in one ``setMemberProperties``
+    call, so a regeneration can never leave a new salt paired with an old
+    hash list (T-06-03 adjacent: half-written state would corrupt every
+    code in the set, not just one).
+
+    :param Products.PlonePAS.tools.memberdata user:
+    :return list: The ``RECOVERY_CODE_COUNT`` plaintext codes.
+    """
+    salt = binascii.hexlify(os.urandom(RECOVERY_CODE_SALT_BYTES))
+    codes = [
+        base64.b32encode(os.urandom(RECOVERY_CODE_ENTROPY_BYTES))
+        for _i in range(RECOVERY_CODE_COUNT)
+    ]
+    hashes = tuple(_hash_recovery_code(code, salt) for code in codes)
+    user.setMemberProperties(mapping={
+        'two_factor_authentication_recovery_codes_salt': salt,
+        'two_factor_authentication_recovery_codes_hashes': hashes,
+    })
+    return codes
+
+
+def validate_recovery_code(token, user=None):
+    """
+    Validates a submitted recovery code and, on a match, consumes it --
+    removing exactly the matched entry from the stored hash list, by its
+    index, in the same call that returns ``True``.
+
+    Order of checks, each a fail-closed gate before the next: normalize;
+    refuse on shape (before any ZODB read or KDF call); read the stored
+    salt and hash tuple with an ``or ''`` / ``or ()`` coercion, since
+    ``getProperty`` returns ``''`` for a Zope-root account with no property
+    sheet; refuse if either is empty. Hash the submitted code exactly once
+    -- one salt per user means one ``pbkdf2_hmac`` call per attempt
+    regardless of how many hashes are stored (T-06-06). Walk the stored
+    tuple with ``enumerate``, comparing via ``compare_digest`` with both
+    operands coerced to ``str``.
+
+    Removing the match by index rather than by filtering the tuple on
+    inequality is load-bearing: an equality filter would delete *every*
+    byte-identical entry, so a birthday collision inside one ten-code set
+    would silently burn two codes on one use (T-06-03).
+
+    Logs nothing at all, on either the success or the failure path -- the
+    remaining-code count is a state-of-a-security-control disclosure and
+    must never reach a log line, following
+    ``validate_bar_code_reset_token``'s "do not log either operand"
+    convention.
+
+    :param token: The submitted candidate, ``str`` or ``unicode``.
+    :param Products.PlonePAS.tools.memberdata user: Defaults to
+        ``plone.api.user.get_current()``.
+    :return bool:
+    """
+    if user is None:
+        user = api.user.get_current()
+
+    token = _normalize_recovery_code_input(token)
+    if not _is_recovery_code_shape(token):
+        return False
+
+    salt = user.getProperty(
+        'two_factor_authentication_recovery_codes_salt') or ''
+    stored = user.getProperty(
+        'two_factor_authentication_recovery_codes_hashes') or ()
+    if not salt or not stored:
+        return False
+
+    candidate_hash = _hash_recovery_code(token, salt)
+
+    for i, stored_hash in enumerate(stored):
+        if isinstance(stored_hash, unicode):
+            stored_hash = stored_hash.encode('ascii')
+        if compare_digest(candidate_hash, stored_hash):
+            remaining = stored[:i] + stored[i + 1:]
+            user.setMemberProperties(mapping={
+                'two_factor_authentication_recovery_codes_hashes': remaining,
+            })
+            return True
+
+    return False
+
+
+def validate_second_factor(token, user=None):
+    """
+    The promoted second-factor dispatcher (this plan's
+    ``<assumption_delta_decision>``): the only second-factor validator
+    ``browser/forms/token.py`` calls. Dispatches by shape, never by trying
+    both -- a six-ASCII-digit candidate goes to ``validate_token`` (the TOTP
+    variant handler, byte-identical and untouched); a 16-character base32
+    candidate goes to ``validate_recovery_code`` (the recovery-code variant
+    handler); anything else is refused with no ZODB access at all.
+
+    :param token: The submitted candidate, ``str`` or ``unicode``.
+    :param Products.PlonePAS.tools.memberdata user: Defaults to
+        ``plone.api.user.get_current()``.
+    :return bool:
+    """
+    if user is None:
+        user = api.user.get_current()
+
+    if _is_six_digit_token(token):
+        return validate_token(token, user=user)
+
+    if _is_recovery_code_shape(_normalize_recovery_code_input(token)):
+        return validate_recovery_code(token, user=user)
+
+    return False
 
 
 def get_browser_hash(request=None):

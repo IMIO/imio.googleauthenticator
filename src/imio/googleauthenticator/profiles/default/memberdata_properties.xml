@@ -6,4 +6,6 @@
   <property name="two_factor_authentication_failed_attempts" type="int">0</property>
   <property name="two_factor_authentication_locked_until" type="int">0</property>
   <property name="two_factor_authentication_last_interval" type="int">0</property>
+  <property name="two_factor_authentication_recovery_codes_salt" type="string"></property>
+  <property name="two_factor_authentication_recovery_codes_hashes" type="lines"></property>
 </object>

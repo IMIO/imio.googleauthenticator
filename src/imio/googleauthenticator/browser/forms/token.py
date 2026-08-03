@@ -20,7 +20,7 @@ from imio.googleauthenticator.helpers import extract_request_data
 from imio.googleauthenticator.helpers import is_account_locked
 from imio.googleauthenticator.helpers import register_failed_second_factor
 from imio.googleauthenticator.helpers import reset_failed_second_factor
-from imio.googleauthenticator.helpers import validate_token
+from imio.googleauthenticator.helpers import validate_second_factor
 from imio.googleauthenticator.helpers import validate_user_data
 
 logger = logging.getLogger('imio.googleauthenticator')
@@ -110,7 +110,7 @@ class TokenForm(form.SchemaForm):
                 IStatusMessage(self.request).addStatusMessage(msg, 'error')
                 return
 
-        valid_token = validate_token(token, user=user)
+        valid_token = validate_second_factor(token, user=user)
 
         # self.context.plone_log(valid_token)
         # self.context.plone_log(token)

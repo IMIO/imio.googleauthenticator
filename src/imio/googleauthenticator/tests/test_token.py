@@ -61,6 +61,8 @@ class TestTokenFormLockout(unittest.TestCase, BaseTest):
                 'two_factor_authentication_failed_attempts': 0,
                 'two_factor_authentication_locked_until': 0,
                 'two_factor_authentication_last_interval': 0,
+                'two_factor_authentication_recovery_codes_salt': '',
+                'two_factor_authentication_recovery_codes_hashes': (),
             })
             transaction.commit()
 
@@ -453,3 +455,125 @@ class TestTokenFormLockout(unittest.TestCase, BaseTest):
             'Invalid token or token expired.', locked_message,
             'the lock-branch message must never be reachable by an '
             'unsigned caller')
+
+    def test_recovery_code_is_accepted_in_place_of_a_token_and_consumed(self):
+        """RECOV-01/RECOV-02/RECOV-04 tracer: a recovery code authenticates
+        exactly as a TOTP code does, through a real Browser POST, and is
+        consumed on use so a replay is refused. Covers all seven
+        06-01-PLAN.md ``<behavior>`` rows in one method per the project
+        skill's R5 one-method-per-function rule.
+        """
+        user = self._enable_2fa()
+        secret = helpers.get_secret(user)
+        codes = helpers.generate_recovery_codes(user)
+        transaction.commit()
+
+        self.assertEqual(10, len(codes), 'precondition: ten codes minted')
+
+        browser = self._get_browser()
+        self._login_browser(browser, TEST_USER_NAME, TEST_USER_PASSWORD)
+        self.assertIn('@@google-authenticator-token', browser.url)
+
+        # Rows 1/2: the first code logs the user in and leaves nine hashes.
+        self._submit_token(browser, codes[0])
+        self.assertNotIn(
+            '@@google-authenticator-token', browser.url,
+            'RECOV-04: an unused recovery code must log the user in')
+        user = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            9,
+            len(user.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')),
+            'RECOV-04: consuming one code must remove exactly one hash')
+
+        # Row 3: replaying the same code is refused, count unchanged.
+        second_browser = self._get_browser()
+        self._login_browser(
+            second_browser, TEST_USER_NAME, TEST_USER_PASSWORD)
+        self._submit_token(second_browser, codes[0])
+        self.assertIn(
+            '@@google-authenticator-token', second_browser.url,
+            'RECOV-04: a consumed recovery code must be refused on replay')
+        user = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            9,
+            len(user.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')),
+            'a refused replay must not change the stored count')
+
+        # Row 4: a still-unused code from the same set is accepted.
+        self._submit_token(second_browser, codes[1])
+        self.assertNotIn(
+            '@@google-authenticator-token', second_browser.url,
+            'a still-unused code from the same set must be accepted')
+        user = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            8,
+            len(user.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')))
+
+        # Row 5: a valid six-digit TOTP code still logs the user in.
+        third_browser = self._get_browser()
+        self._login_browser(
+            third_browser, TEST_USER_NAME, TEST_USER_PASSWORD)
+        totp_code = get_totp(secret, as_string=True)
+        self._submit_token(third_browser, totp_code)
+        self.assertNotIn(
+            '@@google-authenticator-token', third_browser.url,
+            'a valid six-digit TOTP code must still log the user in')
+        user = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            8,
+            len(user.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')),
+            'a TOTP login must not touch the recovery-code hash list')
+
+        # Row 6: shape refusals, before pbkdf2_hmac is ever reached.
+        for bad in (u'', u'A', u'A' * 17, codes[2][:-1] + u'0'):
+            refusal_browser = self._get_browser()
+            self._login_browser(
+                refusal_browser, TEST_USER_NAME, TEST_USER_PASSWORD)
+            self._submit_token(refusal_browser, bad)
+            self.assertIn(
+                '@@google-authenticator-token', refusal_browser.url,
+                'malformed input {0!r} must be refused'.format(bad))
+        user = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            8,
+            len(user.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')),
+            'malformed submissions must never consume a stored hash')
+
+        # Row 7: a code drawn from a different user's set is refused.
+        other_username = 'other-recovery-code-user'
+        other_user = api.user.create(
+            email='other-recovery-code-user@example.com',
+            username=other_username,
+            password='Secret0123!')
+        other_user.setMemberProperties(
+            mapping={'enable_two_factor_authentication': True})
+        get_or_create_secret(other_user, overwrite=True)
+        other_codes = helpers.generate_recovery_codes(other_user)
+        transaction.commit()
+
+        cross_browser = self._get_browser()
+        self._login_browser(
+            cross_browser, TEST_USER_NAME, TEST_USER_PASSWORD)
+        self._submit_token(cross_browser, other_codes[0])
+        self.assertIn(
+            '@@google-authenticator-token', cross_browser.url,
+            "RECOV-04: a code from a different user's set must be refused")
+        user = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            8,
+            len(user.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')),
+            "a cross-user code must never consume this user's hash list")
+
+        other = api.user.get(username=other_username)
+        self.assertEqual(
+            10,
+            len(other.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')),
+            'a refused cross-user attempt must not touch the other '
+            "user's hash list either")
