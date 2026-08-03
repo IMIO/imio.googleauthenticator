@@ -8,12 +8,11 @@ updated: 2026-08-01T16:45:00Z
 
 ## Current Test
 
-number: 1
-name: Lockout counter is cumulative across ZEO clients
+number: 2
+name: Control-panel lockout fields persist in a live instance
 expected: |
-  The lock triggers on the cumulative count across clients, because the counter lives in a
-  memberdata property (ZODB-backed, not RAM), not on a per-instance count that a
-  client-rotating attacker could multiply.
+  Both "Maximum failed second-factor attempts" and "Lockout duration (seconds)" render with
+  defaults 5 and 900, accept edits, and the edited values are still shown after a page reload.
 awaiting: user response
 
 ## Tests
@@ -27,7 +26,14 @@ failure rather than each client independently allowing 4.
 
 expected: The lock triggers on the cumulative count across clients, because the counter lives in a memberdata property (ZODB-backed, not RAM).
 why_human: 05-01-PLAN.md carries this as an explicit `verification: backstop` truth. The integration-test layer runs one process against one ZODB connection and cannot exercise real inter-client consistency.
-result: [pending]
+result: pass
+tested_on: server.dmsmail, multiple instances behind one ZEO server, 2026-08-03
+reported: "Ok, I managed to enter wrong OTP on different instances behind the zeoserver. The count is shared between instances. On the 5th wrong OTP, the count resets to 0 and the account is locked for lockout_duration"
+note: |
+  Matches `helpers.register_failed_second_factor` exactly, including the detail that the
+  counter is reset to 0 in the same write that sets the lock -- so a locked account reads 0
+  failed attempts, and `two_factor_authentication_locked_until` is the only field that shows
+  the lock. This is the backstop truth the single-process integration layer could not reach.
 
 ### 2. Control-panel lockout fields persist in a live instance
 
@@ -95,7 +101,33 @@ through MFA-13), and `05-VERIFICATION.md` scored 19/19 on those. Recorded here s
 observations are not lost, and deliberately kept out of `## Gaps` so they do not block this
 phase or spawn Phase 5 gap-closure plans.
 
-### F-1. No JavaScript runs at all on the deployment — cause NOT established
+### F-1. No JavaScript runs at all on the deployment — cause found, FIXED in 452b66c
+
+Resolved after this section was first written. The operator read the live registry order off the
+affected site on 2026-08-03: `++resource++imio.googleauthenticator/main.js` 1st,
+`++resource++imio.googleauthenticator/plone_ecmascript/popupforms.js` 2nd,
+`++resource++plone.app.jquery.js` 3rd.
+
+Root cause: `profiles/default/jsregistry.xml` declared no position directive, and
+`Products.ResourceRegistries` 2.2.13 `BaseRegistry.storeResource` simply appends, so the final
+order depended on when the profile's import step ran. Installing onto an existing site appends
+after Plone's registrations and works, which is exactly why the integration test layer showed
+these two at positions 42 and 43 and never reproduced the fault. On a fresh site, where
+GenericSetup can import this step before Plone registers jQuery, they landed at 0 and 1. Cooking
+merges adjacent compatible resources into one bundle, so the `$ is not defined` thrown by
+`main.js`'s top-level `$(document).ready(...)` aborted that bundle before jQuery defined itself,
+and every jQuery-dependent script on the site failed.
+
+Fix: `insert-bottom="True"` on both entries, which also repairs an already-broken site on
+profile re-import because the importer applies the move to existing resources too. Regression
+test `test_every_javascript_registration_pins_its_position` in `tests/test_setuphandlers.py`
+parses the XML and fails if any registering entry omits a position directive; confirmed to fail
+when the directives are stripped. Suite: 90 tests, 0 failures.
+
+The original analysis, kept because two of its hypotheses were wrong and the record of why
+matters:
+
+
 
 Observed: the user-actions view does not open under the logged-in user's name, and `@@new-user`
 opens a full page. Both should open in Plone's overlay.
@@ -165,9 +197,9 @@ link is what authorises the reset.
 ## Summary
 
 total: 6
-passed: 0
+passed: 1
 issues: 0
-pending: 6
+pending: 5
 skipped: 0
 blocked: 0
 
