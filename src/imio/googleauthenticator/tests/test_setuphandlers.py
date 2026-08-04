@@ -455,3 +455,63 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
             os.path.exists(override_path + '.metadata'),
             'COEX-02: the vendored login_form.cpt.metadata must not '
             'exist: {0}.metadata'.format(override_path))
+
+    def test_skin_layer_is_removed(self):
+        """COEX-05: the skin mechanism this package used to register two
+        auxiliary templates through -- now reached instead through
+        ``ViewPageTemplateFile`` class attributes (plan 07-02) -- must be
+        completely gone: the directory, its GenericSetup registration file,
+        its ZCML filesystem-directory registration, and the live outcome
+        (no ``googleauthenticator_custom`` skin layer created on install).
+
+        Four assertions, per WR-03. (a)-(c) catch the source-level
+        regression; (d) is the one that would catch a stale registration
+        surviving in a real site.
+        """
+        package_dir = os.path.dirname(imio.googleauthenticator.__file__)
+
+        # (a) the skin directory does not exist on disk.
+        skins_dir = os.path.join(package_dir, 'skins')
+        self.assertFalse(
+            os.path.exists(skins_dir),
+            'COEX-05: the skins/ directory must not exist: '
+            '{0}'.format(skins_dir))
+
+        # (b) profiles/default/skins.xml does not exist.
+        skins_xml = os.path.join(
+            package_dir, 'profiles', 'default', 'skins.xml')
+        self.assertFalse(
+            os.path.exists(skins_xml),
+            'COEX-05: profiles/default/skins.xml must not exist: '
+            '{0}'.format(skins_xml))
+
+        # (c) configure.zcml carries no filesystem-directory registration
+        # element, with a positive control in the same read so a wrong
+        # path cannot pass vacuously.
+        configure_zcml = os.path.join(package_dir, 'configure.zcml')
+        with open(configure_zcml) as handle:
+            zcml_source = handle.read()
+        self.assertNotIn(
+            'registerDirectory', zcml_source,
+            'COEX-05: configure.zcml must not register a filesystem skin '
+            'directory: {0}'.format(configure_zcml))
+        self.assertIn(
+            'genericsetup:registerProfile', zcml_source,
+            'Non-vacuity control: genericsetup:registerProfile must still '
+            'be present in configure.zcml, or the read above found the '
+            'wrong file and the assertion above would pass vacuously.')
+
+        # (d) the live outcome: no googleauthenticator_custom skin layer is
+        # created by the profile, and Plone's own 'custom' layer, the
+        # non-vacuity control, is untouched.
+        portal_skins = getToolByName(self.portal, 'portal_skins')
+        skin_ids = portal_skins.objectIds()
+        self.assertIn(
+            'custom', skin_ids,
+            "Non-vacuity control: Plone's own 'custom' skin layer must "
+            'still exist in portal_skins, or the tool lookup above is '
+            'wrong and the assertion below would pass vacuously.')
+        self.assertNotIn(
+            'googleauthenticator_custom', skin_ids,
+            'COEX-05: no googleauthenticator_custom object must be '
+            'created in portal_skins after this profile installs.')
