@@ -274,12 +274,12 @@ Plans:
   4. A test asserts an off-site `next_url` is refused and an on-site one honoured, with query-string values URL-encoded on the way in. **Same commit as the `login_form.cpt` deletion**: the stale copy deleted Plone 4.3.20's `came_from` hidden input, which is the only reason `CameFromAdapter` exists, so removing the copy restores the field and changes what `ICameFrom` sees.
   5. `control_panel_extra.html` and `request_bar_code_reset_email.pt` still render, converted to `ViewPageTemplateFile`, with no `restrictedTraverse` into a skin left in the package.
 
-**Plans**: 4 plans
+**Plans**: 1/4 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 07-01-PLAN.md — Tracer: restore Plone's own login overlay (delete the vendored script and the `remove="True"` mutation), make `TokenForm` render the `id` the overlay binds on, prove login through the header link; then delete the `login_form.cpt` override with the `next_url` allowlist guard and the query-string encoding in the same commit (COEX-01, COEX-02, COEX-03, COEX-09, BUG-01, BUG-06)
+- [x] 07-01-PLAN.md — Tracer: restore Plone's own login overlay (delete the vendored script and the `remove="True"` mutation), make `TokenForm` render the `id` the overlay binds on, prove login through the header link; then delete the `login_form.cpt` override with the `next_url` allowlist guard and the query-string encoding in the same commit (COEX-01, COEX-02, COEX-03, COEX-09, BUG-01, BUG-06)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -343,7 +343,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4. PAS Boundary | 4/4 | Complete    | 2026-07-31 |
 | 5. Drift, Replay and Lockout | 5/5 | Complete    | 2026-08-03 |
 | 6. Recovery Codes | 3/3 | Complete    | 2026-08-04 |
-| 7. Coexistence with imio.dms.mail | 0/4 | Planned | - |
+| 7. Coexistence with imio.dms.mail | 1/4 | In Progress|  |
 | 8. Coverage Instrument and Test Layers | 0/TBD | Not started | - |
 
 ## Same-Commit Requirements

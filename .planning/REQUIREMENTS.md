@@ -71,24 +71,24 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 
 ### Coexistence with imio.dms.mail (COEX)
 
-- [ ] **COEX-01**: `TokenForm` carries `id = 'login_form'` so Plone's stock overlay finds it with no vendored JavaScript
-- [ ] **COEX-02**: The `login_form.cpt` override and its `.metadata` are deleted
-- [ ] **COEX-03**: The vendored `popupforms.js` copy, its `jsregistry.xml` entries, and the `remove="True"` line that permanently unregisters Plone's own resource are all deleted
+- [x] **COEX-01**: `TokenForm` carries `id = 'login_form'` so Plone's stock overlay finds it with no vendored JavaScript
+- [x] **COEX-02**: The `login_form.cpt` override and its `.metadata` are deleted
+- [x] **COEX-03**: The vendored `popupforms.js` copy, its `jsregistry.xml` entries, and the `remove="True"` line that permanently unregisters Plone's own resource are all deleted
 - [ ] **COEX-04**: `control_panel_extra.html` and `request_bar_code_reset_email.pt` still work, converted to `ViewPageTemplateFile` — they are reached by `restrictedTraverse` and are not overrides
 - [ ] **COEX-05**: The skin layer, `skins.xml`, `registerDirectory` and the `skins/` directory are gone
 - [ ] **COEX-06**: A real `profiles/uninstall/` restores anything the install profile changed
 - [ ] **COEX-07**: Installing this package alongside `imio.dms.mail` leaves both working regardless of install order, verified with both orders
 - [x] **COEX-08**: The challenge fires on both paths — `IChallengePlugin` for requests ending in `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which returns HTTP 200
-- [ ] **COEX-09**: Login through the header "Log in" link (not a direct POST) reaches the token form and completes
+- [x] **COEX-09**: Login through the header "Log in" link (not a direct POST) reaches the token form and completes
 
 ### Known bug fixes (BUG)
 
-- [ ] **BUG-01**: `next_url` is validated against the portal URL before redirect; an off-site value is refused (`token.py:112-113`)
+- [x] **BUG-01**: `next_url` is validated against the portal URL before redirect; an off-site value is refused (`token.py:112-113`)
 - [x] **BUG-02**: `redirect_url` is always bound on every code path through `user_setup.py`
 - [x] **BUG-03**: The bar-code reset token comparison is constant-time, with both operands encoded first to avoid `TypeError` across `str`/`unicode`
 - [x] **BUG-04**: The derived `ska` key separates its components rather than concatenating them bare
 - [x] **BUG-05**: `py2-ipaddress` is replaced by `ipaddress == 1.0.23`, with `unicode` coercion at the two call sites, so adding `cryptography` cannot break every login through module shadowing
-- [ ] **BUG-06**: Query-string values are URL-encoded on the way in, resolving the `+`-escaping FIXME
+- [x] **BUG-06**: Query-string values are URL-encoded on the way in, resolving the `+`-escaping FIXME
 
 ### Quality (QUAL)
 
@@ -204,21 +204,21 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | RECOV-05 | Phase 6 | Complete |
 | RECOV-06 | Phase 6 | Complete |
 | RECOV-07 | Phase 6 | Complete |
-| COEX-01 | Phase 7 | Pending |
-| COEX-02 | Phase 7 | Pending |
-| COEX-03 | Phase 7 | Pending |
+| COEX-01 | Phase 7 | Complete |
+| COEX-02 | Phase 7 | Complete |
+| COEX-03 | Phase 7 | Complete |
 | COEX-04 | Phase 7 | Pending |
 | COEX-05 | Phase 7 | Pending |
 | COEX-06 | Phase 7 | Pending |
 | COEX-07 | Phase 7 | Pending |
 | COEX-08 | Phase 4 | Complete |
-| COEX-09 | Phase 7 | Pending |
-| BUG-01 | Phase 7 | Pending |
+| COEX-09 | Phase 7 | Complete |
+| BUG-01 | Phase 7 | Complete |
 | BUG-02 | Phase 3 | Complete |
 | BUG-03 | Phase 3 | Complete |
 | BUG-04 | Phase 2 | Complete |
 | BUG-05 | Phase 3 | Complete |
-| BUG-06 | Phase 7 | Pending |
+| BUG-06 | Phase 7 | Complete |
 | QUAL-01 | Phase 8 | Pending |
 | QUAL-02 | Phase 8 | Pending |
 | QUAL-03 | Phase 8 | Pending |

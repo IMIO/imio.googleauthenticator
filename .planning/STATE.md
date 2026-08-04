@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 7
-current_phase_name: Coexistence with imio.dms.mail
+current_phase: 07
+current_phase_name: coexistence-with-imio-dms-mail
 status: executing
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-08-04T14:42:52.649Z"
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-08-04T15:14:41.384Z"
 last_activity: 2026-08-04
-last_activity_desc: Phase 06 complete, transitioned to Phase 7
+last_activity_desc: Phase 07 execution started
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 25
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-31)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 06 — recovery-codes
+**Current focus:** Phase 07 — coexistence-with-imio-dms-mail
 
 ## Current Position
 
-Phase: 7 — Coexistence with imio.dms.mail
-Plan: Not started
+Phase: 07 (coexistence-with-imio-dms-mail) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-08-04 — Phase 06 complete, transitioned to Phase 7
+Last activity: 2026-08-04 — Phase 07 execution started
 
-Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([██████████] 100%)**
+Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([█████████░] 88%)**
 
 Phases 5–8 still have no plans, so the 13-plan denominator will grow; the phase figure
 remains the honest one.
@@ -93,6 +93,7 @@ recorded as WR-01 and WR-02 in `04-REVIEW.md`.
 | Phase 06 P01 | 45min | 3 tasks | 6 files |
 | Phase 06 P02 | 50min | 3 tasks | 6 files |
 | Phase 06 P03 | 35min | 3 tasks | 3 files |
+| Phase 07 P01 | 70min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -147,6 +148,8 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 6]: 06-02: regeneration has no dedicated view -- @@setup-two-factor-authentication re-entered is the regeneration path, reusing @@show-disable-two-factor-authentication-link as available_expr rather than a fourth SettingsHelper method; the form's existing TOTP check is the anti-self-perpetuation gate (T-06-08).
 - [Phase ?]: [Phase 6]: 06-03: RECOVERY_CODE_LOW_WATERMARK=3 added; validate_recovery_code's accept branch queues one warning-level IStatusMessage (mapping-based i18n substitution, not str.format) after the consume write and before return True -- unreachable from a failed or anonymous attempt by construction. A missing getRequest() degrades to silence, not a refusal.
 - [Phase ?]: [Phase 6]: 06-03: extended test_no_second_factor_state_written_from_the_plugin (MFA-12) in place rather than a parallel test -- absence tuples gained both recovery-code properties and all three new helper functions; positive controls restructured into (name, source, label) triples pinned per-file. Both non-vacuity mutations (pas_plugin.py, subscribers.py) reproduced red and restored byte-identical, plus a third check confirming a wrongly-paired positive control also fails.
+- [Phase ?]: [Phase 07]: 07-01: R5-vs-WR-03 test placement -- followed this repo's own WR-03 precedent (one test method per requirement, grouped by concern) over the plone-write-tests skill's R5; new COEX-01/COEX-09/BUG-01 tests landed in the existing TestTokenFormLockout class, not a second class.
+- [Phase ?]: [Phase 07]: 07-01: test_next_url_is_validated_against_the_portal's second (on-site) login uses a recovery code, not a second TOTP code, because two genuine TOTP logins moments apart land in the same ~30s interval and MFA-06's replay guard would refuse the second acceptance -- a hazard the plan text did not call out, found during execution.
 
 ### Pending Todos
 
@@ -178,6 +181,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-04T07:41:53.066Z
-Stopped at: Completed 06-03-PLAN.md
+Last session: 2026-08-04T15:14:41.369Z
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None
