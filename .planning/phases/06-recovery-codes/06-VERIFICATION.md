@@ -1,11 +1,12 @@
 ---
 phase: 06-recovery-codes
 verified: 2026-08-04T08:03:21Z
-status: human_needed
+status: passed
 score: 5/5 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
+
   - test: "Decide whether CR-01 (06-REVIEW.md) — SetupForm.handleSubmit in browser/forms/user_setup.py validates the TOTP code with a bare `validate_token(token)` call and wires no `is_account_locked` / `register_failed_second_factor` / `reset_failed_second_factor`, unlike token.py (the login gate) and reset_bar_code.py (05-03's reset gate) — must be fixed before Phase 6 is considered closed, or explicitly accepted as a deferred/out-of-scope risk."
     expected: "A deliberate, recorded decision: either a follow-up plan wires the shared lockout counter into user_setup.py's handleSubmit (mirroring reset_bar_code.py's shape, per 06-REVIEW.md's suggested fix), or the project record explains why an unthrottled TOTP check gating enrollment AND `regenerate_recovery_codes` (actions.xml's own comment names this exact check as regeneration's sole security gate) is acceptable."
     why_human: "Not mechanically resolvable from source: none of the 5 ROADMAP success criteria or any must_haves.truths in the three PLANs assert this endpoint is rate-limited, so no test failure or missing artifact flags it — this is a risk-acceptance judgment call that needs a human decision, not a code check. Confirmed still present and unaddressed in HEAD (git log shows the review commit `a6b06ec` is the tip of the branch, no follow-up fix commit exists)."
@@ -85,6 +86,7 @@ This is **not a fresh Phase 6 regression** — the missing lockout wiring in `us
 **Routed to human verification** rather than either silently passing or unilaterally blocking, since accepting or fixing this is a risk/scope judgment call, not a mechanical check.
 
 Other 06-REVIEW.md findings (not re-litigated here as blockers, since none are must-haves in the PLAN frontmatter, but worth carrying forward):
+
 - **WR-01**: an exception inside `generate_recovery_codes` leaves `enable_two_factor_authentication=True` with zero recovery codes stored, while the earlier "successfully enabled" status message has already been queued alongside the later "Setup failed!" message — a contradictory pair shown to the user. Confirmed present in `user_setup.py:106-124` (the success message precedes the mint call inside the same `try`).
 - **WR-02**: no GenericSetup upgrade step exists for the two new memberdata properties, so a site upgraded in place (rather than freshly installed) will silently drop both new properties on `setMemberProperties` per this project's own documented "undeclared properties are silently popped" hazard. This repeats the same open gap Phase 5 left for its own three properties.
 - **WR-03**: RECOV-03's "shown once" guarantee is asserted only against the raw `SetupForm` instance (`.render()` called directly), never through the actually-registered `SetupFormView = wrap_form(SetupForm)` view a real browser request reaches; a future `plone.z3cform` pin bump could silently break the mechanism with no test failing.
@@ -94,6 +96,7 @@ None of WR-01/02/03 are must-haves in the PLAN frontmatter and none contradict a
 ### Test Suite
 
 `bin/test -t '!robot'` run directly by this verifier: **98 tests, 0 failures, 0 errors** (94 integration + 4 unit), matching all three SUMMARY.md claims. All 8 new recovery-code test methods individually confirmed present and passing:
+
 - `test_token.py`: `test_recovery_code_is_accepted_in_place_of_a_token_and_consumed`, `test_recovery_code_failure_shares_the_totp_lockout_counter`, `test_low_recovery_code_count_warning`, `test_second_factor_dispatch_has_exactly_one_call_site_per_outcome` (11 tests in file, 0 failures)
 - `test_helpers.py`: `test_recovery_code_storage_and_validation_edges`, `test_recovery_code_regeneration_invalidates_the_previous_set`
 - `test_user_setup.py`: `test_recovery_codes_are_issued_once_at_enrollment` (plus `test_handleSubmit`'s 5 scenarios)

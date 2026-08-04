@@ -145,6 +145,21 @@ A second factor that actually holds for in-site users, and that can be deployed 
       key with no error. The three counters are deliberately memberdata only and are **not**
       declared on `IEnhancedUserDataSchema`: as schema fields they crashed the administrator's
       view of another user's profile and were form-writable — MFA-13
+- ✓ Ten single-use recovery codes are issued when a user enrolls, each 80 random bits shown as
+      16 base32 characters. They are displayed once, in the same response that creates them, and
+      never again. Only a hash reaches storage, under one random salt per user, through
+      PBKDF2-HMAC-SHA256 at 100,000 iterations. A code is accepted wherever the authenticator
+      app's code is accepted at the login form, is removed from storage in the same call that
+      accepts it, and fails on a second use — RECOV-01, RECOV-02, RECOV-03, RECOV-04
+- ✓ A wrong recovery code increments the same failure counter a wrong authenticator code does,
+      through the same single call site, so recovery codes are not a separate unmetered way in.
+      A mixed run of five wrong codes of either kind locks the account — RECOV-05
+- ✓ A user can replace the whole set from their profile, and every code from the previous set
+      stops working. Replacement runs through the setup form, which requires a current code from
+      the authenticator app, so one recovery code cannot produce a fresh set — RECOV-06
+- ✓ The user is told how many codes remain once three or fewer are left. The message is produced
+      only after the submitted code has already been accepted, so a failed or anonymous attempt
+      learns nothing about the count — RECOV-07
 
 ### Active
 
@@ -156,14 +171,6 @@ A second factor that actually holds for in-site users, and that can be deployed 
       so QUAL-06 must be planned against 318. The buildout installs a pre-commit hook that fails
       every commit until this is clean (`--no-verify` in the meantime)
 - [ ] Fix open redirect: `next_url` accepted unvalidated at `token.py:112-113`
-
-**Second-factor integrity**
-
-- [ ] Single-use recovery codes issued at enrollment, stored hashed with a per-user salt, for
-      self-service recovery. They share the lockout counter, or they are the unthrottled path.
-      Phase 6 therefore adds new writers of the counter Phase 5 introduced, so its plan must
-      extend the source-level guard in `tests/test_pas_plugin.py` to any new module that touches
-      that state — the guard cannot cover files that do not yet exist
 
 **Coexistence with imio.dms.mail**
 
@@ -344,6 +351,17 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
+*Last updated: 2026-08-04 — Phase 6 complete (recovery codes). All seven Phase 6 requirements
+(RECOV-01 to RECOV-07) moved to Validated, and the single Active "Second-factor integrity" bullet
+they satisfied was removed along with its now-empty heading. One risk was accepted by the operator
+rather than fixed: the setup form at `browser/forms/user_setup.py` checks the authenticator code
+with no rate limiting, unlike the login form and the seed-reset form, and that same form is where
+the "Regenerate recovery codes" menu item leads. It was accepted because the form already shows
+the account's own QR code, which contains the secret, to any logged-in user who opens it, so
+repeated guessing gains nothing. Recorded in `.planning/phases/06-recovery-codes/06-SECURITY.md`
+as accepted risk R-06-01 and in `06-UAT.md` test 1. Closing it stays a candidate for a later
+phase.*
+
 *Last updated: 2026-08-03 — Phase 5 complete (drift, replay and lockout). Phase 5's requirements
 (MFA-05 to MFA-13) moved to Validated, and the four Active "Second-factor integrity" bullets they
 satisfied were removed, leaving only recovery codes, which is Phase 6. Five Phase 5 decisions
