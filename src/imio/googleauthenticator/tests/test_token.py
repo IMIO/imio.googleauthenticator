@@ -36,6 +36,12 @@ from imio.googleauthenticator.tests.base import BaseTest
 class TestTokenFormLockout(unittest.TestCase, BaseTest):
     """See this module's docstring for the WR-03/P5-07 precedent this class
     follows.
+
+    Also covers COEX-01, COEX-09 (automated half) and BUG-01, added in
+    plan 07-01: the token form's markup carrying ``id="login_form"``, the
+    header-link-driven login reaching that form, and the ``next_url``
+    redirect target being validated against the portal, all reuse this
+    class's fixtures rather than a second class per WR-03.
     """
 
     layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
@@ -112,6 +118,69 @@ class TestTokenFormLockout(unittest.TestCase, BaseTest):
         """
         browser.getControl(name='form.widgets.token').value = token
         browser.getControl('Verify').click()
+
+    def test_token_form_carries_login_form_id(self):
+        """COEX-01: the body served at ``@@google-authenticator-token``
+        carries the literal ``id="login_form"`` on its outer ``<form>``
+        tag -- the attribute Plone's own untouched overlay script binds
+        its ajax overlay on.
+
+        Pitfall this guards against: a test asserting only HTTP 200 would
+        pass while the overlay silently never binds, because the
+        overlay's ``formselector`` simply matches nothing and
+        ``prepOverlay``'s ajax fetch falls back to a full-page navigation
+        with no error of any kind -- there is no failure this test's
+        absence would have surfaced except a login flow that quietly
+        never uses the overlay.
+        """
+        self._enable_2fa()
+        browser = self._get_browser()
+        self._login_browser(browser, TEST_USER_NAME, TEST_USER_PASSWORD)
+        self.assertIn('@@google-authenticator-token', browser.url)
+        self.assertIn('id="login_form"', browser.contents)
+
+    def test_login_link_reaches_token_form(self):
+        """COEX-01/COEX-09 (automated half)/BUG-01 tracer: the requirement
+        is explicitly that the header *link* is the test, not a direct
+        POST to ``login_form`` -- clicking the personal-tools "Log in"
+        action must reach the same token form a direct form submission
+        reaches, and a valid TOTP submitted there must complete the
+        login.
+
+        Honest limitation, stated per the plan: this proves the markup
+        and the redirect chain. It cannot prove the jQuery Tools overlay
+        actually binds and ajax-loads the fragment, because
+        ``zope.testbrowser`` has no JavaScript engine. That proof is the
+        human-verify item in plan 07-04 -- a verification report claiming
+        COEX-09 is fully automated by this test alone is wrong.
+        """
+        user = self._enable_2fa()
+        browser = self._get_browser()
+        browser.open(self.portal_url)
+
+        # index=0 disambiguates deterministically if "Log in" matches more
+        # than one link on the page; it never raises for a single match.
+        browser.getLink('Log in', index=0).click()
+        self.assertTrue(
+            browser.url.endswith('/login'),
+            'the header action must lead to /login (Products.CMFPlone\'s '
+            '"login" CMF Action), not some other link: {0}'.format(
+                browser.url))
+
+        browser.getControl(name='__ac_name').value = TEST_USER_NAME
+        browser.getControl(name='__ac_password').value = TEST_USER_PASSWORD
+        browser.getControl(name='submit').click()
+
+        self.assertIn('@@google-authenticator-token', browser.url)
+        self.assertIn('id="login_form"', browser.contents)
+
+        secret = helpers.get_secret(user)
+        code = get_totp(secret, as_string=True)
+        self._submit_token(browser, code)
+        self.assertNotIn(
+            '@@google-authenticator-token', browser.url,
+            'a valid code submitted from the header-link path must '
+            'complete the login')
 
     def test_lockout_after_five_failures(self):
         """MFA-08: five consecutive wrong codes lock the account for the

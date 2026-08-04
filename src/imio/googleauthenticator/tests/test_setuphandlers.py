@@ -329,11 +329,10 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
             'depends on when the profile is imported: {0}'.format(unpinned))
 
     def test_registered_javascript_loads_after_jquery(self):
-        """This package's scripts must sit after jQuery and jQuery Tools.
+        """This package's script must sit after jQuery and jQuery Tools.
 
-        ``main.js`` calls ``$(document).ready(...)`` at top level and the
-        ``popupforms.js`` copy calls ``jQuery.extend(jQuery.tools.overlay.conf,
-        ...)`` at parse time, so both need those two to have run first.
+        ``main.js`` calls ``$(document).ready(...)`` at top level, so it
+        needs those two to have run first.
 
         Honest limitation: ``BaseTest._install()`` installs onto an already-built
         site, where Plone's registrations are present and an append lands after
@@ -356,9 +355,7 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
             resource_ids.index('++resource++plone.app.jquery.js'),
             resource_ids.index('++resource++plone.app.jquerytools.js'))
 
-        ours = ('++resource++imio.googleauthenticator/main.js',
-                '++resource++imio.googleauthenticator/plone_ecmascript/'
-                'popupforms.js')
+        ours = ('++resource++imio.googleauthenticator/main.js',)
         for resource_id in ours:
             self.assertIn(
                 resource_id, resource_ids,
@@ -371,3 +368,56 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
                 'bundle, take jQuery down with it'.format(
                     resource_id, resource_ids.index(resource_id),
                     last_dependency))
+
+    def test_popupforms_js_is_not_vendored(self):
+        """COEX-03: this package must carry no copy of Plone's own
+        ``popupforms.js``, and must not unregister Plone's copy from
+        ``portal_javascripts``.
+
+        ``imio.dms.mail``'s own ``profiles/default/jsregistry.xml`` carries
+        a bare ``insert-after`` reposition entry for the same stock
+        resource id (``popupforms.js``). A reposition entry moves an
+        existing resource and cannot create one -- so as long as this
+        package's own profile still unregistered that id
+        (``remove="True"``), any site installing both packages would end
+        up with ``imio.dms.mail``'s reposition finding nothing to
+        reposition, and every ``prepOverlay``-driven widget it ships would
+        break. This asserts all three levels: the vendored file is gone
+        from disk, the profile XML mentions no such id and unregisters
+        nothing at all, and the live registry still carries Plone's own
+        resource after this package installs.
+        """
+        popupforms_path = os.path.join(
+            os.path.dirname(imio.googleauthenticator.__file__),
+            'browser', 'static', 'plone_ecmascript', 'popupforms.js')
+        self.assertFalse(
+            os.path.exists(popupforms_path),
+            'COEX-03: the vendored popupforms.js copy must not exist on '
+            'disk: {0}'.format(popupforms_path))
+
+        document = minidom.parse(JSREGISTRY_XML)
+        nodes = document.getElementsByTagName('javascript')
+        for node in nodes:
+            node_id = node.getAttribute('id')
+            self.assertNotIn(
+                'popupforms', node_id,
+                'COEX-03: this profile must not mention the stock '
+                'popupforms.js resource id at all: {0!r}'.format(node_id))
+            self.assertEqual(
+                '', node.getAttribute('remove'),
+                'COEX-03: this profile must only register resources, '
+                'never unregister one it does not own -- node {0!r} '
+                'carries a remove attribute'.format(node_id))
+
+        registry = getToolByName(self.portal, 'portal_javascripts')
+        resource_ids = [r.getId() for r in registry.getResources()]
+        self.assertTrue(
+            resource_ids,
+            'Non-vacuity control: portal_javascripts has no resources at '
+            'all, so the assertion below would be vacuous.')
+        self.assertIn(
+            'popupforms.js', resource_ids,
+            "COEX-03: Plone's own popupforms.js resource must still be "
+            'registered after this package installs -- this is the '
+            "assertion that actually proves the imio.dms.mail collision "
+            'is closed, not merely that our file changed')

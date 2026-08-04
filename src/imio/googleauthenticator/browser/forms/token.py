@@ -61,6 +61,32 @@ class TokenForm(form.SchemaForm):
             self.request.get('QUERY_STRING', '')
         )
 
+    def render(self):
+        """
+        Inserts ``id="login_form"`` on the outer ``<form>`` tag of the
+        rendered markup.
+
+        ``plone.z3cform`` 0.8.1's ``titlelessform`` macro -- used by both
+        the wrapped render path (``FormWrapper.update()``'s
+        ``self.contents = self.form_instance.render()``) and the standalone
+        one -- emits no ``id`` attribute on the ``<form>`` tag at all.
+        Plone's own untouched overlay script (the stock
+        ``plone_ecmascript/popupforms.js`` shipped by ``Products.CMFPlone``,
+        no longer vendored by this package) binds its ajax overlay on a
+        ``form#login_form`` selector. The form that selector must match is
+        this **second**, ajax-loaded fragment -- not the stock login form
+        Plone already renders correctly, which already carries that id on
+        its own markup. Forking the macro to add the attribute there
+        instead would re-vendor exactly the client-side code this phase
+        removes, so the attribute is added here, as a post-processing step
+        on the already-rendered string, and nowhere else.
+
+        :return string: The rendered form markup, with ``id="login_form"``
+            inserted on the outer ``<form>`` tag.
+        """
+        rendered = super(TokenForm, self).render()
+        return rendered.replace('<form ', '<form id="login_form" ', 1)
+
     @button.buttonAndHandler(_('Verify'))
     def handleSubmit(self, action):
         """
