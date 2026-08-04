@@ -20,6 +20,18 @@ JSREGISTRY_XML = os.path.join(
     os.path.dirname(imio.googleauthenticator.__file__),
     'profiles', 'default', 'jsregistry.xml')
 
+CSSREGISTRY_XML = os.path.join(
+    os.path.dirname(imio.googleauthenticator.__file__),
+    'profiles', 'default', 'cssregistry.xml')
+
+UNINSTALL_JSREGISTRY_XML = os.path.join(
+    os.path.dirname(imio.googleauthenticator.__file__),
+    'profiles', 'uninstall', 'jsregistry.xml')
+
+UNINSTALL_CSSREGISTRY_XML = os.path.join(
+    os.path.dirname(imio.googleauthenticator.__file__),
+    'profiles', 'uninstall', 'cssregistry.xml')
+
 # Any one of these on a <javascript> node pins its position explicitly, instead
 # of leaving it to BaseRegistry.storeResource's plain append.
 POSITION_ATTRIBUTES = (
@@ -515,3 +527,215 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
             'googleauthenticator_custom', skin_ids,
             'COEX-05: no googleauthenticator_custom object must be '
             'created in portal_skins after this profile installs.')
+
+    def test_uninstall_restores_resource_registries(self):
+        """COEX-06: ``profiles/uninstall/`` unregisters exactly this
+        package's own ``main.js`` and ``main.css`` and nothing else,
+        idempotently and reversibly, and leaves Plone's own
+        ``popupforms.js`` overlay resource registered throughout.
+
+        Five assertion groups, per WR-03 -- (c) is the one that actually
+        matters: uninstalling this add-on must not leave the whole site
+        without Plone's overlay script, the same class of breakage
+        COEX-03 removed from the install side.
+        """
+        js_registry = getToolByName(self.portal, 'portal_javascripts')
+        css_registry = getToolByName(self.portal, 'portal_css')
+        js_id = '++resource++imio.googleauthenticator/main.js'
+        css_id = '++resource++imio.googleauthenticator/main.css'
+
+        # (a) precondition/non-vacuity: both of this package's own
+        # resources are registered before the uninstall, or the removal
+        # assertions below prove nothing.
+        js_ids = [r.getId() for r in js_registry.getResources()]
+        css_ids = [r.getId() for r in css_registry.getResources()]
+        self.assertIn(
+            js_id, js_ids,
+            'Non-vacuity control: {0!r} must be registered before the '
+            'uninstall, or its absence below proves nothing'.format(js_id))
+        self.assertIn(
+            css_id, css_ids,
+            'Non-vacuity control: {0!r} must be registered before the '
+            'uninstall, or its absence below proves nothing'.format(css_id))
+
+        # (b) applying the uninstall profile removes both of this
+        # package's own resources.
+        applyProfile(self.portal, 'imio.googleauthenticator:uninstall')
+        js_ids = [r.getId() for r in js_registry.getResources()]
+        css_ids = [r.getId() for r in css_registry.getResources()]
+        self.assertNotIn(
+            js_id, js_ids,
+            'COEX-06: {0!r} must be unregistered by the uninstall '
+            'profile'.format(js_id))
+        self.assertNotIn(
+            css_id, css_ids,
+            'COEX-06: {0!r} must be unregistered by the uninstall '
+            'profile'.format(css_id))
+
+        # (c) the coexistence half -- the assertion that actually
+        # matters: Plone's own overlay resource is still registered
+        # after the uninstall.
+        self.assertIn(
+            'popupforms.js', js_ids,
+            "COEX-06: Plone's own popupforms.js must still be registered "
+            'in portal_javascripts after this package uninstalls')
+
+        # (d) idempotency: applying the uninstall profile a second time
+        # must not raise, and must leave the same resource-id sets.
+        # BaseRegistry.unregisterResource filters the resource tuple by
+        # id, so a missing id is a no-op rather than a KeyError.
+        applyProfile(self.portal, 'imio.googleauthenticator:uninstall')
+        js_ids_after_second_uninstall = [
+            r.getId() for r in js_registry.getResources()]
+        css_ids_after_second_uninstall = [
+            r.getId() for r in css_registry.getResources()]
+        self.assertEqual(
+            js_ids, js_ids_after_second_uninstall,
+            'COEX-06: applying the uninstall profile a second time must '
+            'not change portal_javascripts')
+        self.assertEqual(
+            css_ids, css_ids_after_second_uninstall,
+            'COEX-06: applying the uninstall profile a second time must '
+            'not change portal_css')
+
+        # (e) reversibility: re-applying the default profile
+        # re-registers both of this package's own resources -- an
+        # uninstall followed by a reinstall is a working site, not a
+        # half-registered one. This also restores the installed state
+        # this layer's other tests expect.
+        applyProfile(self.portal, 'imio.googleauthenticator:default')
+        js_ids = [r.getId() for r in js_registry.getResources()]
+        css_ids = [r.getId() for r in css_registry.getResources()]
+        self.assertIn(
+            js_id, js_ids,
+            'COEX-06: re-applying the default profile must re-register '
+            '{0!r}'.format(js_id))
+        self.assertIn(
+            css_id, css_ids,
+            'COEX-06: re-applying the default profile must re-register '
+            '{0!r}'.format(css_id))
+
+    def _replay_dms_mail_reposition(self, registry):
+        """Replay ``imio.dms.mail``'s own reposition entry for the stock
+        ``popupforms.js`` resource -- ``imio/dms/mail/profiles/default/
+        jsregistry.xml``, around line 102: ``<javascript id="popupforms.js"
+        insert-after="form_tabbing.js" />``.
+
+        A bare reposition entry carries no other attribute, so
+        ``Products.ResourceRegistries.exportimport.resourceregistry.
+        _initResources`` routes it straight to ``moveResourceAfter`` --
+        the same tool method called here -- with no registration call at
+        all, which is the whole mechanism of the collision this phase
+        closes: it can move an existing resource, never create one.
+        """
+        registry.moveResourceAfter('popupforms.js', 'form_tabbing.js')
+
+    def test_popupforms_js_survives_either_install_order(self):
+        """COEX-07 (automated half), COEX-03: ``imio.dms.mail``'s real
+        bare reposition entry for the stock ``popupforms.js`` resource
+        must not duplicate or delete that resource, whether it is
+        replayed before or after this package's own profile, and under a
+        repeated import of either.
+
+        This is a *synthetic* collision test: it replays the reposition
+        directly against ``portal_javascripts`` rather than installing
+        the ``imio.dms.mail`` egg. The real two-egg proof is plan
+        07-04's human-verify item -- a verification report claiming
+        COEX-07 is fully automated by this test alone is wrong.
+        """
+        registry = getToolByName(self.portal, 'portal_javascripts')
+        resource_ids = [r.getId() for r in registry.getResources()]
+
+        # (a) non-vacuity controls: both ids the reposition needs are
+        # registered by stock Plone in this fixture, or neither ordering
+        # assertion below means anything.
+        self.assertIn(
+            'popupforms.js', resource_ids,
+            'Non-vacuity control: stock popupforms.js must be registered '
+            'by Plone in this fixture, or the ordering assertions below '
+            'are meaningless.')
+        self.assertIn(
+            'form_tabbing.js', resource_ids,
+            'Non-vacuity control: stock form_tabbing.js must be '
+            'registered by Plone in this fixture, or the reposition '
+            'below has nothing to reposition after.')
+
+        # (b) order A: this package's profile applies, then the
+        # reposition.
+        applyProfile(self.portal, 'imio.googleauthenticator:default')
+        self._replay_dms_mail_reposition(registry)
+        resource_ids = [r.getId() for r in registry.getResources()]
+        self.assertEqual(
+            1, resource_ids.count('popupforms.js'),
+            'COEX-07: popupforms.js must appear exactly once after '
+            'imio.googleauthenticator:default then the imio.dms.mail '
+            'reposition -- never 0 (this package deleted it) and never '
+            '2 (a duplicate registration)')
+
+        # (c) order B: the reposition applies first, then this
+        # package's profile.
+        self._replay_dms_mail_reposition(registry)
+        applyProfile(self.portal, 'imio.googleauthenticator:default')
+        resource_ids = [r.getId() for r in registry.getResources()]
+        self.assertEqual(
+            1, resource_ids.count('popupforms.js'),
+            'COEX-07: popupforms.js must appear exactly once after the '
+            'imio.dms.mail reposition then '
+            'imio.googleauthenticator:default -- never 0 and never 2')
+
+        # (e) the idempotency edge the probe raised: a second import of
+        # the default profile must not duplicate either resource --
+        # _initResources routes a duplicate registration to the update
+        # method rather than a second entry.
+        applyProfile(self.portal, 'imio.googleauthenticator:default')
+        resource_ids = [r.getId() for r in registry.getResources()]
+        self.assertEqual(
+            1, resource_ids.count('popupforms.js'),
+            'COEX-07: a second default-profile import must not '
+            "duplicate Plone's own popupforms.js")
+        self.assertEqual(
+            1, resource_ids.count(
+                '++resource++imio.googleauthenticator/main.js'),
+            'COEX-07: a second default-profile import must not '
+            "duplicate this package's own main.js")
+
+    def test_profile_only_registers_resources_it_owns(self):
+        """Ownership invariant, promoted from plan 07-01's
+        assumption-delta decision: this package registers, repositions
+        and unregisters only resource ids under its own
+        ``++resource++imio.googleauthenticator/`` prefix, across all
+        four resource-registry profile files.
+
+        Exists to go red the day a future phase reintroduces a bare
+        Plone resource id in any of ``profiles/default/jsregistry.xml``,
+        ``profiles/default/cssregistry.xml``,
+        ``profiles/uninstall/jsregistry.xml`` or
+        ``profiles/uninstall/cssregistry.xml``, whether to add, move or
+        remove it.
+        """
+        prefix = '++resource++imio.googleauthenticator/'
+        files = (
+            JSREGISTRY_XML, CSSREGISTRY_XML,
+            UNINSTALL_JSREGISTRY_XML, UNINSTALL_CSSREGISTRY_XML,
+            )
+        all_nodes = []
+        for path in files:
+            document = minidom.parse(path)
+            all_nodes.extend(document.getElementsByTagName('javascript'))
+            all_nodes.extend(document.getElementsByTagName('stylesheet'))
+
+        self.assertGreaterEqual(
+            len(all_nodes), 4,
+            'Non-vacuity control: fewer than 4 nodes were parsed across '
+            'the four resource-registry profile files, so a wrong path '
+            'or a failed parse could pass with an empty loop.')
+
+        offenders = [
+            node.getAttribute('id') for node in all_nodes
+            if not node.getAttribute('id').startswith(prefix)
+            ]
+        self.assertEqual(
+            [], offenders,
+            'These resource-registry ids do not start with {0!r}: {1}. '
+            'This package must register, reposition and unregister only '
+            'resources it owns.'.format(prefix, offenders))
