@@ -354,14 +354,27 @@ class TestPas(unittest.TestCase, BaseTest):
         invariant regardless of which request path a future edit might
         reach it from.
 
-        Positive controls prove the search itself is not broken: the two
-        properties this plan's helpers.py functions actually read/write
-        really do appear there, and the three helper function names
-        really do appear in browser/forms/token.py (where they are
-        called). ``two_factor_authentication_last_interval`` is plan
-        05-02's property (drift/replay) -- it is checked for absence from
+        Extended in plan 06-03 (this plan spans plans 05-01 and 06-01) to
+        cover Phase 6's two new writers of this same guard: the recovery
+        code salt/hash properties (written by ``generate_recovery_codes``
+        at enrollment/regeneration, and mutated on consume by
+        ``validate_recovery_code``) and the promoted dispatcher
+        ``validate_second_factor``, which supersedes ``06-RESEARCH.md``'s
+        proposed name ``validate_token_or_recovery_code`` (plan 06-01's
+        ``assumption_delta_decision`` -- a future reader should grep for
+        the promoted name).
+
+        Positive controls prove the search itself is not broken: each
+        name in ``property_names``/``helper_function_names`` has at least
+        one positive-control pairing below, asserted against the specific
+        file it legitimately lives in -- pinned per-file rather than
+        "anywhere", because a positive control asserted against the wrong
+        file would pass vacuously and hide a broken search, which is the
+        one failure mode this whole test exists to rule out.
+        ``two_factor_authentication_last_interval`` is plan 05-02's
+        property (drift/replay) -- it is checked for absence from
         pas_plugin.py/subscribers.py here too, but has no positive control
-        in this plan since nothing in helpers.py references it yet.
+        since nothing in helpers.py references it yet.
         """
         package_dir = os.path.dirname(imio.googleauthenticator.__file__)
 
@@ -374,20 +387,25 @@ class TestPas(unittest.TestCase, BaseTest):
         with open(os.path.join(
                 package_dir, 'browser', 'forms', 'token.py')) as handle:
             token_source = handle.read()
+        with open(os.path.join(
+                package_dir, 'browser', 'forms',
+                'user_setup.py')) as handle:
+            user_setup_source = handle.read()
 
         property_names = (
             'two_factor_authentication_failed_attempts',
             'two_factor_authentication_locked_until',
             'two_factor_authentication_last_interval',
-        )
-        properties_used_by_this_plan = (
-            'two_factor_authentication_failed_attempts',
-            'two_factor_authentication_locked_until',
+            'two_factor_authentication_recovery_codes_salt',
+            'two_factor_authentication_recovery_codes_hashes',
         )
         helper_function_names = (
             'is_account_locked',
             'register_failed_second_factor',
             'reset_failed_second_factor',
+            'generate_recovery_codes',
+            'validate_recovery_code',
+            'validate_second_factor',
         )
 
         for name in property_names + helper_function_names:
@@ -400,18 +418,36 @@ class TestPas(unittest.TestCase, BaseTest):
                 'MFA-12: {0!r} must not appear in subscribers.py -- '
                 'reached from a request the publisher aborts'.format(name))
 
-        # Positive controls: the two assertions above must not pass
-        # merely because the search itself is broken.
-        for name in properties_used_by_this_plan:
+        # Positive controls, restructured (06-03) into (name, source,
+        # label) triples: every existing pair from 05-01 preserved
+        # verbatim, plus the two new properties against helpers.py,
+        # validate_second_factor against token.py, generate_recovery_codes
+        # against user_setup.py (where enrollment/regeneration call it),
+        # and validate_recovery_code against helpers.py (referenced only
+        # there). A property or function whose positive control pointed
+        # at the wrong file would pass even if the absence loop above
+        # were checking nothing at all.
+        positive_controls = (
+            ('two_factor_authentication_failed_attempts',
+                helpers_source, 'helpers.py'),
+            ('two_factor_authentication_locked_until',
+                helpers_source, 'helpers.py'),
+            ('two_factor_authentication_recovery_codes_salt',
+                helpers_source, 'helpers.py'),
+            ('two_factor_authentication_recovery_codes_hashes',
+                helpers_source, 'helpers.py'),
+            ('is_account_locked', token_source, 'token.py'),
+            ('register_failed_second_factor', token_source, 'token.py'),
+            ('reset_failed_second_factor', token_source, 'token.py'),
+            ('validate_second_factor', token_source, 'token.py'),
+            ('generate_recovery_codes', user_setup_source, 'user_setup.py'),
+            ('validate_recovery_code', helpers_source, 'helpers.py'),
+        )
+        for name, source, label in positive_controls:
             self.assertIn(
-                name, helpers_source,
+                name, source,
                 'non-vacuity control: {0!r} must be present in '
-                'helpers.py'.format(name))
-        for name in helper_function_names:
-            self.assertIn(
-                name, token_source,
-                'non-vacuity control: {0!r} must be present in '
-                'token.py'.format(name))
+                '{1}'.format(name, label))
 
     def test_exception_path_still_wipes_credentials(self):
         """ROADMAP success criterion 5: an exception raised after the 2FA
