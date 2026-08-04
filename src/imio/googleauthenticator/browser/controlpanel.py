@@ -14,6 +14,7 @@ from plone.directives.form import fieldset
 
 from z3c.form import form, button
 
+from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
 from Products.statusmessages.interfaces import IStatusMessage
 
 logger = logging.getLogger("imio.googleauthenticator")
@@ -81,6 +82,7 @@ class GoogleAuthenticatorSettingsEditForm(AutoExtensibleForm, form.EditForm):
     label = _("Google Authenticator")
     description = _(u"""Google Authenticator configuration""")
     enable_unload_protection = False
+    additional_template = ViewPageTemplateFile('templates/control_panel_extra.pt')
 
     def updateFields(self):
         super(GoogleAuthenticatorSettingsEditForm, self).updateFields()
@@ -98,8 +100,7 @@ class GoogleAuthenticatorSettingsEditForm(AutoExtensibleForm, form.EditForm):
 
     def render(self, *args, **kwargs):
         res = super(GoogleAuthenticatorSettingsEditForm, self).render(*args, **kwargs)
-        additional_template = self.context.restrictedTraverse('control_panel_extra')
-        additional = additional_template(
+        additional = self.additional_template(
             enable_url = '{0}/{1}'.format(self.context.absolute_url(), '@@google-authenticator-enable-for-all-users'),
             enable_text = _("Enable two-step verification for all users"),
             disable_url = '{0}/{1}'.format(self.context.absolute_url(), '@@google-authenticator-disable-for-all-users'),

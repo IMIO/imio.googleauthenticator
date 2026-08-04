@@ -1,7 +1,6 @@
 <configure
     xmlns="http://namespaces.zope.org/zope"
     xmlns:five="http://namespaces.zope.org/five"
-    xmlns:cmf="http://namespaces.zope.org/cmf"
     xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
     xmlns:zcml="http://namespaces.zope.org/zcml"
     xmlns:browser="http://namespaces.zope.org/browser"
@@ -56,8 +55,6 @@
         for="zope.publisher.interfaces.http.IHTTPRequest"
         provides=".adapter.ICameFrom"
         factory=".adapter.CameFromAdapter" />
-
-    <cmf:registerDirectory name="skins" directory="skins" recursive="True" />
 
     <!-- -*- Event fired on user creation -*- -->
     <subscriber

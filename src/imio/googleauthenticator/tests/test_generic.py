@@ -190,7 +190,6 @@ class TestGeneric(unittest.TestCase, BaseTest):
         required = (
             'recursive-include src/imio/googleauthenticator/locales *',
             'recursive-include src/imio/googleauthenticator/profiles *',
-            'recursive-include src/imio/googleauthenticator/skins *',
             'recursive-include src/imio/googleauthenticator/browser/static *',
             'recursive-include src/imio/googleauthenticator/www *',
             'global-exclude *.pyc',
@@ -383,11 +382,10 @@ class TestGeneric(unittest.TestCase, BaseTest):
             dist.get_metadata('namespace_packages.txt').split(), ['imio'])
 
     def test_resources_are_registered(self):
-        """This single assertion is what makes the four files that must agree --
+        """This single assertion is what makes the three files that must agree --
         the resourceDirectory name in browser/configure.zcml, the two
-        jsregistry.xml ids, the cssregistry.xml id, and the skins.xml
-        directory-view prefix -- verifiable, because a mismatch is otherwise a
-        404 on the asset and nothing else."""
+        jsregistry.xml ids, and the cssregistry.xml id -- verifiable, because
+        a mismatch is otherwise a 404 on the asset and nothing else."""
         portal_javascripts = getToolByName(self.portal, 'portal_javascripts')
         portal_css = getToolByName(self.portal, 'portal_css')
         js_ids = portal_javascripts.getResourceIds()
@@ -421,3 +419,53 @@ class TestGeneric(unittest.TestCase, BaseTest):
             action.available_expr,
             'RECOV-06: regeneration must reuse the existing enrolled-user '
             'availability view, not a new one.')
+
+    def test_no_restrictedTraverse_left_in_browser_code(self):
+        """COEX-04: no view under ``browser/`` may reach a template through
+        a skin-name ``restrictedTraverse`` lookup any more -- both auxiliary
+        fragments that used to be looked up that way
+        (``control_panel_extra``, ``request_bar_code_reset_email``) are now
+        reached through a ``ViewPageTemplateFile`` class attribute, and the
+        skin layer they were looked up against no longer exists.
+
+        Walks ``browser/`` with ``os.walk`` rather than a hand-written file
+        list, so a future view added with a skin-name traversal is caught
+        too. Non-vacuity control: the collected file list must be non-empty
+        and contain at least ``controlpanel.py`` and
+        ``forms/request_bar_code_reset.py``, so a wrong root directory fails
+        here rather than passing with an empty loop.
+        """
+        browser_dir = os.path.join(
+            os.path.dirname(imio.googleauthenticator.__file__), 'browser')
+
+        py_files = []
+        for dirpath, _dirnames, filenames in os.walk(browser_dir):
+            for filename in filenames:
+                if filename.endswith('.py'):
+                    py_files.append(os.path.join(dirpath, filename))
+
+        self.assertTrue(
+            py_files,
+            'Non-vacuity control: no .py files found under {0} -- the '
+            'walk root is wrong and every assertion below would pass '
+            'vacuously.'.format(browser_dir))
+        relative_paths = [
+            os.path.relpath(path, browser_dir) for path in py_files]
+        self.assertIn(
+            'controlpanel.py', relative_paths,
+            'Non-vacuity control: controlpanel.py must be found by the '
+            'walk.')
+        self.assertIn(
+            os.path.join('forms', 'request_bar_code_reset.py'),
+            relative_paths,
+            'Non-vacuity control: forms/request_bar_code_reset.py must be '
+            'found by the walk.')
+
+        for path in py_files:
+            with open(path) as handle:
+                source = handle.read()
+            self.assertNotIn(
+                'restrictedTraverse', source,
+                'COEX-04: {0} must not perform a skin-name traversal -- '
+                'reach the template through a ViewPageTemplateFile class '
+                'attribute instead.'.format(path))

@@ -5,7 +5,6 @@ recursive-include docs *
 recursive-include src *.zcml *.pot *.po *.xml *.txt *.css *.js *.pt *.cpt *.zpt *.metadata *.html *.sh
 recursive-include src/imio/googleauthenticator/locales *
 recursive-include src/imio/googleauthenticator/profiles *
-recursive-include src/imio/googleauthenticator/skins *
 recursive-include src/imio/googleauthenticator/browser/static *
 recursive-include src/imio/googleauthenticator/www *
 global-exclude *.pyc

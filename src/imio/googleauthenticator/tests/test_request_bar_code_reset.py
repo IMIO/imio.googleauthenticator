@@ -27,9 +27,6 @@ class TestRequestBarCodeReset(unittest.TestCase, BaseTest):
         self.qi_tool = getToolByName(self.portal, 'portal_quickinstaller')
         self.portal_url = api.portal.get().absolute_url()
         self._install()
-        # The email body is a skin template, so it is only traversable once
-        # the portal's skin is bound to this request.
-        self.portal.setupCurrentSkin(self.layer['request'])
         # Memberdata writes commit inside BaseTest._install()'s testbrowser
         # calls and survive across test methods in this layer, so a leftover
         # token from a sibling test would make the control below pass

@@ -12,6 +12,7 @@ from plone.directives import form
 from plone import api
 from plone.z3cform.layout import wrap_form
 
+from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
 from Products.statusmessages.interfaces import IStatusMessage
 from Products.CMFCore.utils import getToolByName
 
@@ -46,6 +47,7 @@ class RequestBarCodeResetForm(form.SchemaForm):
     label = _("Request to reset the Google Authenticator bar code")
     description = _(u"Enter your username for verification. The link code to reset the "
                     u"bar code would be sent to your email.")
+    mail_text_template = ViewPageTemplateFile('templates/request_bar_code_reset_email.pt')
 
     @button.buttonAndHandler(_('Submit'))
     def handleSubmit(self, action):
@@ -87,8 +89,7 @@ class RequestBarCodeResetForm(form.SchemaForm):
                 try:
                     host = getToolByName(self, 'MailHost')
 
-                    mail_text_template = self.context.restrictedTraverse('request_bar_code_reset_email')
-                    mail_text = mail_text_template(
+                    mail_text = self.mail_text_template(
                         member = user,
                         bar_code_reset_url = signed_url,
                         charset = 'utf-8'
