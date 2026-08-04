@@ -274,12 +274,35 @@ Plans:
   4. A test asserts an off-site `next_url` is refused and an on-site one honoured, with query-string values URL-encoded on the way in. **Same commit as the `login_form.cpt` deletion**: the stale copy deleted Plone 4.3.20's `came_from` hidden input, which is the only reason `CameFromAdapter` exists, so removing the copy restores the field and changes what `ICameFrom` sees.
   5. `control_panel_extra.html` and `request_bar_code_reset_email.pt` still render, converted to `ViewPageTemplateFile`, with no `restrictedTraverse` into a skin left in the package.
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 07-01-PLAN.md — Tracer: restore Plone's own login overlay (delete the vendored script and the `remove="True"` mutation), make `TokenForm` render the `id` the overlay binds on, prove login through the header link; then delete the `login_form.cpt` override with the `next_url` allowlist guard and the query-string encoding in the same commit (COEX-01, COEX-02, COEX-03, COEX-09, BUG-01, BUG-06)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 07-02-PLAN.md — Convert both live skin templates to `ViewPageTemplateFile` class attributes and delete the skin directory, `skins.xml`, `registerDirectory` and the packaging include in one commit, plus the absence assertions (COEX-04, COEX-05)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 07-03-PLAN.md — A real `profiles/uninstall/` scoped to this package's own two resources, the two-order collision proof, the resource-ownership invariant test, and the README/docs/CHANGES corrections (COEX-06, COEX-07, COEX-03)
+
+**Wave 4** *(blocked on Wave 3 completion, non-autonomous)*
+
+- [ ] 07-04-PLAN.md — The two verifications `bin/test` cannot reach: a real two-egg install in both orders on the `server.dmsmail` MOD-1076 environment, and a real browser click through the stock overlay (COEX-07, COEX-09 manual halves)
+
 **UI hint**: yes
 
 **Phase notes:**
 
-- **Open Decision to settle here:** whether `ska` tolerates the `ajax_load` parameter the overlay injects. `pb.add_ajax_load` prepends a hidden `ajax_load=<timestamp>` input and `pb.ajax_click` appends it to the GET. It *should* be ignored (`validate_signed_request_data` reads named keys), but a signature failure here is **silent from the user's side**. One browser test settles it.
+- **Planned 2026-08-04. Three corrections to this section, established by reading the installed egg source — the plans implement the corrected version, not the text below:**
+  1. Success criterion 1's "`id = 'login_form'` on `TokenForm` as the only mechanism" is not achievable as written. `z3c.form 3.2.11`'s `Form.id` is a Python property, and `plone.z3cform 0.8.1`'s `titlelessform` macro — used by both the wrapped and the standalone render paths — emits no `id` attribute on the `<form>` tag at all. The class attribute produces no markup. A `render()` override that post-processes the emitted HTML is required; forking the macro would re-vendor what this phase removes. The *rendered* attribute is the only mechanism.
+  2. Success criterion 4's causal claim is imprecise: the restored stock `came_from` hidden input lands in `request.form`, whereas `CameFromAdapter.getCameFrom()` reads `HTTP_REFERER`'s **query string**. Restoring the input does not by itself change what `ICameFrom` sees. The same-commit grouping still holds — it is the commit where the whole redirect surface changes — but nothing depends on the restored input feeding the adapter.
+  3. The COEX-04 note below says the email path has zero test coverage. It has three tests that drive `handleSubmit` end to end and assert on the rendered mail body, so a missed conversion there **is** caught by CI. The half with genuinely zero coverage is the **control panel**, which no test renders — corrected in `07-VALIDATION.md`, and closed by a new `tests/test_controlpanel.py`. Also: `controlpanel.py:84` is actually line 101, and the skin directory holds **four** files, not five (the vendored script lives under `browser/static/plone_ecmascript/`).
+- **Open Decision settled at plan time, no browser test needed to settle it:** `ska 1.7.5` hashes only `auth_user` + `valid_until` (plus an `extra` dict this codebase never populates) — read directly from `ska/utils.py`'s `validate_request_data` and `ska/base.py`'s `Signature.get_base`. Any other query-string key, `ajax_load` included, is never read and never enters the hash. `ska` cannot fail on `ajax_load`. The browser test in 07-04 remains valuable for proving the overlay injects it correctly and the chain survives in practice, but the "silent signature failure" fear is unfounded.
+- **Open Decision to settle here (original text, superseded by the note above):** whether `ska` tolerates the `ajax_load` parameter the overlay injects. `pb.add_ajax_load` prepends a hidden `ajax_load=<timestamp>` input and `pb.ajax_click` appends it to the GET. It *should* be ignored (`validate_signed_request_data` reads named keys), but a signature failure here is **silent from the user's side**. One browser test settles it.
 - Also confirm in the same browser test that `common_content_filter` reaches the wrapped z3c.form — `plone.z3cform.layout`'s `wrap_form` renders inside `#content` and `el.find()` is a descendant search, so it should be reachable.
 - COEX-04 is the trap: `control_panel_extra.html` (`controlpanel.py:84`) and `request_bar_code_reset_email.pt` (`request_bar_code_reset.py:90`) are reached by `restrictedTraverse` and are **not** overrides. Deleting `skins/` deletes two live templates; convert both in the same commit. The email path has zero test coverage, so CI will not notice.
 - The vendored copies are stale and actively harmful, which is extra reason to delete rather than maintain: `popupforms.js` reverts `msieversion()` to `jQuery.browser.msie` (removed in jQuery 1.9) and drops `dl.portalMessage.warning` from `common_content_filter`, swallowing warning messages in every Plone overlay site-wide.
@@ -320,19 +343,20 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4. PAS Boundary | 4/4 | Complete    | 2026-07-31 |
 | 5. Drift, Replay and Lockout | 5/5 | Complete    | 2026-08-03 |
 | 6. Recovery Codes | 3/3 | Complete    | 2026-08-04 |
-| 7. Coexistence with imio.dms.mail | 0/TBD | Not started | - |
+| 7. Coexistence with imio.dms.mail | 0/4 | Planned | - |
 | 8. Coverage Instrument and Test Layers | 0/TBD | Not started | - |
 
 ## Same-Commit Requirements
 
-These four groups must not be split across phases **or across plans within a phase**. Each was
+These five groups must not be split across phases **or across plans within a phase**. Each was
 identified because the split state is worse than either endpoint.
 
 | Must ship together | Phase | Why |
 |---|---|---|
 | Drift `{T, T−1}` + replay rejection (MFA-05 + MFA-06) | 5 | Same six lines. Split yields drift-accepted-but-replay-undetected — strictly worse than today. |
 | Fernet + fail-closed + local QR + `ipaddress` swap (SEC-01/03/05 + BUG-05) | 3 | Fail-closed is the one mistake that silently undoes encryption; a QR posted to Google makes encryption worthless; `cryptography` forces the `ipaddress` swap. |
-| Override deletion + `next_url` open-redirect fix (COEX-02/03 + BUG-01) | 7 | Deleting `login_form.cpt` restores Plone's `came_from` field and changes what `ICameFrom` sees. |
+| Override deletion + `next_url` open-redirect fix + query-string encoding (COEX-02 + BUG-01 + BUG-06) | 7 | This is the commit where the whole redirect surface changes. *(Planned as 07-01 Task 2. The original rationale — "deleting `login_form.cpt` restores Plone's `came_from` field and changes what `ICameFrom` sees" — is imprecise: the restored hidden input lands in `request.form`, while the adapter reads `HTTP_REFERER`'s query string. The grouping stands on the surface-change reason; nothing depends on the restored input.)* |
+| Both live-template conversions + skin-directory deletion (COEX-04 + COEX-05) | 7 | The directory holds two live templates that are not overrides. Deleting it first takes both fragments down, and the control-panel one fails inside a broad `except ValueError` that nothing in `bin/test` would notice. Planned as 07-02 Task 1. |
 | `.coveragerc` fix + `set -e` (QUAL-01 + QUAL-02) | 8 | Both must precede any new test, or the gate measures nothing and green means nothing. |
 
 ## Open Decisions

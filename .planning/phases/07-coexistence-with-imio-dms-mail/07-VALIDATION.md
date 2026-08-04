@@ -53,7 +53,7 @@ re-planning. The planner must map each row onto a concrete task ID in its PLAN.m
 | COEX-01 | `TokenForm`'s rendered `<form>` tag carries `id="login_form"` | integration (Browser content assertion) | `bin/test -t test_token_form_carries_login_form_id` | ❌ W0 | ⬜ pending |
 | COEX-02 | `login_form.cpt` and its `.metadata` no longer exist on disk | unit (filesystem fact) | `bin/test -t test_login_form_override_is_deleted` | ❌ W0 | ⬜ pending |
 | COEX-03 | Vendored `popupforms.js`, its `jsregistry.xml` entries, and the `remove="True"` line are all gone | unit (filesystem + `minidom` XML assertion) | `bin/test -t test_popupforms_js_is_not_vendored` | ❌ W0 | ⬜ pending |
-| COEX-04 | `control_panel_extra` and `request_bar_code_reset_email` still render; no `restrictedTraverse` remains | integration (2 existing tests) + unit (source-grep) | `bin/test -t test_control_panel_view`; `bin/test -t test_reset_email_survives_a_non_ascii_sender_name`; `bin/test -t test_no_restrictedTraverse_left_in_browser_code` | ✅ (first two) / ❌ W0 (grep test) | ⬜ pending |
+| COEX-04 | `control_panel_extra` and `request_bar_code_reset_email` still render; no `restrictedTraverse` remains | integration (1 existing test + 1 **new**) + unit (source-grep) | `bin/test -t test_render_appends_the_extra_links`; `bin/test -t test_reset_email_survives_a_non_ascii_sender_name`; `bin/test -t test_no_restrictedTraverse_left_in_browser_code` | ❌ W0 (control-panel test, **new file** `tests/test_controlpanel.py`) / ✅ (email test) / ❌ W0 (grep test) | ⬜ pending |
 | COEX-05 | Skin layer, `skins.xml`, `registerDirectory` and `skins/` are gone | unit (filesystem + ZCML source-grep) | `bin/test -t test_skin_layer_is_removed` | ❌ W0 | ⬜ pending |
 | COEX-06 | `profiles/uninstall/` restores every install-time registry change | integration (`applyProfile` install→uninstall, assert `portal_javascripts` / `portal_css` sets) | `bin/test -t test_uninstall_restores_resource_registries` | ❌ W0 | ⬜ pending |
 | COEX-07 | Both install orders leave both packages working; `popupforms.js` registered exactly once | integration (synthetic collision using `imio.dms.mail`'s real XML fragment) | `bin/test -t test_popupforms_js_survives_either_install_order` | ❌ W0 | ⬜ pending |
@@ -62,6 +62,47 @@ re-planning. The planner must map each row onto a concrete task ID in its PLAN.m
 | BUG-06 | Query-string values survive the quoting round-trip | unit (`tests/test_adapter.py`, new `TestCameFromAdapter`) | `bin/test -t test_get_came_from_quotes_the_value` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+
+### Plan mapping (assigned 2026-08-04 by plan-phase)
+
+| Requirement | Plan / task |
+|---|---|
+| COEX-01, COEX-03, COEX-09 (automated) | 07-01 Task 1 (tracer) |
+| COEX-02, BUG-01, BUG-06 | 07-01 Task 2 (one commit, per ROADMAP criterion 4) |
+| COEX-04, COEX-05 (production change) | 07-02 Task 1 (one commit) |
+| COEX-04, COEX-05 (absence assertions) | 07-02 Task 2 |
+| COEX-06, COEX-07 (synthetic), COEX-03 (ownership invariant) | 07-03 Task 1 |
+| documentation correctness | 07-03 Task 2 |
+| COEX-07, COEX-09 (manual halves) | 07-04 Tasks 1 and 2 |
+
+### Corrections to this file, made at plan time
+
+1. **`test_control_panel_view` does not exist.** This file and `07-RESEARCH.md` both marked the
+   control-panel half of COEX-04 as already covered. Verified false: nothing in the suite calls
+   `GoogleAuthenticatorSettingsEditForm.render()` or opens `@@google-authenticator-settings`.
+   `tests/test_helpers.py::test_bulk_enable_reports_failure_when_seed_key_is_broken` instantiates the
+   form and calls `update()` and `handleSave`, never `render()`. The row above is corrected: the
+   control-panel fragment had **zero** coverage, and the new test is
+   `test_render_appends_the_extra_links` in a **new** `tests/test_controlpanel.py` (R5: one test file
+   per production file).
+
+2. **Two pre-existing tests must be EDITED, not merely kept green.** Neither is listed as a Wave 0
+   item because neither is new, but both go red if the phase's deletions land without them:
+   - `tests/test_setuphandlers.py::test_registered_javascript_loads_after_jquery` — its `ours` tuple
+     names the vendored resource id and asserts it is registered. `07-RESEARCH.md`'s Pitfall 4 claims
+     both jsregistry tests need no edit; that is correct for
+     `test_every_javascript_registration_pins_its_position` (which parses the XML and skips removal
+     nodes) and **wrong** for this one. Edited in 07-01 Task 1.
+   - `tests/test_generic.py::test_manifest_ships_the_profile_and_catalogues` — its `required` tuple
+     asserts the `MANIFEST.in` directive for the deleted skin directory. Edited in 07-02 Task 1.
+   - `tests/test_request_bar_code_reset.py::setUp` — its `setupCurrentSkin` call becomes dead once the
+     email body is no longer a skin template. Removed in 07-02 Task 1.
+
+3. **One test added beyond this map**, from the phase's assumption-delta decision:
+   `tests/test_setuphandlers.py::test_profile_only_registers_resources_it_owns` (07-03 Task 1) asserts
+   every `id` in all four of this package's resource-registry profile files begins with
+   `++resource++imio.googleauthenticator/`. It is the invariant that goes red if a future phase
+   reintroduces the singular-owner assumption COEX-03 removes.
 
 ---
 
@@ -78,6 +119,8 @@ re-planning. The planner must map each row onto a concrete task ID in its PLAN.m
 - [ ] Filesystem/XML assertion tests for COEX-02, COEX-03 and COEX-05 (deletion facts)
 - [ ] Install→uninstall registry round-trip test for COEX-06
 - [ ] Browser tests for COEX-01 and COEX-09
+- [ ] New `tests/test_controlpanel.py` with `test_render_appends_the_extra_links` (COEX-04) — the
+      control-panel fragment's coverage is genuinely zero today, see Correction 1 above
 - **Framework install: none.** `zope.testrunner`, `plone.app.testing` and
   `plone.testing.z2.Browser` are already fully wired in this package.
 
