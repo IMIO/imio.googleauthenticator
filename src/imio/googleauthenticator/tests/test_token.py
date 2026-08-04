@@ -25,6 +25,7 @@ from plone.app.testing import TEST_USER_NAME
 from plone.app.testing import TEST_USER_PASSWORD
 from plone.testing.z2 import Browser
 
+import imio.googleauthenticator
 from imio.googleauthenticator import helpers
 from imio.googleauthenticator.helpers import get_or_create_secret
 from imio.googleauthenticator.testing import \
@@ -577,3 +578,270 @@ class TestTokenFormLockout(unittest.TestCase, BaseTest):
                 'two_factor_authentication_recovery_codes_hashes')),
             'a refused cross-user attempt must not touch the other '
             "user's hash list either")
+
+    def test_recovery_code_failure_shares_the_totp_lockout_counter(self):
+        """RECOV-05: a wrong recovery code increments the same counter a
+        wrong TOTP code does, and a mixed run of five failures (some
+        recovery codes, some TOTP codes) locks the account exactly like
+        five failures of one kind would -- the counter does not
+        distinguish the two kinds. MFA-11 for the new kind: a successful
+        recovery code resets both the counter and the lock through the
+        same reset_failed_second_factor call a TOTP success uses.
+        """
+        user = self._enable_2fa()
+        codes = helpers.generate_recovery_codes(user)
+        transaction.commit()
+
+        wrong_recovery_code = u'A' * 16
+        self.assertNotIn(
+            wrong_recovery_code, codes,
+            'fixture must not accidentally be a genuine code, or this '
+            'test proves nothing')
+
+        browser = self._get_browser()
+        self._login_browser(browser, TEST_USER_NAME, TEST_USER_PASSWORD)
+        self.assertIn('@@google-authenticator-token', browser.url)
+
+        # Failure 1: a wrong recovery code.
+        self._submit_token(browser, wrong_recovery_code)
+        user = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            1,
+            user.getProperty('two_factor_authentication_failed_attempts'),
+            'RECOV-05: a wrong recovery code must increment the same '
+            'counter a wrong TOTP code does')
+
+        # Failures 2-4: three wrong six-digit codes.
+        for _attempt in range(3):
+            self._submit_token(browser, u'000000')
+
+        user = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            0,
+            user.getProperty('two_factor_authentication_locked_until'),
+            'non-vacuity control: four failures of two kinds must not '
+            'yet lock the account, or the fifth-failure assertion below '
+            'proves nothing')
+
+        # Failure 5: one more wrong recovery code. Five failures made of
+        # two kinds must lock the account exactly like five of one kind
+        # would -- a counter that distinguished the two kinds would need
+        # five of *one* kind and would not lock here.
+        self._submit_token(browser, wrong_recovery_code)
+
+        user = api.user.get(username=TEST_USER_NAME)
+        self.assertGreater(
+            user.getProperty('two_factor_authentication_locked_until'),
+            int(time.time()),
+            'RECOV-05: a mixed five-failure run must lock the account')
+        self.assertEqual(
+            0,
+            user.getProperty('two_factor_authentication_failed_attempts'),
+            'MFA-13/P5-05: the lock write must zero the failure counter '
+            'in the same call')
+
+        # Clear the lock directly and submit a genuine, unused code.
+        user.setMemberProperties(
+            mapping={'two_factor_authentication_locked_until': 0})
+        transaction.commit()
+
+        self._submit_token(browser, codes[0])
+        self.assertNotIn(
+            '@@google-authenticator-token', browser.url,
+            'a genuine unused recovery code must log the user in once '
+            'the lock is cleared')
+
+        user = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            0,
+            user.getProperty('two_factor_authentication_failed_attempts'),
+            'MFA-11 for the recovery-code kind: a successful recovery '
+            'code must reset the counter, through the same '
+            'reset_failed_second_factor call a TOTP success uses')
+        self.assertEqual(
+            0,
+            user.getProperty('two_factor_authentication_locked_until'),
+            'MFA-11 for the recovery-code kind: a successful recovery '
+            'code must reset the lock')
+
+    def test_low_recovery_code_count_warning(self):
+        """RECOV-07: a consumption that leaves three or fewer codes
+        remaining queues one warning-level status message naming the
+        remaining count; a consumption that leaves four or more queues
+        none -- three-and-four is the adjacency boundary and both sides
+        are asserted here (T-06-04). Neither a failed submission nor an
+        anonymous, unsigned submission ever renders the warning text --
+        the count never reaches a caller who has not just authenticated
+        with a genuine, unused code.
+        """
+        user = self._enable_2fa()
+        codes = helpers.generate_recovery_codes(user)
+        transaction.commit()
+
+        warning_message_re = re.compile(
+            r'<dl class="portalMessage warning">\s*<dt>.*?</dt>\s*'
+            r'<dd>(.*?)</dd>\s*</dl>', re.DOTALL)
+
+        wrong_recovery_code = u'A' * 16
+        self.assertNotIn(
+            wrong_recovery_code, codes,
+            'fixture must not accidentally be a genuine code, or this '
+            'test proves nothing')
+
+        def _consume(code):
+            # A successful submission logs that session in, so it cannot
+            # submit again -- a fresh browser per consumption, following
+            # test_successful_second_factor_resets_failed_attempts's own
+            # precedent.
+            browser = self._get_browser()
+            self._login_browser(
+                browser, TEST_USER_NAME, TEST_USER_PASSWORD)
+            self._submit_token(browser, code)
+            self.assertNotIn(
+                '@@google-authenticator-token', browser.url,
+                'precondition: {0!r} must be a genuine, unused code, or '
+                'this test proves nothing'.format(code))
+            return browser.contents
+
+        # Consuming codes 0-4 leaves five, then still five-or-more
+        # remaining after each -- no warning at any of these five steps.
+        for code in codes[:5]:
+            contents = _consume(code)
+            self.assertNotIn(
+                'Recovery codes remaining:', contents,
+                'no warning must appear while five or more codes remain')
+
+        # Consuming code 5 leaves four remaining -- RECOV-07 adjacency:
+        # four must not warn.
+        contents = _consume(codes[5])
+        self.assertNotIn(
+            'Recovery codes remaining:', contents,
+            'RECOV-07 adjacency: four remaining must not warn')
+        user = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            4,
+            len(user.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')))
+
+        # A failed submission while four remain: no warning at all,
+        # since the warning is unreachable from the failure path by
+        # construction (T-06-04's oracle half).
+        failed_browser = self._get_browser()
+        self._login_browser(
+            failed_browser, TEST_USER_NAME, TEST_USER_PASSWORD)
+        self._submit_token(failed_browser, wrong_recovery_code)
+        self.assertIn(
+            '@@google-authenticator-token', failed_browser.url,
+            'precondition: the wrong recovery code must be refused')
+        self.assertNotIn(
+            'Recovery codes remaining:', failed_browser.contents,
+            'RECOV-07/T-06-04: a failed submission must never render '
+            'the warning')
+
+        # Consuming code 6 leaves three remaining -- RECOV-07 adjacency:
+        # three must warn, and the message must be warning-class.
+        contents = _consume(codes[6])
+        self.assertIn(
+            'Recovery codes remaining:', contents,
+            'RECOV-07 adjacency: three remaining must warn')
+        match = warning_message_re.search(contents)
+        self.assertIsNotNone(
+            match,
+            'the warning must be rendered as a warning-class '
+            'portalMessage, not merely present somewhere on the page')
+        self.assertIn('Recovery codes remaining:', match.group(1))
+
+        # The stored hash count, not the interpolated markup text, is
+        # what this assertion hinges on -- zope.i18n's ${remaining}
+        # substitution on an untranslated msgid is one indirection this
+        # assertion does not need to depend on.
+        user = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            3,
+            len(user.getProperty(
+                'two_factor_authentication_recovery_codes_hashes')))
+
+        # An anonymous, unsigned caller learns nothing about the count
+        # either -- using this file's existing no-signature idiom.
+        anon_browser = self._get_browser()
+        anon_browser.open(
+            '{0}/@@google-authenticator-token?auth_user={1}'.format(
+                self.portal_url, TEST_USER_NAME))
+        self._submit_token(anon_browser, u'000000')
+        self.assertNotIn(
+            'Recovery codes remaining:', anon_browser.contents,
+            'RECOV-07/T-06-04: an anonymous caller must never see the '
+            'warning')
+
+    def test_second_factor_dispatch_has_exactly_one_call_site_per_outcome(self):
+        """The generalized-intent invariant recorded in plan 06-01's
+        assumption_delta_decision: token.py has exactly one dispatcher
+        call, one failure-counter call and one reset call, so every
+        accepted second factor of every kind routes through the same
+        success path and every refused one through the same failure
+        path. user_setup.py and reset_bar_code.py both still demand a
+        TOTP code -- neither can be satisfied by a recovery code,
+        because both exist to prove current possession of the
+        authenticator device, and accepting a recovery code at either
+        would let one code perpetuate itself into a fresh set or a
+        fresh seed with no device proof.
+
+        Assertion 3 (``validate_token(`` present in both sibling forms)
+        is the non-vacuity control for assertion 4 (the dispatcher
+        absent from both): without it, a broken search that finds
+        nothing anywhere would make assertion 4 pass vacuously. The
+        counted assertions in 1 and 2 are what encode the generalized
+        intent -- one second-factor concept, one dispatch point, one
+        outcome pair -- so a future phase adding a third credential kind
+        extends the dispatcher rather than the view.
+        """
+        package_dir = os.path.dirname(imio.googleauthenticator.__file__)
+
+        with open(os.path.join(
+                package_dir, 'browser', 'forms', 'token.py')) as handle:
+            token_source = handle.read()
+        with open(os.path.join(
+                package_dir, 'browser', 'forms', 'user_setup.py')) as handle:
+            user_setup_source = handle.read()
+        with open(os.path.join(
+                package_dir, 'browser', 'forms',
+                'reset_bar_code.py')) as handle:
+            reset_bar_code_source = handle.read()
+
+        self.assertEqual(
+            1, token_source.count('validate_second_factor('),
+            'exactly one dispatcher call site must exist in token.py -- '
+            'two would mean a parallel branch was added, precisely the '
+            'singular-assumption regression this test exists to catch')
+        self.assertEqual(
+            1, token_source.count('register_failed_second_factor('),
+            'exactly one failure-counter call site must exist in '
+            'token.py, so every refused second factor of every kind '
+            'routes through one failure path')
+        self.assertEqual(
+            1, token_source.count('reset_failed_second_factor('),
+            'exactly one reset call site must exist in token.py, so '
+            'every accepted second factor of every kind routes through '
+            'one success path')
+
+        # Non-vacuity control for the two absence assertions below: the
+        # search must be proven to find something before it is trusted
+        # to find nothing.
+        self.assertIn(
+            'validate_token(', user_setup_source,
+            'non-vacuity control: user_setup.py must still demand a '
+            'TOTP code')
+        self.assertIn(
+            'validate_token(', reset_bar_code_source,
+            'non-vacuity control: reset_bar_code.py must still demand '
+            'a TOTP code')
+
+        self.assertNotIn(
+            'validate_second_factor(', user_setup_source,
+            'user_setup.py must not accept a recovery code in place of '
+            'a TOTP code -- it exists to prove current possession of '
+            'the authenticator device')
+        self.assertNotIn(
+            'validate_second_factor(', reset_bar_code_source,
+            'reset_bar_code.py must not accept a recovery code in '
+            'place of a TOTP code -- same reasoning as user_setup.py')
