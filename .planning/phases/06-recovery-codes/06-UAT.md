@@ -1,28 +1,34 @@
 ---
-status: testing
+status: complete
 phase: 06-recovery-codes
 source: [06-VERIFICATION.md]
 started: 2026-08-04T08:05:22Z
-updated: 2026-08-04T08:05:22Z
+updated: 2026-08-04T08:12:00Z
 ---
 
 ## Current Test
 
-number: 1
-name: Decide whether the missing lockout wiring on the enrollment/regeneration form must be fixed before Phase 6 closes, or is accepted as deferred risk
-expected: |
-  A deliberate, recorded decision — either a follow-up plan wires the shared lockout
-  counter into browser/forms/user_setup.py's handleSubmit (mirroring the shape already
-  in browser/forms/reset_bar_code.py), or the project record states why leaving that
-  check unthrottled is acceptable.
-awaiting: user response
+[testing complete]
 
 ## Tests
 
 ### 1. Lockout wiring on the enrollment / regeneration form
 
 expected: A recorded decision — fix or explicitly accept.
-result: [pending]
+result: pass
+decision: accepted as deferred risk
+decided_by: Chris
+decided_at: 2026-08-04
+
+**Decision.** The operator reviewed the facts below and accepted the current state as
+deferred risk. No lockout wiring will be added to `browser/forms/user_setup.py` in
+Phase 6. Phase 6 closes with this state recorded.
+
+**Rationale carried forward.** The exposure is bounded by the fact that the same form
+already renders the account's own TOTP secret (as a QR code) to any authenticated,
+site-local user who loads it, so repeated code guessing gains an attacker nothing they
+could not read directly off the page. Closing the gap remains worthwhile for consistency
+between the three second-factor checks and is a candidate for a later phase.
 
 **What the code does today.** `browser/forms/user_setup.py:94` validates the submitted
 TOTP code with a bare `validate_token(token)` call. It does not call `is_account_locked`
@@ -55,9 +61,9 @@ nothing in the phase mechanically fails because of it.
 ## Summary
 
 total: 1
-passed: 0
+passed: 1
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
 blocked: 0
 
