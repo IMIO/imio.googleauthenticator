@@ -335,13 +335,16 @@ This package is beta. Comments and suggestions are welcome.
         the bar code image. Filled in automatically when user enables the two-step verification.
 - Google Authenticator disable view, on which user can disable the two-step verification for
   his account.
-- The Plone standard login form (skins/login_form.cpt) has been overridden (the `came_from`
-  form field taken out).
-  Still the "came from" functionality works still in the very same way as it was before, just
-  slightly different - in a way that it works well with Google Authenticator too.
-- The Plone standard "popupforms.js" has been overridden. The part of login forms being shown
-  in an overlay has been taken out, due to the problems of Google Authenticator working with
-  overlays. This issue might be solved in future versions of the app.
+- This package ships **no** override of Plone's login form and **no** copy of Plone's
+  overlay script (``popupforms.js``). Plone 4.3's own login overlay is used unmodified;
+  ``TokenForm`` renders the ``id="login_form"`` attribute that overlay's form selector
+  binds its ajax fetch on, so the token step served at ``@@google-authenticator-token``
+  loads inside the same overlay the stock login form uses.
+- Because of this, the package registers only resources under its own
+  ``++resource++imio.googleauthenticator/`` prefix and never unregisters a resource it
+  does not own. Installing it alongside another add-on that repositions a stock Plone
+  resource -- ``imio.dms.mail`` does exactly that, for ``popupforms.js`` -- cannot break
+  that add-on, regardless of which package's GenericSetup profile imports first.
 
 Documentation
 ================================================

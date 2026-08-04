@@ -190,6 +190,56 @@ Changelog
   and the bounce looked like the reset had failed. The form now re-renders
   itself with the confirmation, as its failure branch already did.
   [chris-adam]
+- Deleted the vendored login-form override (``skins/googleauthenticator_custom/
+  login_form.cpt``) and the vendored copy of Plone's overlay script
+  (``browser/static/plone_ecmascript/popupforms.js``), along with the entire
+  skin layer (``skins/`` directory, ``profiles/default/skins.xml``, and
+  ``configure.zcml``'s filesystem-directory registration). Plone's own stock
+  login form and overlay script are now used unmodified (COEX-02, COEX-03,
+  COEX-05).
+  [chris-adam]
+- ``TokenForm`` now renders ``id="login_form"`` on the served
+  ``@@google-authenticator-token`` markup, the selector Plone's own untouched
+  overlay script binds its ajax fetch on, so the token step loads inside the
+  same overlay the stock login form uses (COEX-01, COEX-09).
+  [chris-adam]
+- The two auxiliary templates the control panel and the bar-code reset email
+  used to reach through a skin-name ``restrictedTraverse`` lookup
+  (``control_panel_extra.html``, ``request_bar_code_reset_email.pt``) are now
+  ``ViewPageTemplateFile`` class attributes on their respective views (COEX-04).
+  [chris-adam]
+- Added a real ``profiles/uninstall/`` for this package's own two resources:
+  ``++resource++imio.googleauthenticator/main.js`` and ``main.css``. Uninstalling
+  no longer leaves the whole site without Plone's overlay script, is idempotent,
+  and is reversible by re-applying the default profile (COEX-06).
+  [chris-adam]
+- Proved, in both application orders and under a repeated profile import, that
+  this package's own profile does not collide with ``imio.dms.mail``'s bare
+  reposition entry for Plone's stock ``popupforms.js`` resource (COEX-07,
+  automated half; the real two-egg install is a manual verification item).
+  [chris-adam]
+- The post-token redirect target is now validated against the portal with
+  ``isURLInPortal()`` before redirecting: an off-site ``next_url`` is refused
+  and falls back to the portal context URL instead of being honoured (BUG-01).
+  [chris-adam]
+- ``CameFromAdapter.getCameFrom()`` now percent-encodes the ``came_from`` value
+  it reads, so a value containing ``&``, ``=``, ``+`` or a space can no longer
+  forge or truncate the ``&next_url=...`` query-string parameter it is appended
+  to (BUG-06).
+  [chris-adam]
+
+  **Upgrade note.** A site that already applied a previous version of this
+  package's ``profiles/default/jsregistry.xml`` had Plone's own
+  ``popupforms.js`` resource unregistered from ``portal_javascripts``. This
+  release does not re-register it -- nothing in this package can, only
+  Plone's own ``Products.CMFPlone`` profile registers that resource. On such
+  a site, upgrading the egg and re-applying this package's profile will
+  **not** bring the overlay script back. Recover by re-running
+  ``Products.CMFPlone``'s own ``jsregistry`` import step from
+  ``portal_setup``, or by recreating the site. The stale
+  ``googleauthenticator_custom`` skin layer left in ``portal_skins`` on the
+  same site is the second such leftover artifact to clear.
+  [chris-adam]
 
 0.3.0 (unreleased)
 ------------------
