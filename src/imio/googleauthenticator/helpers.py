@@ -913,12 +913,11 @@ def extract_request_data(request):
 
 def extract_next_url_from_referer(request, quote_url=False):
     """
-    Since we override the default Plone functionality (take out the `came_from`
-    from the login form for a very strong reason), we want to make sure that
-    for users, the "came from" functionality stays intact.
-    That why, we check the referer for the `came_from` attributes and if
-    present, redirect to that after successful two-factor authentication token
-    validation.
+    Reads the `came_from` value out of the referer's query string -- not out of
+    `request.form` -- so the "came from" functionality stays intact independently of
+    whatever hidden inputs the login form itself renders. We check the referer for the
+    `came_from` attribute and if present, redirect to that after successful two-factor
+    authentication token validation.
 
     :param request ZPublisher.HTTPRequest:
     :return string: Extracted `came_from` URL.

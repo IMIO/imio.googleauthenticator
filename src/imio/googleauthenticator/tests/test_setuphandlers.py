@@ -421,3 +421,37 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
             'registered after this package installs -- this is the '
             "assertion that actually proves the imio.dms.mail collision "
             'is closed, not merely that our file changed')
+
+    def test_login_form_override_is_deleted(self):
+        """COEX-02: the vendored ``login_form.cpt`` override and its
+        ``.metadata`` file must not exist on disk.
+
+        Non-vacuity control, same idiom
+        ``test_no_second_factor_state_written_from_the_plugin`` uses: a
+        file that should still exist under the package directory
+        (``profiles/default/jsregistry.xml``, not scheduled for deletion
+        in this phase) really does exist, so a wrong ``package_dir`` --
+        which would make every absence assertion below pass vacuously --
+        is caught.
+        """
+        package_dir = os.path.dirname(imio.googleauthenticator.__file__)
+
+        control_path = os.path.join(
+            package_dir, 'profiles', 'default', 'jsregistry.xml')
+        self.assertTrue(
+            os.path.exists(control_path),
+            'Non-vacuity control: {0} must exist, or package_dir is wrong '
+            'and the absence assertions below would pass vacuously'.format(
+                control_path))
+
+        override_path = os.path.join(
+            package_dir, 'skins', 'googleauthenticator_custom',
+            'login_form.cpt')
+        self.assertFalse(
+            os.path.exists(override_path),
+            'COEX-02: the vendored login_form.cpt override must not '
+            'exist: {0}'.format(override_path))
+        self.assertFalse(
+            os.path.exists(override_path + '.metadata'),
+            'COEX-02: the vendored login_form.cpt.metadata must not '
+            'exist: {0}.metadata'.format(override_path))

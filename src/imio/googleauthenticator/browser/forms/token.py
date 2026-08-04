@@ -13,6 +13,7 @@ from plone import api
 from plone.directives import form
 from plone.z3cform.layout import wrap_form
 
+from Products.CMFCore.utils import getToolByName
 from Products.statusmessages.interfaces import IStatusMessage
 
 from imio.googleauthenticator.helpers import drop_login_failed_msg
@@ -160,6 +161,17 @@ class TokenForm(form.SchemaForm):
             request_data = extract_request_data(self.request)
             context_url = self.context.absolute_url()
             redirect_url = request_data.get('next_url', context_url)
+
+            # BUG-01: refuse an off-site redirect target rather than warn
+            # and continue, or rewrite it. Plone's own stock login form
+            # guards its `came_from`/`next` the exact same way -- see
+            # plone_login/login_form.cpt's `isURLInPortal(...)` calls --
+            # so this reuses that existing idiom rather than hand-rolling
+            # a urlparse host comparison.
+            portal_url_tool = getToolByName(self.context, 'portal_url')
+            if not portal_url_tool.isURLInPortal(redirect_url):
+                redirect_url = context_url
+
             self.request.response.redirect(redirect_url)
         else:
             if user is not None:

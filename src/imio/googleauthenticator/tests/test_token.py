@@ -182,6 +182,51 @@ class TestTokenFormLockout(unittest.TestCase, BaseTest):
             'a valid code submitted from the header-link path must '
             'complete the login')
 
+    def test_next_url_is_validated_against_the_portal(self):
+        """BUG-01: an off-site ``next_url`` on the token-form URL must be
+        refused, falling back to a known-good same-site URL -- never a
+        warn-and-continue, never a rewrite of the attacker's value.
+
+        Both halves in one method (WR-03): the on-site case is the
+        non-vacuity control, since a guard that refused every ``next_url``
+        (including a legitimate one) would otherwise pass the first half
+        for the wrong reason. The second login uses a recovery code
+        instead of a second TOTP code, because both logins land in the
+        same ~30-second TOTP interval and ``validate_token`` refuses a
+        second acceptance of the same interval as a replay (MFA-06) --
+        a recovery code is not subject to that per-interval guard.
+        """
+        user = self._enable_2fa()
+        secret = helpers.get_secret(user)
+        recovery_codes = helpers.generate_recovery_codes(user)
+        transaction.commit()
+
+        browser = self._get_browser()
+        self._login_browser(browser, TEST_USER_NAME, TEST_USER_PASSWORD)
+        self.assertIn('@@google-authenticator-token', browser.url)
+
+        browser.open(browser.url + '&next_url=http://evil.example.com/')
+        code = get_totp(secret, as_string=True)
+        self._submit_token(browser, code)
+        self.assertTrue(
+            browser.url.startswith(self.portal_url),
+            'BUG-01: a refused off-site next_url must fall back to a '
+            'same-site URL, not the attacker-supplied one: {0}'.format(
+                browser.url))
+        self.assertNotIn('evil.example.com', browser.url)
+
+        second_browser = self._get_browser()
+        self._login_browser(
+            second_browser, TEST_USER_NAME, TEST_USER_PASSWORD)
+        second_browser.open(
+            second_browser.url + '&next_url=' + self.portal_url)
+        self._submit_token(second_browser, recovery_codes[0])
+        self.assertEqual(
+            self.portal_url, second_browser.url,
+            'non-vacuity control: an on-site next_url must be honoured, '
+            'or a guard that refuses everything would have passed the '
+            'off-site assertion above for the wrong reason')
+
     def test_lockout_after_five_failures(self):
         """MFA-08: five consecutive wrong codes lock the account for the
         configured duration. MFA-13 boundary: the 4th consecutive failure

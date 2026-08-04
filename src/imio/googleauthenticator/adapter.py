@@ -67,10 +67,15 @@ class CameFromAdapter(object):
     """
     Came from handling.
 
-    Plone `came_from` field had to be taken out of the login form, so that users always get the
-    token validation screen, prior to being redirected to page they came from. The came_from
-    is instead extracted from referer and handled in such a way, that Plone functionality stays
-    intact.
+    The `came_from` value is recovered from the referer's query string, deliberately
+    independent of whatever hidden inputs the login form itself renders -- Plone's own
+    `login_form.cpt` (no longer overridden by this package) is free to carry its stock
+    `came_from` hidden input again without this adapter needing to read it, because the
+    token-validation step this package inserts always happens between the login form and
+    the page the user came from, and `getCameFrom()` is the sole channel across that gap.
+    The value returned is percent-encoded, because the consumer appends it to a query
+    string as `&next_url=...` and the reader `unquote()`s it -- an unquoted `&` or `=` in
+    a `came_from` would otherwise split into a forged extra parameter.
 
     In cases your existing package smuggles with `came_from` (for example, you want users first
     to accept terms and conditions prior redirection), you would likely need to define
@@ -108,6 +113,11 @@ class CameFromAdapter(object):
         """
         Extracts the ``came_from`` value from the referrer (uses global request).
 
+        The value is quoted (``quote_url=True``) because the caller appends it to a
+        query string as ``&next_url=...`` and the reader ``unquote()``s it -- an
+        unquoted ``&``, ``=``, ``+`` or space in a ``came_from`` would otherwise split
+        into, or corrupt, a forged extra parameter.
+
         :return string:
         """
-        return extract_next_url_from_referer(self.request)
+        return extract_next_url_from_referer(self.request, quote_url=True)
