@@ -74,8 +74,8 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [x] **COEX-01**: `TokenForm` carries `id = 'login_form'` so Plone's stock overlay finds it with no vendored JavaScript
 - [x] **COEX-02**: The `login_form.cpt` override and its `.metadata` are deleted
 - [x] **COEX-03**: The vendored `popupforms.js` copy, its `jsregistry.xml` entries, and the `remove="True"` line that permanently unregisters Plone's own resource are all deleted
-- [ ] **COEX-04**: `control_panel_extra.html` and `request_bar_code_reset_email.pt` still work, converted to `ViewPageTemplateFile` — they are reached by `restrictedTraverse` and are not overrides
-- [ ] **COEX-05**: The skin layer, `skins.xml`, `registerDirectory` and the `skins/` directory are gone
+- [x] **COEX-04**: `control_panel_extra.html` and `request_bar_code_reset_email.pt` still work, converted to `ViewPageTemplateFile` — they are reached by `restrictedTraverse` and are not overrides
+- [x] **COEX-05**: The skin layer, `skins.xml`, `registerDirectory` and the `skins/` directory are gone
 - [ ] **COEX-06**: A real `profiles/uninstall/` restores anything the install profile changed
 - [ ] **COEX-07**: Installing this package alongside `imio.dms.mail` leaves both working regardless of install order, verified with both orders
 - [x] **COEX-08**: The challenge fires on both paths — `IChallengePlugin` for requests ending in `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which returns HTTP 200
@@ -207,8 +207,8 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | COEX-01 | Phase 7 | Complete |
 | COEX-02 | Phase 7 | Complete |
 | COEX-03 | Phase 7 | Complete |
-| COEX-04 | Phase 7 | Pending |
-| COEX-05 | Phase 7 | Pending |
+| COEX-04 | Phase 7 | Complete |
+| COEX-05 | Phase 7 | Complete |
 | COEX-06 | Phase 7 | Pending |
 | COEX-07 | Phase 7 | Pending |
 | COEX-08 | Phase 4 | Complete |

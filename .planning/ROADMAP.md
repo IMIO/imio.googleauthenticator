@@ -274,7 +274,7 @@ Plans:
   4. A test asserts an off-site `next_url` is refused and an on-site one honoured, with query-string values URL-encoded on the way in. **Same commit as the `login_form.cpt` deletion**: the stale copy deleted Plone 4.3.20's `came_from` hidden input, which is the only reason `CameFromAdapter` exists, so removing the copy restores the field and changes what `ICameFrom` sees.
   5. `control_panel_extra.html` and `request_bar_code_reset_email.pt` still render, converted to `ViewPageTemplateFile`, with no `restrictedTraverse` into a skin left in the package.
 
-**Plans**: 1/4 plans executed
+**Plans**: 2/4 plans executed
 
 Plans:
 **Wave 1**
@@ -283,7 +283,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 07-02-PLAN.md — Convert both live skin templates to `ViewPageTemplateFile` class attributes and delete the skin directory, `skins.xml`, `registerDirectory` and the packaging include in one commit, plus the absence assertions (COEX-04, COEX-05)
+- [x] 07-02-PLAN.md — Convert both live skin templates to `ViewPageTemplateFile` class attributes and delete the skin directory, `skins.xml`, `registerDirectory` and the packaging include in one commit, plus the absence assertions (COEX-04, COEX-05)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -343,7 +343,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4. PAS Boundary | 4/4 | Complete    | 2026-07-31 |
 | 5. Drift, Replay and Lockout | 5/5 | Complete    | 2026-08-03 |
 | 6. Recovery Codes | 3/3 | Complete    | 2026-08-04 |
-| 7. Coexistence with imio.dms.mail | 1/4 | In Progress|  |
+| 7. Coexistence with imio.dms.mail | 2/4 | In Progress|  |
 | 8. Coverage Instrument and Test Layers | 0/TBD | Not started | - |
 
 ## Same-Commit Requirements

@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 07
 current_phase_name: coexistence-with-imio-dms-mail
 status: executing
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-08-04T15:14:41.384Z"
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-08-04T15:46:18.533Z"
 last_activity: 2026-08-04
 last_activity_desc: Phase 07 execution started
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 25
-  completed_plans: 22
+  completed_plans: 23
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-31)
 ## Current Position
 
 Phase: 07 (coexistence-with-imio-dms-mail) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-08-04 — Phase 07 execution started
 
-Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([█████████░] 88%)**
+Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([█████████░] 92%)**
 
 Phases 5–8 still have no plans, so the 13-plan denominator will grow; the phase figure
 remains the honest one.
@@ -94,6 +94,7 @@ recorded as WR-01 and WR-02 in `04-REVIEW.md`.
 | Phase 06 P02 | 50min | 3 tasks | 6 files |
 | Phase 06 P03 | 35min | 3 tasks | 3 files |
 | Phase 07 P01 | 70min | 2 tasks | 8 files |
+| Phase 07 P02 | 35min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -150,6 +151,9 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 6]: 06-03: extended test_no_second_factor_state_written_from_the_plugin (MFA-12) in place rather than a parallel test -- absence tuples gained both recovery-code properties and all three new helper functions; positive controls restructured into (name, source, label) triples pinned per-file. Both non-vacuity mutations (pas_plugin.py, subscribers.py) reproduced red and restored byte-identical, plus a third check confirming a wrongly-paired positive control also fails.
 - [Phase ?]: [Phase 07]: 07-01: R5-vs-WR-03 test placement -- followed this repo's own WR-03 precedent (one test method per requirement, grouped by concern) over the plone-write-tests skill's R5; new COEX-01/COEX-09/BUG-01 tests landed in the existing TestTokenFormLockout class, not a second class.
 - [Phase ?]: [Phase 07]: 07-01: test_next_url_is_validated_against_the_portal's second (on-site) login uses a recovery code, not a second TOTP code, because two genuine TOTP logins moments apart land in the same ~30s interval and MFA-06's replay guard would refuse the second acceptance -- a hazard the plan text did not call out, found during execution.
+- [Phase ?]: [Phase 07]: 07-02: control-panel render() non-vacuity control uses super(GoogleAuthenticatorSettingsEditForm, form).render() -- the same call render() makes internally -- asserting startswith() and strict length growth, rather than a heading-only fallback.
+- [Phase ?]: [Phase 07]: 07-02: Task 1/Task 2 commit boundary drifted from the plan's file split -- test_no_restrictedTraverse_left_in_browser_code and the test_resources_are_registered docstring fix landed in Task 1's commit with the rest of test_generic.py's edits, not Task 2's; content matches the plan, only the commit differs.
+- [Phase ?]: [Phase 07]: 07-02: git mv leaves an empty skins/googleauthenticator_custom directory on disk after both templates are relocated -- required an explicit rm -rf before the skin-directory-absence test could pass, since os.path.exists() is True for an empty directory.
 
 ### Pending Todos
 
@@ -181,6 +185,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-04T15:14:41.369Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-08-04T15:46:18.515Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None
