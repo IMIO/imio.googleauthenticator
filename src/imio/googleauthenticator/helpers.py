@@ -67,6 +67,10 @@ RECOVERY_CODE_ALPHABET = frozenset('ABCDEFGHIJKLMNOPQRSTUVWXYZ234567')
 # checkpoint:decision selected option-a over the pre-agreed 20k-200k
 # envelope (STATE.md records the decision and its rationale).
 RECOVERY_CODE_PBKDF2_ITERATIONS = 100000
+# RECOV-07's warning threshold: a consumption that leaves this many or
+# fewer codes remaining queues one warning. Comparison is inclusive --
+# three warns, four does not.
+RECOVERY_CODE_LOW_WATERMARK = 3
 
 
 def get_encryption_key():
@@ -686,6 +690,30 @@ def validate_recovery_code(token, user=None):
             user.setMemberProperties(mapping={
                 'two_factor_authentication_recovery_codes_hashes': remaining,
             })
+
+            # RECOV-07: warn only here, inside the accept branch, after the
+            # consume write and before return True -- unreachable from a
+            # failed or anonymous attempt by construction, not by a
+            # conditional a later edit could invert (T-06-04). The count
+            # is state of a security control, so it must never reach an
+            # unauthenticated or failed caller.
+            if len(remaining) <= RECOVERY_CODE_LOW_WATERMARK:
+                # A missing current request must degrade to silence, not
+                # to a refusal (T-06-13): the security outcome (the code
+                # was valid and is consumed) is already decided and
+                # written above; only this courtesy notice is at stake.
+                # Deliberately not a blanket try/except around the whole
+                # accept branch -- a PropertyValueError from the write
+                # above must still surface as a 500.
+                request = getRequest()
+                if request is not None:
+                    IStatusMessage(request).addStatusMessage(
+                        _(u"Recovery codes remaining: ${remaining}. "
+                          u"Generate a new set from your personal "
+                          u"information page.",
+                          mapping={'remaining': len(remaining)}),
+                        'warning')
+
             return True
 
     return False
