@@ -243,7 +243,7 @@ Plans:
   4. The user can regenerate the whole set, and a test asserts every previously issued code stops working.
   5. The user is warned when 3 or fewer codes remain.
 
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed
 
 Plans:
 **Wave 1**
@@ -253,7 +253,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 06-02-PLAN.md — Issue the codes at enrollment, render them exactly once in the same response (no redirect, no stored plaintext), and add a `regenerate_recovery_codes` portal action reusing the existing availability view (RECOV-01, RECOV-03, RECOV-06)
-- [ ] 06-03-PLAN.md — The shared lockout counter proven at the real form, the "3 or fewer remain" warning on the success path only, and the MFA-12 source guard extended to this phase's new writers (RECOV-05, RECOV-07)
+- [x] 06-03-PLAN.md — The shared lockout counter proven at the real form, the "3 or fewer remain" warning on the success path only, and the MFA-12 source guard extended to this phase's new writers (RECOV-05, RECOV-07)
 
 **Phase notes:**
 
@@ -319,7 +319,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 3. Encrypted Seeds and Local QR | 3/3 | Complete    | 2026-07-30 |
 | 4. PAS Boundary | 4/4 | Complete    | 2026-07-31 |
 | 5. Drift, Replay and Lockout | 5/5 | Complete    | 2026-08-03 |
-| 6. Recovery Codes | 2/3 | In Progress|  |
+| 6. Recovery Codes | 3/3 | In Progress|  |
 | 7. Coexistence with imio.dms.mail | 0/TBD | Not started | - |
 | 8. Coverage Instrument and Test Layers | 0/TBD | Not started | - |
 

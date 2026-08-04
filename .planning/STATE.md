@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 06
 current_phase_name: recovery-codes
 status: executing
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-08-03T14:45:54.200Z"
-last_activity: 2026-08-03
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-08-04T07:41:53.089Z"
+last_activity: 2026-08-04
 last_activity_desc: Phase 06 execution started
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Project State
@@ -30,9 +30,9 @@ See: .planning/PROJECT.md (updated 2026-07-31)
 Phase: 06 (recovery-codes) — EXECUTING
 Plan: 3 of 3
 Status: Ready to execute
-Last activity: 2026-08-03 — Phase 06 execution started
+Last activity: 2026-08-04 — Phase 06 execution started
 
-Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([██████████] 95%)**
+Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([██████████] 100%)**
 
 Phases 5–8 still have no plans, so the 13-plan denominator will grow; the phase figure
 remains the honest one.
@@ -91,6 +91,7 @@ recorded as WR-01 and WR-02 in `04-REVIEW.md`.
 | Phase 05 P05 | 20min | 1 tasks | 3 files |
 | Phase 06 P01 | 45min | 3 tasks | 6 files |
 | Phase 06 P02 | 50min | 3 tasks | 6 files |
+| Phase 06 P03 | 35min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -143,6 +144,8 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 6]: 06-01: recovery codes are consumed by removing the matched stored-hash entry by index (stored[:i] + stored[i+1:]), never by equality filter, so a birthday-collision duplicate hash cannot burn two codes on one use. Neither new memberdata property (salt, hashes) is declared on IEnhancedUserDataSchema -- proven by extending the existing LOCKOUT_STATE_PROPERTIES guard rather than a parallel test; both non-vacuity mutations reproduced red before being trusted.
 - [Phase ?]: [Phase 6]: 06-02: RECOV-03 deliberate behaviour change -- test_handleSubmit scenario 1's redirect assertion changed from 'ends with /@@personal-information' to 'location header is None', since the success response now renders the ten codes in the same response instead of redirecting (plone.z3cform 0.8.1's FormWrapper.update() only blanks/skips render on a 302/303 status).
 - [Phase ?]: [Phase 6]: 06-02: regeneration has no dedicated view -- @@setup-two-factor-authentication re-entered is the regeneration path, reusing @@show-disable-two-factor-authentication-link as available_expr rather than a fourth SettingsHelper method; the form's existing TOTP check is the anti-self-perpetuation gate (T-06-08).
+- [Phase ?]: [Phase 6]: 06-03: RECOVERY_CODE_LOW_WATERMARK=3 added; validate_recovery_code's accept branch queues one warning-level IStatusMessage (mapping-based i18n substitution, not str.format) after the consume write and before return True -- unreachable from a failed or anonymous attempt by construction. A missing getRequest() degrades to silence, not a refusal.
+- [Phase ?]: [Phase 6]: 06-03: extended test_no_second_factor_state_written_from_the_plugin (MFA-12) in place rather than a parallel test -- absence tuples gained both recovery-code properties and all three new helper functions; positive controls restructured into (name, source, label) triples pinned per-file. Both non-vacuity mutations (pas_plugin.py, subscribers.py) reproduced red and restored byte-identical, plus a third check confirming a wrongly-paired positive control also fails.
 
 ### Pending Todos
 
@@ -174,6 +177,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-03T14:45:54.187Z
-Stopped at: Completed 06-02-PLAN.md
+Last session: 2026-08-04T07:41:53.066Z
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None

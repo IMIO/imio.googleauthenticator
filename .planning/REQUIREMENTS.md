@@ -65,9 +65,9 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [x] **RECOV-02**: Codes are stored hashed with one salt per user; the plaintext codes are never stored
 - [x] **RECOV-03**: Codes are displayed exactly once, at enrollment, and never redisplayed
 - [x] **RECOV-04**: A recovery code is accepted in place of a TOTP token, and is consumed on use
-- [ ] **RECOV-05**: Recovery-code attempts increment the same failure counter as TOTP attempts, so they are not an unthrottled path
+- [x] **RECOV-05**: Recovery-code attempts increment the same failure counter as TOTP attempts, so they are not an unthrottled path
 - [x] **RECOV-06**: The user can regenerate the whole set, invalidating all previous codes
-- [ ] **RECOV-07**: The user is warned when 3 or fewer codes remain
+- [x] **RECOV-07**: The user is warned when 3 or fewer codes remain
 
 ### Coexistence with imio.dms.mail (COEX)
 
@@ -201,9 +201,9 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | RECOV-02 | Phase 6 | Complete |
 | RECOV-03 | Phase 6 | Complete |
 | RECOV-04 | Phase 6 | Complete |
-| RECOV-05 | Phase 6 | Pending |
+| RECOV-05 | Phase 6 | Complete |
 | RECOV-06 | Phase 6 | Complete |
-| RECOV-07 | Phase 6 | Pending |
+| RECOV-07 | Phase 6 | Complete |
 | COEX-01 | Phase 7 | Pending |
 | COEX-02 | Phase 7 | Pending |
 | COEX-03 | Phase 7 | Pending |
