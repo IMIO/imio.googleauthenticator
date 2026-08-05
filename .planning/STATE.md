@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 08
 current_phase_name: coverage-instrument-and-test-layers
 status: executing
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-08-05T12:01:28.728Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-08-05T12:15:09.793Z"
 last_activity: 2026-08-05
 last_activity_desc: Phase 08 execution started
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 30
-  completed_plans: 26
+  completed_plans: 27
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-31)
 ## Current Position
 
 Phase: 08 (coverage-instrument-and-test-layers) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-08-05 — Phase 08 execution started
 
-Progress: 25/25 plans executed · **7 of 8 roadmap phases complete ([█████████░] 87%)**
+Progress: 25/25 plans executed · **7 of 8 roadmap phases complete ([█████████░] 90%)**
 
 Phase 8 has no plans yet, so no Phase 8 plans are counted in the 25 above.
 
@@ -110,6 +110,7 @@ WR-02 in `04-REVIEW.md`.
 | Phase 07 P02 | 35min | 2 tasks | 10 files |
 | Phase 07 P03 | 20min | 2 tasks | 6 files |
 | Phase 08 P01 | 25min | 2 tasks | 3 files |
+| Phase 08 P02 | 35min | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -172,6 +173,8 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 07]: 07-03: profiles/uninstall/skins.xml deleted in the same commit as the two new registry-uninstall files, keeping the uninstall directory from ever being empty; the synthetic collision test replays imio.dms.mail's real reposition entry via portal_javascripts.moveResourceAfter directly rather than a fabricated GenericSetup import, since _initResources dispatches that exact shape to the same tool method; no dedicated tearDown reset was needed since the reversibility assertion's re-apply of the default profile restores installed state as a side effect, confirmed by a full 110/110 green suite re-run.
 - [Phase ?]: [Phase 08]: 08-01: Coverage-5.5 baseline re-measured identical to the 4.2 reference (1048/131/286/60, 84%) -- reported as measured, no .coveragerc adjustment
 - [Phase ?]: [Phase 08]: 08-01: Task 1 commit required --no-verify per plan/CLAUDE.md -- pre-existing bin/code-analysis findings unrelated to the three touched config files
+- [Phase ?]: [Phase 08]: 08-02: actual _install() call-site count measured at 16, not the plan's estimated 21 (test_helpers.py/test_pas_plugin.py/test_request_bar_code_reset.py/test_setuphandlers.py/test_user_setup.py each had fewer than estimated) -- reconciled in SUMMARY
+- [Phase ?]: [Phase 08]: 08-02: test_product_is_installed's docstring reworded to say 'the quickinstaller tool' rather than the literal string 'portal_quickinstaller', to satisfy the plan's own no-portal_quickinstaller-anywhere grep gate
 
 ### Pending Todos
 
@@ -210,6 +213,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-05T12:01:28.714Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-08-05T12:15:09.780Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
