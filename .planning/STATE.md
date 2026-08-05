@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-31)
 Phase: 07 (coexistence-with-imio-dms-mail) — EXECUTING
 Plan: 4 of 4
 Status: Ready to execute
-Last activity: 2026-08-04 — Phase 07 execution started
+Last activity: 2026-08-05 — Completed quick task 260805-f5m: guard userCreatedHandler against absent settings records (COEX-10). Phase 07 plans 07-01..07-03 complete; 07-04 paused at its human-verification checkpoint with both items reported by the operator.
 
 Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([██████████] 96%)**
 
@@ -175,7 +175,14 @@ None yet.
 - **Phases 1–7:** `bin/code-analysis` is not clean until Phase 8, so the buildout's pre-commit hook fails until then. Accepted; commits pass with `--no-verify`.
 - **Phase 8:** expect pre-existing test failures to surface when the test-layer isolation is fixed (`plone.testing 4.1.3` has no isolation guard; some tests currently pass *because* of a state leak). Real bugs revealed, not caused.
 - **Phase 8:** the post-fix coverage baseline is genuinely unknown and cannot be estimated before `[run] source` lands. The figure is expected to drop sharply; the drop is the truth.
-- **Phase 8:** the corrected `bin/code-analysis` baseline is **318 findings** (not the ~40 the pre-rename `CLAUDE.md` claimed), measured in plan 01-03 (RESEARCH C-6 / Open Question 4). 184 of the 318 (58%) are `isort` findings, and the rename actively perturbs first-party import ordering. QUAL-06 must be planned against 318.
+- **Phase 8:** the corrected `bin/code-analysis` baseline was **318 findings** (not the ~40 the pre-rename `CLAUDE.md` claimed), measured in plan 01-03 (RESEARCH C-6 / Open Question 4). 184 of the 318 (58%) were `isort` findings, and the rename actively perturbs first-party import ordering. **Re-measured 2026-08-05 after Phase 7: now 500 findings**, grown by the test code phases 2–7 added. QUAL-06 must be planned against 500, not 318. Note also that `flake8-isort` 4.0.0 reports isort findings from a diff, so the count for a file with an already-misordered import block shifts when *any* line changes — adding one no-op body line to `userdataschema.py` adds one finding by itself. Per-file before/after counts are not a reliable "did this commit add findings" signal; check the error codes instead.
+- **Unresolved, found 2026-08-05 during Phase 7 plan 07-04 verification:** turning on the "Globally enabled" setting does not enrol users who already exist when this add-on is installed. `is_two_factor_authentication_globally_enabled` is consulted only by `userdataschema.userCreatedHandler` and by `browser/settings_helper.py` (which menu links to show); the login gate at `helpers.py:1021` and `1044` checks only each user's own `enable_two_factor_authentication` memberdata flag; and existing users are enrolled only when an administrator saves the settings control panel form (`browser/controlpanel.py` lines 125-132), never by `setuphandlers.setupVarious`. Consequence: installing this add-on into an existing `imio.dms.mail` site — the real deployment direction — leaves every existing account without a second factor, while the setting's own description says it "globally enables the two-step verification for all users" and defaults to True. Confirmed by the operator on a real two-egg environment: install order dms.mail-then-this-package left a Member unenrolled; the reverse order enrolled them. Needs a decision: enrol at install time, consult the global setting at login, or document an explicit post-install operator step.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260805-f5m | Guard userCreatedHandler against absent settings records (COEX-10) | 2026-08-05 | 184f053 | [260805-f5m-guard-usercreatedhandler-against-absent-](./quick/260805-f5m-guard-usercreatedhandler-against-absent-/) |
 
 ## Deferred Items
 

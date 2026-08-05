@@ -80,6 +80,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [x] **COEX-07**: Installing this package alongside `imio.dms.mail` leaves both working regardless of install order, verified with both orders
 - [x] **COEX-08**: The challenge fires on both paths — `IChallengePlugin` for requests ending in `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which returns HTTP 200
 - [x] **COEX-09**: Login through the header "Log in" link (not a direct POST) reaches the token form and completes
+- [x] **COEX-10**: No subscriber this package registers instance-wide in ZCML raises in a Plone site that has not installed its GenericSetup profile. Creating a site from another add-on's profile that adds users must succeed with this egg's ZCML loaded (`userdataschema.py` `userCreatedHandler`; found 2026-08-05 when `imio.dms.mail:examples` site creation aborted with `KeyError` on the absent `ska_secret_key` record)
 
 ### Known bug fixes (BUG)
 
@@ -213,6 +214,7 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | COEX-07 | Phase 7 | Complete |
 | COEX-08 | Phase 4 | Complete |
 | COEX-09 | Phase 7 | Complete |
+| COEX-10 | Quick task 260805-f5m | Complete |
 | BUG-01 | Phase 7 | Complete |
 | BUG-02 | Phase 3 | Complete |
 | BUG-03 | Phase 3 | Complete |
