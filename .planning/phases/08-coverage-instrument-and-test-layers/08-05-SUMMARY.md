@@ -143,3 +143,10 @@ None — no external service configuration required.
 ---
 *Phase: 08-coverage-instrument-and-test-layers*
 *Completed: 2026-08-05*
+
+## Self-Check: PASSED
+- FOUND: .planning/phases/08-coverage-instrument-and-test-layers/08-05-SUMMARY.md
+- FOUND: c1ff26c (Task 1 commit)
+- FOUND: a3f6643 (Task 2 commit)
+- FOUND: a9f0374 (Task 3 commit)
+- FOUND: 76e5fb2 (SUMMARY commit)
