@@ -13,33 +13,29 @@ module has a single requirement -- the reset path shares the token form's
 lockout counter with no bypass -- so it is proven as a single ordered
 sequence of assertions in one method rather than split artificially.
 """
-import os
-import re
-import time
-import unittest2 as unittest
-
-import transaction
 from cryptography.fernet import Fernet
-from onetimepass import get_totp
-from ska import Signature
-
-from Products.statusmessages.interfaces import IStatusMessage
-
-from plone import api
-from plone.app.testing import login
-from plone.app.testing import SITE_OWNER_NAME
-from plone.app.testing import TEST_USER_NAME
-from plone.app.testing import TEST_USER_PASSWORD
-
 from imio.googleauthenticator import helpers
 from imio.googleauthenticator.browser.forms import reset_bar_code
 from imio.googleauthenticator.browser.forms.reset_bar_code import IResetBarCodeForm
 from imio.googleauthenticator.browser.forms.reset_bar_code import ResetBarCodeForm
 from imio.googleauthenticator.helpers import get_or_create_secret
 from imio.googleauthenticator.helpers import get_ska_secret_key
-from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
+from onetimepass import get_totp
+from plone import api
+from plone.app.testing import login
+from plone.app.testing import SITE_OWNER_NAME
+from plone.app.testing import TEST_USER_NAME
+from plone.app.testing import TEST_USER_PASSWORD
+from Products.statusmessages.interfaces import IStatusMessage
+from ska import Signature
+
+import os
+import re
+import time
+import transaction
+import unittest2 as unittest
 
 
 def _raise_value_error(*args, **kwargs):

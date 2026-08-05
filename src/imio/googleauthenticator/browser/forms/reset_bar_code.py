@@ -1,25 +1,25 @@
 """
 Reset bar-code.
 """
-import logging
-
-from zope.i18nmessageid import MessageFactory
-
-from z3c.form import button, field
-
-from plone.directives import form
-from plone import api
-from plone.z3cform.layout import wrap_form
-
-from Products.statusmessages.interfaces import IStatusMessage
-from zope.schema import TextLine
-
-from imio.googleauthenticator.helpers import get_token_description, is_site_local_user, validate_token, \
-    validate_user_data
+from imio.googleauthenticator.helpers import get_token_description
 from imio.googleauthenticator.helpers import is_account_locked
+from imio.googleauthenticator.helpers import is_site_local_user
 from imio.googleauthenticator.helpers import register_failed_second_factor
 from imio.googleauthenticator.helpers import reset_failed_second_factor
 from imio.googleauthenticator.helpers import validate_bar_code_reset_token
+from imio.googleauthenticator.helpers import validate_token
+from imio.googleauthenticator.helpers import validate_user_data
+from plone import api
+from plone.directives import form
+from plone.z3cform.layout import wrap_form
+from Products.statusmessages.interfaces import IStatusMessage
+from z3c.form import button
+from z3c.form import field
+from zope.i18nmessageid import MessageFactory
+from zope.schema import TextLine
+
+import logging
+
 
 logger = logging.getLogger('imio.googleauthenticator')
 

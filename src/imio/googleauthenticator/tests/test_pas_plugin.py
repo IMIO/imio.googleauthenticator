@@ -1,24 +1,23 @@
-from Products.CMFCore.utils import getToolByName
-from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
-import base64
-import os
-import unittest2 as unittest
 from cryptography.fernet import Fernet
-from plone.testing.z2 import Browser
-from plone import api
-from plone.app.testing import login
-from plone.app.testing import TEST_USER_NAME
-from plone.app.testing import TEST_USER_PASSWORD
-from zope.globalrequest import setRequest
-import imio.googleauthenticator
 from imio.googleauthenticator import helpers
 from imio.googleauthenticator import pas_plugin
 from imio.googleauthenticator.helpers import get_or_create_secret
 from imio.googleauthenticator.setuphandlers import PAS_ID
-
-from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
+from plone import api
+from plone.app.testing import login
+from plone.app.testing import TEST_USER_NAME
+from plone.app.testing import TEST_USER_PASSWORD
+from plone.testing.z2 import Browser
+from Products.CMFCore.utils import getToolByName
+from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
+from zope.globalrequest import setRequest
+
+import base64
+import imio.googleauthenticator
+import os
+import unittest2 as unittest
 
 
 def _boom(*args, **kwargs):

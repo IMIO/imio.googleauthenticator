@@ -5,14 +5,14 @@ first enrollment or login attempt (SEC-08); and an ``IPubBeforeCommit``
 subscriber that drives the 2FA redirect for the login-form POST path, which
 returns HTTP 200 and never raises (MFA-02/COEX-08).
 """
-import logging
-
-from zope.component import adapter
-from ZPublisher.interfaces import IPubBeforeCommit
-
 from imio.googleauthenticator.helpers import get_encryption_key
 from imio.googleauthenticator.pas_plugin import REQUEST_KEY_PENDING
 from imio.googleauthenticator.pas_plugin import send_2fa_redirect
+from zope.component import adapter
+from ZPublisher.interfaces import IPubBeforeCommit
+
+import logging
+
 
 logger = logging.getLogger("imio.googleauthenticator")
 

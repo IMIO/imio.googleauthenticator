@@ -1,24 +1,23 @@
 """
 Request the bar code reset.
 """
-import logging
-from smtplib import SMTPRecipientsRefused
-
-from zope.i18nmessageid import MessageFactory
-from zope.schema import TextLine
-from z3c.form import button, field
-
-from plone.directives import form
+from imio.googleauthenticator.helpers import get_ska_secret_key
 from plone import api
+from plone.directives import form
 from plone.z3cform.layout import wrap_form
-
+from Products.CMFCore.utils import getToolByName
 from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
 from Products.statusmessages.interfaces import IStatusMessage
-from Products.CMFCore.utils import getToolByName
+from ska import RequestHelper
+from ska import Signature
+from smtplib import SMTPRecipientsRefused
+from z3c.form import button
+from z3c.form import field
+from zope.i18nmessageid import MessageFactory
+from zope.schema import TextLine
 
-from ska import Signature, RequestHelper
+import logging
 
-from imio.googleauthenticator.helpers import get_ska_secret_key
 
 logger = logging.getLogger('imio.googleauthenticator')
 

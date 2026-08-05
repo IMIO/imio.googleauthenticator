@@ -1,12 +1,11 @@
 # -*- extra stuff goes here -*-
 
+from imio.googleauthenticator.pas_plugin import addGoogleAuthenticatorPlugin
+from imio.googleauthenticator.pas_plugin import GoogleAuthenticatorPlugin
+from imio.googleauthenticator.pas_plugin import manage_addGoogleAuthenticatorPluginForm
+from Products.PluggableAuthService.PluggableAuthService import registerMultiPlugin
 from zope.i18nmessageid import MessageFactory
 
-from Products.PluggableAuthService.PluggableAuthService import registerMultiPlugin
-
-from imio.googleauthenticator.pas_plugin import (
-    GoogleAuthenticatorPlugin, addGoogleAuthenticatorPlugin, manage_addGoogleAuthenticatorPluginForm
-    )
 
 _ = MessageFactory('imio.googleauthenticator')
 

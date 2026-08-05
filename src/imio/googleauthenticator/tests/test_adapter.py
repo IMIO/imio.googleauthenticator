@@ -2,19 +2,18 @@
 Tests for the user-profile schema adapter.
 """
 
-import unittest2 as unittest
-
-from Products.CMFCore.utils import getToolByName
-from plone.app.users.userdataschema import IUserDataSchema
-from zope.schema import getFieldNames
-
 from imio.googleauthenticator import helpers
 from imio.googleauthenticator.adapter import CameFromAdapter
 from imio.googleauthenticator.adapter import EnhancedUserDataPanelAdapter
-from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 from imio.googleauthenticator.userdataschema import IEnhancedUserDataSchema
+from plone.app.users.userdataschema import IUserDataSchema
+from Products.CMFCore.utils import getToolByName
+from zope.schema import getFieldNames
+
+import unittest2 as unittest
+
 
 # The three counters plan 05-01 introduced, plus the two recovery-code
 # properties plan 06-01 introduced. Named here only to pin the decision that

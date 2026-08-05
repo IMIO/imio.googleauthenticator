@@ -1,27 +1,24 @@
-import os.path
-import unittest2 as unittest
-from xml.dom import minidom
-
-from Products.CMFCore.utils import getToolByName
-from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
-
+from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
+from imio.googleauthenticator.helpers import get_app_settings
+from imio.googleauthenticator.helpers import get_ska_secret_key
+from imio.googleauthenticator.setuphandlers import PAS_ID
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+from imio.googleauthenticator.tests.base import BaseTest
 from plone import api
 from plone.app.testing import applyProfile
 from plone.app.testing import setRoles
 from plone.app.testing import TEST_USER_ID
 from plone.registry import Record
 from plone.registry.interfaces import IRegistry
-
+from Products.CMFCore.utils import getToolByName
+from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
+from xml.dom import minidom
 from zope.component import getUtility
 
 import imio.googleauthenticator
-from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
-from imio.googleauthenticator.helpers import get_app_settings
-from imio.googleauthenticator.helpers import get_ska_secret_key
-from imio.googleauthenticator.setuphandlers import PAS_ID
-from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
-from imio.googleauthenticator.tests.base import BaseTest
+import os.path
+import unittest2 as unittest
+
 
 JSREGISTRY_XML = os.path.join(
     os.path.dirname(imio.googleauthenticator.__file__),

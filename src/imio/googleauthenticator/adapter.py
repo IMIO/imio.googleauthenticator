@@ -1,9 +1,10 @@
+from imio.googleauthenticator.helpers import extract_next_url_from_referer
+from plone.app.users.browser.personalpreferences import UserDataPanelAdapter
+from zope.interface import implements
+from zope.interface import Interface
+
 import logging
 
-from zope.interface import Interface, implements
-
-from plone.app.users.browser.personalpreferences import UserDataPanelAdapter
-from imio.googleauthenticator.helpers import extract_next_url_from_referer
 
 logger = logging.getLogger(__file__)
 

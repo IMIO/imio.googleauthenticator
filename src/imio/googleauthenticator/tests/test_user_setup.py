@@ -1,24 +1,19 @@
-import os
-import unittest2 as unittest
-
 from cryptography.fernet import Fernet
-
-from zope.globalrequest import setRequest
-
-from Products.statusmessages.interfaces import IStatusMessage
-
+from imio.googleauthenticator import helpers
+from imio.googleauthenticator.browser.forms import user_setup
+from imio.googleauthenticator.browser.forms.user_setup import SetupForm
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+from imio.googleauthenticator.tests.base import BaseTest
 from plone import api
 from plone.app.testing import login
 from plone.app.testing import SITE_OWNER_NAME
 from plone.app.testing import TEST_USER_NAME
 from plone.testing import z2
+from Products.statusmessages.interfaces import IStatusMessage
+from zope.globalrequest import setRequest
 
-from imio.googleauthenticator import helpers
-from imio.googleauthenticator.browser.forms import user_setup
-from imio.googleauthenticator.browser.forms.user_setup import SetupForm
-from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
-from imio.googleauthenticator.tests.base import BaseTest
+import os
+import unittest2 as unittest
 
 
 class _RaisesOnFirstCall(object):

@@ -1,9 +1,8 @@
-from zope.i18nmessageid import MessageFactory
-
 from plone import api
-
 from Products.Five import BrowserView
 from Products.statusmessages.interfaces import IStatusMessage
+from zope.i18nmessageid import MessageFactory
+
 
 _ = MessageFactory('imio.googleauthenticator')
 

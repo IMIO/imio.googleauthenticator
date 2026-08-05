@@ -1,5 +1,6 @@
 from plone.testing.z2 import Browser
 
+
 class BaseTest(object):
 
     def _get_browser(self):

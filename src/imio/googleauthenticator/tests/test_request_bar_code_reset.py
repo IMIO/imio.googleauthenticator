@@ -2,18 +2,15 @@
 Tests for the bar-code reset request form.
 """
 
-import unittest2 as unittest
-
-from Products.MailHost.MailHost import MailBase
-from Products.statusmessages.interfaces import IStatusMessage
+from imio.googleauthenticator.browser.forms.request_bar_code_reset import RequestBarCodeResetForm
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+from imio.googleauthenticator.tests.base import BaseTest
 from plone import api
 from plone.app.testing import TEST_USER_NAME
+from Products.MailHost.MailHost import MailBase
+from Products.statusmessages.interfaces import IStatusMessage
 
-from imio.googleauthenticator.browser.forms.request_bar_code_reset import \
-    RequestBarCodeResetForm
-from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
-from imio.googleauthenticator.tests.base import BaseTest
+import unittest2 as unittest
 
 
 class TestRequestBarCodeReset(unittest.TestCase, BaseTest):

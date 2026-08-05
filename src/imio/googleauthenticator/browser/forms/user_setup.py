@@ -2,21 +2,22 @@
 User setup.
 """
 
-import logging
-
-from zope.i18nmessageid import MessageFactory
-
-from z3c.form import button, field
-
-from plone.directives import form
+from imio.googleauthenticator.helpers import generate_recovery_codes
+from imio.googleauthenticator.helpers import get_token_description
+from imio.googleauthenticator.helpers import is_site_local_user
+from imio.googleauthenticator.helpers import validate_token
 from plone import api
+from plone.directives import form
 from plone.z3cform.layout import wrap_form
-
 from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
 from Products.statusmessages.interfaces import IStatusMessage
+from z3c.form import button
+from z3c.form import field
+from zope.i18nmessageid import MessageFactory
 from zope.schema import TextLine
 
-from imio.googleauthenticator.helpers import generate_recovery_codes, get_token_description, is_site_local_user, validate_token
+import logging
+
 
 logger = logging.getLogger('imio.googleauthenticator')
 

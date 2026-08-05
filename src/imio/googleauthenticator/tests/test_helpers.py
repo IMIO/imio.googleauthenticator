@@ -1,32 +1,9 @@
-import base64
-import logging
-import os
-import time
-import unittest2 as unittest
-
 from cryptography.fernet import Fernet
-from onetimepass import get_hotp
-from onetimepass import get_totp
-from Products.PlonePAS.sheet import PropertyValueError
-
-from Products.statusmessages.interfaces import IStatusMessage
-
-from plone import api
-from plone.app.testing import login
-from plone.app.testing import setRoles
-from plone.app.testing import SITE_OWNER_NAME
-from plone.app.testing import TEST_USER_ID
-from plone.app.testing import TEST_USER_NAME
-
 from imio.googleauthenticator import helpers
 from imio.googleauthenticator.browser.controlpanel import GoogleAuthenticatorSettingsEditForm
-from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
-from imio.googleauthenticator.tests.base import BaseTest
-
 from imio.googleauthenticator.helpers import decrypt_seed
-from imio.googleauthenticator.helpers import encrypt_seed
 from imio.googleauthenticator.helpers import enable_two_factor_authentication_for_users
+from imio.googleauthenticator.helpers import encrypt_seed
 from imio.googleauthenticator.helpers import extract_ip_address_from_request
 from imio.googleauthenticator.helpers import generate_secret
 from imio.googleauthenticator.helpers import get_app_settings
@@ -39,8 +16,26 @@ from imio.googleauthenticator.helpers import get_secret
 from imio.googleauthenticator.helpers import get_ska_secret_key
 from imio.googleauthenticator.helpers import validate_bar_code_reset_token
 from imio.googleauthenticator.helpers import validate_token
-from ipaddress import IPv4Network
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+from imio.googleauthenticator.tests.base import BaseTest
 from ipaddress import IPv4Address
+from ipaddress import IPv4Network
+from onetimepass import get_hotp
+from onetimepass import get_totp
+from plone import api
+from plone.app.testing import login
+from plone.app.testing import setRoles
+from plone.app.testing import SITE_OWNER_NAME
+from plone.app.testing import TEST_USER_ID
+from plone.app.testing import TEST_USER_NAME
+from Products.PlonePAS.sheet import PropertyValueError
+from Products.statusmessages.interfaces import IStatusMessage
+
+import base64
+import logging
+import os
+import time
+import unittest2 as unittest
 
 
 class TestIPWhitelisting(unittest.TestCase, BaseTest):

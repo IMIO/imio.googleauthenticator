@@ -1,27 +1,28 @@
-import os
-
-from Products.CMFCore.utils import getToolByName
-from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
-import unittest2 as unittest
-from plone.browserlayer.utils import registered_layers
-from plone.testing.z2 import Browser
-from plone.app.testing import SITE_OWNER_NAME, SITE_OWNER_PASSWORD, TEST_USER_NAME, TEST_USER_PASSWORD
-from plone import api
-from plone.registry.interfaces import IRegistry
-from plone.supermodel.interfaces import FIELDSETS_KEY
-from zope.component import getUtility
-from zope.i18n import translate
-from zope.schema import Int
-
-import imio.googleauthenticator
 from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 from imio.googleauthenticator.browser.forms.token import TokenForm
 from imio.googleauthenticator.helpers import get_app_settings
 from imio.googleauthenticator.interfaces import IGoogleAuthenticatorLayer
 from imio.googleauthenticator.setuphandlers import PAS_ID
-from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
+from plone import api
+from plone.app.testing import SITE_OWNER_NAME
+from plone.app.testing import SITE_OWNER_PASSWORD
+from plone.app.testing import TEST_USER_NAME
+from plone.app.testing import TEST_USER_PASSWORD
+from plone.browserlayer.utils import registered_layers
+from plone.registry.interfaces import IRegistry
+from plone.supermodel.interfaces import FIELDSETS_KEY
+from plone.testing.z2 import Browser
+from Products.CMFCore.utils import getToolByName
+from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
+from zope.component import getUtility
+from zope.i18n import translate
+from zope.schema import Int
+
+import imio.googleauthenticator
+import os
+import unittest2 as unittest
 
 
 def _read_readme():

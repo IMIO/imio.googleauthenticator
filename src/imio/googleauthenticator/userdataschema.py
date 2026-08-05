@@ -1,18 +1,17 @@
-import logging
-
 from plone import api
-
-from zope.component import adapter
-from zope.schema import Bool
-from zope.schema import TextLine
-from zope.i18nmessageid import MessageFactory
-from zope.interface import implements
-
-from plone.app.users.userdataschema import IUserDataSchema, IUserDataSchemaProvider
 from plone.app.users.browser.personalpreferences import UserDataPanel
-
+from plone.app.users.userdataschema import IUserDataSchema
+from plone.app.users.userdataschema import IUserDataSchemaProvider
 from Products.PluggableAuthService.interfaces.authservice import IBasicUser
 from Products.PluggableAuthService.interfaces.events import IPrincipalCreatedEvent
+from zope.component import adapter
+from zope.i18nmessageid import MessageFactory
+from zope.interface import implements
+from zope.schema import Bool
+from zope.schema import TextLine
+
+import logging
+
 
 logger = logging.getLogger("imio.googleauthenticator")
 

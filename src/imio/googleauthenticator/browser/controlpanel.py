@@ -1,21 +1,22 @@
-import logging
-
-from zope.component import getUtility
-
-from zope.i18nmessageid import MessageFactory
-from zope.interface import Interface
-from zope.schema import TextLine, Bool, Text, Int
-
-from plone.registry.interfaces import IRegistry
 from plone import api
 from plone.app.registry.browser import controlpanel
 from plone.autoform.form import AutoExtensibleForm
 from plone.directives.form import fieldset
-
-from z3c.form import form, button
-
+from plone.registry.interfaces import IRegistry
 from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
 from Products.statusmessages.interfaces import IStatusMessage
+from z3c.form import button
+from z3c.form import form
+from zope.component import getUtility
+from zope.i18nmessageid import MessageFactory
+from zope.interface import Interface
+from zope.schema import Bool
+from zope.schema import Int
+from zope.schema import Text
+from zope.schema import TextLine
+
+import logging
+
 
 logger = logging.getLogger("imio.googleauthenticator")
 

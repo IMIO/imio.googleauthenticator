@@ -9,28 +9,25 @@ precedent: one test method per *requirement* rather than one per production
 method, so a failure in one requirement's assertions does not hide whether
 the others still pass (decision P5-07).
 """
-import base64
-import os
-import re
-import time
-import unittest2 as unittest
-
-import transaction
 from cryptography.fernet import Fernet
+from imio.googleauthenticator import helpers
+from imio.googleauthenticator.helpers import get_or_create_secret
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+from imio.googleauthenticator.tests.base import BaseTest
 from onetimepass import get_totp
-
 from plone import api
 from plone.app.testing import login
 from plone.app.testing import TEST_USER_NAME
 from plone.app.testing import TEST_USER_PASSWORD
 from plone.testing.z2 import Browser
 
+import base64
 import imio.googleauthenticator
-from imio.googleauthenticator import helpers
-from imio.googleauthenticator.helpers import get_or_create_secret
-from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
-from imio.googleauthenticator.tests.base import BaseTest
+import os
+import re
+import time
+import transaction
+import unittest2 as unittest
 
 
 class TestTokenFormLockout(unittest.TestCase, BaseTest):

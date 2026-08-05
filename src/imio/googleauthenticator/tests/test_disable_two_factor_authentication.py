@@ -10,20 +10,16 @@ requirement and the regression it guards) rather than the
 plone-write-tests skill's one-assertion-per-tested-method rule, per this
 plan's own explicit instruction.
 """
-import unittest2 as unittest
-
-from Products.statusmessages.interfaces import IStatusMessage
-
+from imio.googleauthenticator.browser.disable_two_factor_authentication import DisableTwoFactorAuthentication
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+from imio.googleauthenticator.tests.base import BaseTest
 from plone import api
 from plone.app.testing import login
 from plone.app.testing import TEST_USER_NAME
 from plone.testing import z2
+from Products.statusmessages.interfaces import IStatusMessage
 
-from imio.googleauthenticator.browser.disable_two_factor_authentication import \
-    DisableTwoFactorAuthentication
-from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
-from imio.googleauthenticator.tests.base import BaseTest
+import unittest2 as unittest
 
 
 class TestDisableTwoFactorAuthentication(unittest.TestCase, BaseTest):

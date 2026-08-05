@@ -1,37 +1,35 @@
 """
 This helper module contains functions used throughout c.googleauthenticator.
 """
+from cryptography.fernet import Fernet
+from cryptography.fernet import InvalidToken
 from hashlib import pbkdf2_hmac
 from hashlib import sha1
 from hmac import compare_digest
-from urllib import unquote, quote
+from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
+from onetimepass import get_hotp
+from plone import api
+from plone.registry.interfaces import IRegistry
+from Products.statusmessages.interfaces import IStatusMessage
+from ska import sign_url
+from ska import validate_signed_request_data
+from urllib import quote
+from urllib import unquote
 from urlparse import urlparse
-import base64
-import binascii
-import io
-import logging
-import os
-import time
-
 from zope.component import getUtility
 from zope.globalrequest import getRequest
 from zope.i18n import translate
 from zope.i18nmessageid import MessageFactory
 
-from Products.statusmessages.interfaces import IStatusMessage
-
-from onetimepass import get_hotp
-
-from plone import api
-from plone.registry.interfaces import IRegistry
-
-from cryptography.fernet import Fernet
-from cryptography.fernet import InvalidToken
-from ska import sign_url, validate_signed_request_data
+import base64
+import binascii
+import io
 import ipaddress
+import logging
+import os
 import qrcode
+import time
 
-from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 
 _ = MessageFactory('imio.googleauthenticator')
 

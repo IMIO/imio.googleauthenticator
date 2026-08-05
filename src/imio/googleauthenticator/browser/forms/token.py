@@ -2,20 +2,6 @@
 Token validation.
 """
 
-import logging
-
-from zope.i18nmessageid import MessageFactory
-from zope.schema import TextLine
-
-from z3c.form import button, field
-
-from plone import api
-from plone.directives import form
-from plone.z3cform.layout import wrap_form
-
-from Products.CMFCore.utils import getToolByName
-from Products.statusmessages.interfaces import IStatusMessage
-
 from imio.googleauthenticator.helpers import drop_login_failed_msg
 from imio.googleauthenticator.helpers import extract_request_data
 from imio.googleauthenticator.helpers import is_account_locked
@@ -23,6 +9,18 @@ from imio.googleauthenticator.helpers import register_failed_second_factor
 from imio.googleauthenticator.helpers import reset_failed_second_factor
 from imio.googleauthenticator.helpers import validate_second_factor
 from imio.googleauthenticator.helpers import validate_user_data
+from plone import api
+from plone.directives import form
+from plone.z3cform.layout import wrap_form
+from Products.CMFCore.utils import getToolByName
+from Products.statusmessages.interfaces import IStatusMessage
+from z3c.form import button
+from z3c.form import field
+from zope.i18nmessageid import MessageFactory
+from zope.schema import TextLine
+
+import logging
+
 
 logger = logging.getLogger('imio.googleauthenticator')
 

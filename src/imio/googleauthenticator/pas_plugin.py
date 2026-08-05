@@ -10,25 +10,22 @@ If user has not enabled the two-step verification for his account
 (``enable_two_factor_authentication`` is set to False), then do nothing so
 that Plone continues logging in the user normal way.
 """
-import logging
-
-from Globals import InitializeClass
 from AccessControl.SecurityInfo import ClassSecurityInfo
-
-from plone import api
-
-from Products.PluggableAuthService.PluggableAuthService import reraise
-from Products.PluggableAuthService.PluggableAuthService import _SWALLOWABLE_PLUGIN_EXCEPTIONS
-from Products.PluggableAuthService.plugins.BasePlugin import BasePlugin
-from Products.PluggableAuthService.utils import classImplements
-from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
-from Products.PluggableAuthService.interfaces.plugins import IChallengePlugin
-from Products.PageTemplates.PageTemplateFile import PageTemplateFile
-
+from Globals import InitializeClass
 from imio.googleauthenticator.adapter import ICameFrom
 from imio.googleauthenticator.helpers import get_secret
 from imio.googleauthenticator.helpers import is_whitelisted_client
 from imio.googleauthenticator.helpers import sign_user_data
+from plone import api
+from Products.PageTemplates.PageTemplateFile import PageTemplateFile
+from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
+from Products.PluggableAuthService.interfaces.plugins import IChallengePlugin
+from Products.PluggableAuthService.PluggableAuthService import _SWALLOWABLE_PLUGIN_EXCEPTIONS
+from Products.PluggableAuthService.PluggableAuthService import reraise
+from Products.PluggableAuthService.plugins.BasePlugin import BasePlugin
+from Products.PluggableAuthService.utils import classImplements
+
+import logging
 
 
 logger = logging.getLogger("imio.googleauthenticator")

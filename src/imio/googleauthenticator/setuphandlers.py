@@ -1,9 +1,8 @@
-from uuid import uuid4
-
-from zope.i18nmessageid import MessageFactory
-
 from imio.googleauthenticator.helpers import get_app_settings
 from imio.googleauthenticator.pas_plugin import GoogleAuthenticatorPlugin
+from uuid import uuid4
+from zope.i18nmessageid import MessageFactory
+
 
 _ = MessageFactory('imio.googleauthenticator')
 
@@ -93,5 +92,3 @@ def setupVarious(context):
 
     pas = portal.acl_users
     _add_plugin(pas)
-
-
