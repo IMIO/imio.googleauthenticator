@@ -1,6 +1,7 @@
 """
 Tests for the Google Authenticator control panel form.
 """
+from imio.googleauthenticator import helpers
 from imio.googleauthenticator.browser.controlpanel import GoogleAuthenticatorSettingsEditForm
 from imio.googleauthenticator.helpers import get_or_create_secret
 from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
@@ -211,3 +212,96 @@ class TestGoogleAuthenticatorSettingsEditForm(unittest.TestCase, BaseTest):
         self.assertFalse(
             refetched_user.getProperty('enable_two_factor_authentication'),
             'QUAL-04: the neither-branch must not enable 2FA for anyone.')
+
+    def test_handleSave_globally_enabled_true_enrolls_users_successfully(self):
+        """QUAL-04: the ``globally_enabled is True`` branch's *success*
+        run -- a working encryption key, no ``ValueError`` -- was never
+        exercised before this method; the only existing coverage of this
+        branch (``test_helpers.py``) deliberately breaks the key to reach
+        the exception arm. Asserts the effect (a real user gets enrolled),
+        not only the message.
+        """
+        setRoles(self.portal, TEST_USER_ID, ['Manager'])
+        user = api.user.get_current()
+        user.setMemberProperties(
+            mapping={'enable_two_factor_authentication': False})
+
+        form = GoogleAuthenticatorSettingsEditForm(self.portal, self.request)
+        form.update()
+        widget_name = form.groups[0].widgets['globally_enabled'].name
+        self.request.form[widget_name] = u'selected'
+        self._fill_required_save_widgets(form)
+
+        IStatusMessage(self.request).show()  # drain prior messages
+        handleSave = GoogleAuthenticatorSettingsEditForm.handleSave.func
+        handleSave(form, None)
+
+        types = [m.type for m in IStatusMessage(self.request).show()]
+        self.assertIn('info', types)
+        self.assertNotIn('error', types)
+
+        refetched_user = api.user.get(username=TEST_USER_NAME)
+        self.assertTrue(
+            refetched_user.getProperty('enable_two_factor_authentication'),
+            'QUAL-04: a working encryption key must actually enrol users, '
+            'not only report success.')
+
+    def test_handleSave_globally_enabled_true_reports_error_when_seed_key_is_broken(self):
+        """QUAL-04: the ``except ValueError`` arm around the enable-for-all
+        call, never actually reached by any existing test -- the
+        ``test_helpers.py`` test with the same intent never fills the two
+        required ``Int`` widgets, so its own ``handleSave`` call returns
+        before line 128 on a ``RequiredMissing`` extraction error; its
+        'error' assertion passes only because an earlier redirect response
+        blocks ``IStatusMessage.show()`` from clearing a leftover message
+        from a *different* call in the same test method (Products.
+        statusmessages only clears on a non-redirect response). This test
+        fills both required widgets so the real branch runs.
+        """
+        setRoles(self.portal, TEST_USER_ID, ['Manager'])
+        user = api.user.get_current()
+        user.setMemberProperties(
+            mapping={'enable_two_factor_authentication': False})
+
+        form = GoogleAuthenticatorSettingsEditForm(self.portal, self.request)
+        form.update()
+        widget_name = form.groups[0].widgets['globally_enabled'].name
+        self.request.form[widget_name] = u'selected'
+        self._fill_required_save_widgets(form)
+
+        original = helpers.get_encryption_key
+        helpers.get_encryption_key = lambda: None
+        try:
+            IStatusMessage(self.request).show()  # drain prior messages
+            handleSave = GoogleAuthenticatorSettingsEditForm.handleSave.func
+            handleSave(form, None)
+        finally:
+            helpers.get_encryption_key = original
+
+        types = [m.type for m in IStatusMessage(self.request).show()]
+        self.assertIn('error', types)
+        self.assertNotIn('info', types)
+
+        refetched_user = api.user.get(username=TEST_USER_NAME)
+        self.assertFalse(
+            refetched_user.getProperty('enable_two_factor_authentication'),
+            'a broken encryption key must enrol nobody.')
+
+    def test_handleCancel_reports_cancellation_and_redirects(self):
+        """QUAL-04: the only button handler in this form with no test at
+        all before this method.
+        """
+        setRoles(self.portal, TEST_USER_ID, ['Manager'])
+        form = GoogleAuthenticatorSettingsEditForm(self.portal, self.request)
+        form.update()
+
+        IStatusMessage(self.request).show()  # drain prior messages
+        handleCancel = GoogleAuthenticatorSettingsEditForm.handleCancel.func
+        handleCancel(form, None)
+
+        types = [m.type for m in IStatusMessage(self.request).show()]
+        self.assertIn('info', types)
+        location = self.request.response.getHeader('location')
+        self.assertTrue(
+            location and location.endswith('/plone_control_panel'),
+            'got {0!r}'.format(location))
