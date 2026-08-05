@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 07
-current_phase_name: coexistence-with-imio-dms-mail
-status: executing
+current_phase: 8
+current_phase_name: Coverage Instrument and Test Layers
+status: planning
 stopped_at: Completed 07-03-PLAN.md
-last_updated: "2026-08-04T16:04:10.126Z"
-last_activity: 2026-08-04
-last_activity_desc: Phase 07 execution started
+last_updated: "2026-08-05T09:25:29.695Z"
+last_activity: 2026-08-05
+last_activity_desc: Phase 07 complete, transitioned to Phase 8
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 25
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # Project State
@@ -23,31 +23,42 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-31)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 07 — coexistence-with-imio-dms-mail
+**Current focus:** Phase 8 — Coverage Instrument and Test Layers (not yet planned)
 
 ## Current Position
 
-Phase: 07 (coexistence-with-imio-dms-mail) — EXECUTING
-Plan: 4 of 4
-Status: Ready to execute
-Last activity: 2026-08-05 — Completed quick task 260805-f5m: guard userCreatedHandler against absent settings records (COEX-10). Phase 07 plans 07-01..07-03 complete; 07-04 paused at its human-verification checkpoint with both items reported by the operator.
+Phase: 8 — Coverage Instrument and Test Layers
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-08-05 — Phase 07 complete, transitioned to Phase 8
 
-Progress: [████████████████████] 13/13 plans executed · **4 of 8 roadmap phases complete ([██████████] 96%)**
+Progress: 25/25 plans executed · **7 of 8 roadmap phases complete ([█████████████████░░░] 88%)**
 
-Phases 5–8 still have no plans, so the 13-plan denominator will grow; the phase figure
-remains the honest one.
+Phase 8 has no plans yet, so no Phase 8 plans are counted in the 25 above.
 
-Phase 4 closed on 2026-07-31: all four plans executed, verification passed (5/5 success
-criteria), UAT passed (1 item — the operator confirmation that no external consumer uses
-HTTP Basic Auth against this site), and the security audit closed all 24 threats
-(`04-SECURITY.md`, `threats_open: 0`). Two non-blocking code-review warnings remain open,
-recorded as WR-01 and WR-02 in `04-REVIEW.md`.
+Phase 7 closed on 2026-08-05: all four plans executed, verification passed (5/5 ROADMAP
+success criteria, 10/10 requirement IDs), and both verifications the test suite cannot
+perform were carried out by the operator on a real two-egg environment with a fresh site
+per install order, recorded in `07-UAT.md`. Suite at 111 tests, 0 failures, 0 errors.
+
+Two items came out of Phase 7 that are NOT Phase 7 work:
+
+- **COEX-10, fixed** in quick task `260805-f5m` (commit `184f053`): this package's
+  instance-wide user-created subscriber aborted Plone site creation in any site that had
+  not installed its profile. Found while setting up 07-04's verification.
+- **MFA-14, open and unassigned to a phase**: enabling the "Globally enabled" setting does
+  not enrol accounts that already exist when the add-on is installed. The operator decided
+  it does not block Phase 7. Details and three candidate remedies are in the Gaps section
+  of `07-UAT.md`.
+
+Two non-blocking code-review warnings from Phase 4 remain open, recorded as WR-01 and
+WR-02 in `04-REVIEW.md`.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 21
+- Total plans completed: 25
 - Average duration: —
 - Total execution time: 0.0 hours
 
@@ -61,6 +72,7 @@ recorded as WR-01 and WR-02 in `04-REVIEW.md`.
 | 04 | 4 | - | - |
 | 5 | 5 | - | - |
 | 06 | 3 | - | - |
+| 07 | 4 | - | - |
 
 **Recent Trend:**
 

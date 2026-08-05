@@ -36,7 +36,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: PAS Boundary** - The second factor cannot be bypassed by any credentials extractor, and the refusal leaks nothing (completed 2026-07-31)
 - [x] **Phase 5: Drift, Replay and Lockout** - A replayed code fails, brute force stops at N attempts, and the counters actually persist (completed 2026-08-03)
 - [x] **Phase 6: Recovery Codes** - A user who loses their phone gets back in without an admin, on a throttled path (completed 2026-08-04)
-- [ ] **Phase 7: Coexistence with imio.dms.mail** - Both packages install in either order with no vendored JavaScript, no skin layer, and no open redirect
+- [x] **Phase 7: Coexistence with imio.dms.mail** - Both packages install in either order with no vendored JavaScript, no skin layer, and no open redirect (completed 2026-08-05)
 - [ ] **Phase 8: Coverage Instrument and Test Layers** - The build fails when tests fail, the coverage number means something, and `bin/code-analysis` exits 0
 
 ## Phase Details
@@ -343,7 +343,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4. PAS Boundary | 4/4 | Complete    | 2026-07-31 |
 | 5. Drift, Replay and Lockout | 5/5 | Complete    | 2026-08-03 |
 | 6. Recovery Codes | 3/3 | Complete    | 2026-08-04 |
-| 7. Coexistence with imio.dms.mail | 4/4 | In Progress|  |
+| 7. Coexistence with imio.dms.mail | 4/4 | Complete    | 2026-08-05 |
 | 8. Coverage Instrument and Test Layers | 0/TBD | Not started | - |
 
 ## Same-Commit Requirements
