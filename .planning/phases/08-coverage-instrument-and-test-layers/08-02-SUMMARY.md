@@ -44,8 +44,12 @@ key-decisions:
   - "Actual _install() call-site count measured at 16, not the plan's estimated 21 -- test_helpers.py had 3 (not 5), test_pas_plugin.py 1 (not 2), test_request_bar_code_reset.py 1 (not 2), test_setuphandlers.py 1 (not 2), test_user_setup.py 1 (not 2). All other per-file counts matched exactly. Reconciled below."
   - "Reworded test_product_is_installed's docstring to say 'the quickinstaller tool' instead of the literal string 'portal_quickinstaller', since the plan's own automated verify grep for that literal string across all of src/ and the docstring would otherwise have been a false positive against the plan's own gate"
   - "Updated (did not delete) three now-stale in-repo comments that named the deleted BaseTest._install() method as the cause of cross-test memberdata leakage (test_helpers.py x2, test_pas_plugin.py, test_user_setup.py) -- the leakage-mitigation code they explain is untouched and still correct, only the explanatory prose named a since-deleted identifier"
+  - "REQUIREMENTS.md's QUAL-05 left unchecked (not marked Complete) despite this plan's frontmatter listing it as a requirement -- the requirement's own text and this plan's own success_criteria explicitly scope it as 'first half', with 08-03-PLAN.md's frontmatter independently listing QUAL-05 again for the 'second half' (migrating every test file off IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING). Marking it Complete here would have been inaccurate; QUAL-07 was marked Complete since it is fully delivered in this plan."
 
-requirements-completed: [QUAL-05, QUAL-07]
+requirements-completed: [QUAL-07]
+requirements-partial:
+  - id: QUAL-05
+    note: "First half done here (setUpPloneSite hook exists, IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING is ZSERVER-free). Not marked complete in REQUIREMENTS.md yet -- the requirement's own text ('Browser tests run on a ZSERVER-free FunctionalTesting layer') is only true once plan 08-03 migrates every test file's layer attribute off IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING, per this plan's own success_criteria ('QUAL-05 (first half)') and 08-03-PLAN.md's frontmatter ('requirements: [QUAL-05]', 'second half')."
 
 coverage:
   - id: D1
@@ -107,7 +111,7 @@ Each task was committed atomically:
 1. **Task 1: Give the layer its own install hook and drop the ZSERVER fixture from the functional layer** - `c1b17e6` (feat, `--no-verify` -- see Deviations)
 2. **Task 2: Delete the quickinstaller install path and rewrite the installedness assertion** - `d64788d` (feat, `--no-verify` -- see Deviations)
 
-**Plan metadata:** pending (this SUMMARY's own commit)
+**Plan metadata:** `f999920` (docs, `--no-verify` -- same pre-existing-findings reason as Tasks 1-2)
 
 ## Files Created/Modified
 
