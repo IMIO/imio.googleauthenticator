@@ -321,7 +321,14 @@ Plans:
   4. Installedness is asserted through things this package controls — plugin registered for `IAuthenticationPlugin`, registry records present, browser layer active — not through `portal_quickinstaller`. `applyProfile` does not call `installProduct`, so `test_product_is_installed` can fail on an otherwise-correct change.
   5. `bin/code-analysis` exits 0 (~40 pre-existing findings), the `[coverage]` and `[test-coverage]` buildout parts are enabled with `coverage == 5.5` pinned, and the redundant `createcoverage` part and pin are dropped.
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Coverage instrument end to end: corrected `.coveragerc`, `set -e` in the `[test-coverage]` template, buildout parts + `coverage == 5.5`, proven with a real red build (QUAL-01, QUAL-02, QUAL-03)
+- [ ] 08-02-PLAN.md — Profile install moves to the layer's `setUpPloneSite`; the Browser-driven quickinstaller helper and all 21 call sites deleted; installedness asserted via plugin registration, registry records and browser layer (QUAL-05, QUAL-07)
+- [ ] 08-03-PLAN.md — Every test class moved to the ZSERVER-free `FunctionalTesting` layer, the integration layer retired, and every revealed failure fixed at its cause (QUAL-05)
+- [ ] 08-04-PLAN.md — Branch coverage taken above 90% with real tests for the four weakest modules, and CI pointed at `bin/test-coverage` (QUAL-04)
+- [ ] 08-05-PLAN.md — All lint findings fixed so `bin/code-analysis` exits 0 and the pre-commit hook works; stale figures in `CLAUDE.md` and `codebase/TESTING.md` corrected (QUAL-06)
 
 **Phase notes:**
 
@@ -344,7 +351,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 5. Drift, Replay and Lockout | 5/5 | Complete    | 2026-08-03 |
 | 6. Recovery Codes | 3/3 | Complete    | 2026-08-04 |
 | 7. Coexistence with imio.dms.mail | 4/4 | Complete    | 2026-08-05 |
-| 8. Coverage Instrument and Test Layers | 0/TBD | Not started | - |
+| 8. Coverage Instrument and Test Layers | 0/5 | Not started | - |
 
 ## Same-Commit Requirements
 
