@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 08
 current_phase_name: coverage-instrument-and-test-layers
 status: executing
-stopped_at: Completed 08-03-PLAN.md
-last_updated: "2026-08-05T12:23:35.379Z"
+stopped_at: Completed 08-04-PLAN.md
+last_updated: "2026-08-05T13:14:01.156Z"
 last_activity: 2026-08-05
 last_activity_desc: Phase 08 execution started
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 30
-  completed_plans: 28
+  completed_plans: 29
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-31)
 ## Current Position
 
 Phase: 08 (coverage-instrument-and-test-layers) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-08-05 — Phase 08 execution started
 
-Progress: 25/25 plans executed · **7 of 8 roadmap phases complete ([█████████░] 93%)**
+Progress: 25/25 plans executed · **7 of 8 roadmap phases complete ([██████████] 97%)**
 
 Phase 8 has no plans yet, so no Phase 8 plans are counted in the 25 above.
 
@@ -112,6 +112,7 @@ WR-02 in `04-REVIEW.md`.
 | Phase 08 P01 | 25min | 2 tasks | 3 files |
 | Phase 08 P02 | 35min | 2 tasks | 14 files |
 | Phase 08 P03 | ~20min | 2 tasks | 14 files |
+| Phase 08 P04 | ~2h | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -179,6 +180,9 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 08]: 08-03: all 16 layer attributes across 12 test files migrated IntegrationTesting -> FunctionalTesting; integration layer deleted from testing.py; a stale IntegrationTesting-naming comment in helpers.py reworded to satisfy the plan's own no-survivor grep
 - [Phase ?]: [Phase 08]: 08-03: per-test DemoStorage isolation revealed zero pre-existing failures -- 111 tests, 0 failures, 0 errors both before and after, run twice for stability; Task 2 made no changes (plan's own anticipated valid outcome)
 - [Phase ?]: [Phase 08]: 08-03: post-layer-change coverage baseline for plan 08-04: TOTAL 1048/131/286/61, 84% (BrPart moved 60->61 from plan 08-01's baseline, same Stmts/Miss/Branch/percent)
+- [Phase ?]: [Phase 08] 08-04: Task 3's declared file list (test_reset_bar_code.py only) could not clear 90% TOTAL alone -- reset_bar_code.py maxed at 99% but TOTAL landed at 89.73%; extended test_controlpanel.py (already touched in Task 2) with two more methods to reach 90.03%
+- [Phase ?]: [Phase 08] 08-04: discovered IResetBarCodeForm['qr_code'].description is process-wide mutable schema-field state (zope.schema.Field singleton, not per-request) -- a successful updateFields() call in one test leaked QR-code HTML into a later test's failure-path assertion regardless of run order; worked around in test setUp() only, no production code changed
+- [Phase ?]: [Phase 08] 08-04: found the existing test_helpers.py::test_bulk_enable_reports_failure_when_seed_key_is_broken passes for the wrong reason -- its handleSave call returns early on an unrelated RequiredMissing extraction error, and its 'error' assertion reads a leftover message from an earlier call in the same test method rather than a fresh outcome; not fixed (outside this plan's file list, still passes), documented for future readers
 
 ### Pending Todos
 
@@ -217,6 +221,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-05T12:23:35.365Z
-Stopped at: Completed 08-03-PLAN.md
+Last session: 2026-08-05T13:14:01.142Z
+Stopped at: Completed 08-04-PLAN.md
 Resume file: None
