@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 8
-current_phase_name: Coverage Instrument and Test Layers
+current_phase: 08
+current_phase_name: coverage-instrument-and-test-layers
 status: executing
-stopped_at: Phase 8 context gathered
-last_updated: "2026-08-05T10:41:18.431Z"
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-08-05T12:01:28.728Z"
 last_activity: 2026-08-05
-last_activity_desc: Phase 07 complete, transitioned to Phase 8
+last_activity_desc: Phase 08 execution started
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 30
-  completed_plans: 25
+  completed_plans: 26
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-31)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 8 — Coverage Instrument and Test Layers (not yet planned)
+**Current focus:** Phase 08 — coverage-instrument-and-test-layers
 
 ## Current Position
 
-Phase: 8 — Coverage Instrument and Test Layers
-Plan: Not started
+Phase: 08 (coverage-instrument-and-test-layers) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-08-05 — Phase 07 complete, transitioned to Phase 8
+Last activity: 2026-08-05 — Phase 08 execution started
 
-Progress: 25/25 plans executed · **7 of 8 roadmap phases complete ([█████████████████░░░] 88%)**
+Progress: 25/25 plans executed · **7 of 8 roadmap phases complete ([█████████░] 87%)**
 
 Phase 8 has no plans yet, so no Phase 8 plans are counted in the 25 above.
 
@@ -109,6 +109,7 @@ WR-02 in `04-REVIEW.md`.
 | Phase 07 P01 | 70min | 2 tasks | 8 files |
 | Phase 07 P02 | 35min | 2 tasks | 10 files |
 | Phase 07 P03 | 20min | 2 tasks | 6 files |
+| Phase 08 P01 | 25min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -169,6 +170,8 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 07]: 07-02: Task 1/Task 2 commit boundary drifted from the plan's file split -- test_no_restrictedTraverse_left_in_browser_code and the test_resources_are_registered docstring fix landed in Task 1's commit with the rest of test_generic.py's edits, not Task 2's; content matches the plan, only the commit differs.
 - [Phase ?]: [Phase 07]: 07-02: git mv leaves an empty skins/googleauthenticator_custom directory on disk after both templates are relocated -- required an explicit rm -rf before the skin-directory-absence test could pass, since os.path.exists() is True for an empty directory.
 - [Phase ?]: [Phase 07]: 07-03: profiles/uninstall/skins.xml deleted in the same commit as the two new registry-uninstall files, keeping the uninstall directory from ever being empty; the synthetic collision test replays imio.dms.mail's real reposition entry via portal_javascripts.moveResourceAfter directly rather than a fabricated GenericSetup import, since _initResources dispatches that exact shape to the same tool method; no dedicated tearDown reset was needed since the reversibility assertion's re-apply of the default profile restores installed state as a side effect, confirmed by a full 110/110 green suite re-run.
+- [Phase ?]: [Phase 08]: 08-01: Coverage-5.5 baseline re-measured identical to the 4.2 reference (1048/131/286/60, 84%) -- reported as measured, no .coveragerc adjustment
+- [Phase ?]: [Phase 08]: 08-01: Task 1 commit required --no-verify per plan/CLAUDE.md -- pre-existing bin/code-analysis findings unrelated to the three touched config files
 
 ### Pending Todos
 
@@ -207,6 +210,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-05T09:42:48.193Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-coverage-instrument-and-test-layers/08-CONTEXT.md
+Last session: 2026-08-05T12:01:28.714Z
+Stopped at: Completed 08-01-PLAN.md
+Resume file: None

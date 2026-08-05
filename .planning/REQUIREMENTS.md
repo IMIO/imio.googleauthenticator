@@ -94,9 +94,9 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 
 ### Quality (QUAL)
 
-- [ ] **QUAL-01**: `.coveragerc` declares `[run] source`, `omit = */tests/*` and `branch = True`, so the figure reflects package code actually exercised
-- [ ] **QUAL-02**: `bin/test-coverage` fails the build when tests fail — proven with a deliberately failing test, not by inspection
-- [ ] **QUAL-03**: The `[coverage]` and `[test-coverage]` buildout parts are enabled, `coverage == 5.5` pinned, and the redundant `createcoverage` removed
+- [x] **QUAL-01**: `.coveragerc` declares `[run] source`, `omit = */tests/*` and `branch = True`, so the figure reflects package code actually exercised
+- [x] **QUAL-02**: `bin/test-coverage` fails the build when tests fail — proven with a deliberately failing test, not by inspection
+- [x] **QUAL-03**: The `[coverage]` and `[test-coverage]` buildout parts are enabled, `coverage == 5.5` pinned, and the redundant `createcoverage` removed
 - [ ] **QUAL-04**: Branch coverage is above 90% against the corrected instrument, enforced in CI
 - [ ] **QUAL-05**: Browser tests run on a ZSERVER-free `FunctionalTesting` layer, with the in-layer quickinstaller workaround replaced by `applyProfile` in `setUpPloneSite`
 - [ ] **QUAL-06**: `bin/code-analysis` exits 0, so the buildout's pre-commit hook stops training contributors to use `--no-verify`
@@ -223,9 +223,9 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | BUG-04 | Phase 2 | Complete |
 | BUG-05 | Phase 3 | Complete |
 | BUG-06 | Phase 7 | Complete |
-| QUAL-01 | Phase 8 | Pending |
-| QUAL-02 | Phase 8 | Pending |
-| QUAL-03 | Phase 8 | Pending |
+| QUAL-01 | Phase 8 | Complete |
+| QUAL-02 | Phase 8 | Complete |
+| QUAL-03 | Phase 8 | Complete |
 | QUAL-04 | Phase 8 | Pending |
 | QUAL-05 | Phase 8 | Pending |
 | QUAL-06 | Phase 8 | Pending |
