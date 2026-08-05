@@ -1,12 +1,15 @@
 import os
 
 from Products.CMFCore.utils import getToolByName
+from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 import unittest2 as unittest
+from plone.browserlayer.utils import registered_layers
 from plone.testing.z2 import Browser
-from plone.app.testing import quickInstallProduct
 from plone.app.testing import SITE_OWNER_NAME, SITE_OWNER_PASSWORD, TEST_USER_NAME, TEST_USER_PASSWORD
 from plone import api
+from plone.registry.interfaces import IRegistry
 from plone.supermodel.interfaces import FIELDSETS_KEY
+from zope.component import getUtility
 from zope.i18n import translate
 from zope.schema import Int
 
@@ -14,6 +17,8 @@ import imio.googleauthenticator
 from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 from imio.googleauthenticator.browser.forms.token import TokenForm
 from imio.googleauthenticator.helpers import get_app_settings
+from imio.googleauthenticator.interfaces import IGoogleAuthenticatorLayer
+from imio.googleauthenticator.setuphandlers import PAS_ID
 from imio.googleauthenticator.testing import \
     IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
@@ -43,18 +48,26 @@ class TestGeneric(unittest.TestCase, BaseTest):
     def setUp(self):
         self.app = self.layer['app']
         self.portal = self.layer['portal']
-        self.qi_tool = getToolByName(self.portal, 'portal_quickinstaller')
         self.portal_url = api.portal.get().absolute_url()
-        self._install()
+        self.pas = getToolByName(self.portal, 'acl_users')
 
     def test_product_is_installed(self):
-        """ Validate that our products GS profile has been run and the product
-            installed
+        """QUAL-07: applyProfile() never touches the quickinstaller tool
+        (verified against the installed plone.app.testing source), so
+        installedness is asserted through what the package's own install
+        path actually guarantees instead: PAS plugin registration, the
+        IGoogleAuthenticatorSettings registry records, and the browser
+        layer. A regression here means the layer's setUpPloneSite silently
+        ran its PloneSandboxLayer no-op base instead of applying our
+        profile.
         """
-        pid = 'imio.googleauthenticator'
-        installed = [p['id'] for p in self.qi_tool.listInstalledProducts()]
-        self.assertTrue(pid in installed,
-            u'package appears not to have been installed')
+        ids = [x[0] for x in self.pas.plugins.listPlugins(IAuthenticationPlugin)]
+        self.assertIn(PAS_ID, ids)
+
+        registry = getUtility(IRegistry)
+        registry.forInterface(IGoogleAuthenticatorSettings)  # raises KeyError if any record missing
+
+        self.assertIn(IGoogleAuthenticatorLayer, registered_layers())
 
     def test_control_panel_view(self):
         browser = self._get_browser()
@@ -74,13 +87,6 @@ class TestGeneric(unittest.TestCase, BaseTest):
         self._login_browser(browser, TEST_USER_NAME, TEST_USER_PASSWORD)
         browser.open('{0}/@@google-authenticator-token'.format(self.portal_url))
         self.assertEqual(browser.headers.get('status'), '200 Ok', 'HTTP response was not 200 Ok')
-
-    # def test_disable_view(self):
-    #     browser = Browser(self.app)
-    #     browser.open('{0}/@@disable-two-factor-authentication'.format(self.portal_url))
-    #
-    #     self.assertEqual(browser.headers.get('status'), '200 Ok', 'HTTP response was not 200 Ok')
-    #
 
     def test_control_panel_is_translated_nl(self):
         """Domain-level proof that the i18n domain rename holds: translating

@@ -4,7 +4,6 @@ Tests for the bar-code reset request form.
 
 import unittest2 as unittest
 
-from Products.CMFCore.utils import getToolByName
 from Products.MailHost.MailHost import MailBase
 from Products.statusmessages.interfaces import IStatusMessage
 from plone import api
@@ -24,13 +23,10 @@ class TestRequestBarCodeReset(unittest.TestCase, BaseTest):
     def setUp(self):
         self.app = self.layer['app']
         self.portal = self.layer['portal']
-        self.qi_tool = getToolByName(self.portal, 'portal_quickinstaller')
         self.portal_url = api.portal.get().absolute_url()
-        self._install()
-        # Memberdata writes commit inside BaseTest._install()'s testbrowser
-        # calls and survive across test methods in this layer, so a leftover
-        # token from a sibling test would make the control below pass
-        # vacuously.
+        # Memberdata writes survive across test methods in this layer, so a
+        # leftover token from a sibling test would make the control below
+        # pass vacuously.
         api.user.get(username=TEST_USER_NAME).setMemberProperties(
             mapping={'bar_code_reset_token': ''})
 

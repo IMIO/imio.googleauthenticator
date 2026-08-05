@@ -137,7 +137,6 @@ class TestSkaSecretKey(unittest.TestCase, BaseTest):
         self.portal = self.layer['portal']
         self.request = self.layer['request']
         self.portal_url = api.portal.get().absolute_url()
-        self._install()
         # PLONE_FIXTURE logs the test user in (and caches its property
         # sheets) before this class's own setUp installs the add-on's
         # memberdata_properties.xml. Re-login so the cached user is rebuilt
@@ -239,7 +238,6 @@ class TestSeedEncryption(unittest.TestCase, BaseTest):
         self.portal = self.layer['portal']
         self.request = self.layer['request']
         self.portal_url = api.portal.get().absolute_url()
-        self._install()
         # See TestSkaSecretKey.setUp's docstring: PLONE_FIXTURE caches the
         # test user's property sheets before this add-on's
         # memberdata_properties.xml is applied, so a re-login is mandatory
@@ -452,9 +450,8 @@ class TestSeedEncryption(unittest.TestCase, BaseTest):
         user = api.user.get_current()
         # overwrite=True: force a fresh secret encrypted under this test's
         # own key, rather than trusting a property that may already be set
-        # (memberdata commits inside BaseTest._install()'s testbrowser calls
-        # survive across test methods in this layer -- see TestSkaSecretKey
-        # .setUp's docstring for the same hazard's re-login half).
+        # by an earlier test method in this layer -- see TestSkaSecretKey
+        # .setUp's docstring for the same hazard's re-login half.
         get_or_create_secret(user, overwrite=True)
         ciphertext = user.getProperty('two_factor_authentication_secret')
 
@@ -591,7 +588,6 @@ class TestDriftAndReplay(unittest.TestCase, BaseTest):
         self.portal = self.layer['portal']
         self.request = self.layer['request']
         self.portal_url = api.portal.get().absolute_url()
-        self._install()
         # See TestSkaSecretKey.setUp's docstring: PLONE_FIXTURE caches the
         # test user's property sheets before this add-on's
         # memberdata_properties.xml is applied, so a re-login is mandatory
@@ -606,10 +602,9 @@ class TestDriftAndReplay(unittest.TestCase, BaseTest):
             os.environ.pop(helpers.ENV_VAR_NAME, None)
         else:
             os.environ[helpers.ENV_VAR_NAME] = self._previous_key
-        # BaseTest._install() commits inside a real testbrowser (see the
-        # cross-test leakage note in setUp), so a recovery-code salt/hash
-        # set minted by one test method could otherwise survive into the
-        # next one in this class.
+        # This layer's cross-test leakage (see the note in setUp) means a
+        # recovery-code salt/hash set minted by one test method could
+        # otherwise survive into the next one in this class.
         api.user.get_current().setMemberProperties(mapping={
             'two_factor_authentication_recovery_codes_salt': '',
             'two_factor_authentication_recovery_codes_hashes': (),

@@ -59,10 +59,8 @@ class TestPubBeforeCommitRedirect(unittest.TestCase, BaseTest):
     def setUp(self):
         self.app = self.layer['app']
         self.portal = self.layer['portal']
-        self.qi_tool = getToolByName(self.portal, 'portal_quickinstaller')
         self.pas = getToolByName(self.portal, 'acl_users')
         self.portal_url = api.portal.get().absolute_url()
-        self._install()
 
         self._previous_key = os.environ.get(helpers.ENV_VAR_NAME)
         os.environ[helpers.ENV_VAR_NAME] = Fernet.generate_key()

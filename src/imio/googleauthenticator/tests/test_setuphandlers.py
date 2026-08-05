@@ -77,7 +77,6 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         self.request = self.layer['request']
         self.portal_url = api.portal.get().absolute_url()
         self.pas = getToolByName(self.portal, 'acl_users')
-        self._install()
 
     def test_import_step_declares_registry_dependency(self):
         """REG-02: the <depends name="plone.app.registry"/> declaration is
@@ -353,10 +352,11 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         ``main.js`` calls ``$(document).ready(...)`` at top level, so it
         needs those two to have run first.
 
-        Honest limitation: ``BaseTest._install()`` installs onto an already-built
-        site, where Plone's registrations are present and an append lands after
-        them -- so this passes even with the ``insert-bottom`` directives
-        removed. It is the outcome check, not the regression check;
+        Honest limitation: the layer's ``setUpPloneSite`` applies our profile
+        onto an already-built site, where Plone's registrations are present
+        and an append lands after them -- so this passes even with the
+        ``insert-bottom`` directives removed. It is the outcome check, not
+        the regression check;
         ``test_every_javascript_registration_pins_its_position`` above is the one
         that fails when the directives go away.
         """

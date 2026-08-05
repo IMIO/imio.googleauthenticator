@@ -83,7 +83,6 @@ class TestSetupForm(unittest.TestCase, BaseTest):
         self.portal = self.layer['portal']
         self.request = self.layer['request']
         self.portal_url = api.portal.get().absolute_url()
-        self._install()
         # See TestSkaSecretKey.setUp's docstring in test_helpers.py:
         # PLONE_FIXTURE caches the test user's property sheets before this
         # add-on's memberdata_properties.xml is applied, so a re-login is
@@ -99,9 +98,9 @@ class TestSetupForm(unittest.TestCase, BaseTest):
         self._previous_key = os.environ.get(helpers.ENV_VAR_NAME)
         os.environ[helpers.ENV_VAR_NAME] = Fernet.generate_key()
         # Cross-test leakage hazard documented in 03-01-SUMMARY.md Deviation
-        # #2: BaseTest._install() commits inside a real testbrowser, so a
-        # ciphertext written by an earlier test method under a different
-        # key survives into this one. updateFields() -> get_token_
+        # #2: this layer does not isolate memberdata writes per test method,
+        # so a ciphertext written by an earlier test method under a
+        # different key survives into this one. updateFields() -> get_token_
         # description() -> get_or_create_secret(overwrite=False) would try
         # to decrypt that stale ciphertext under this test's fresh key and
         # raise. Force a fresh secret under the current key up front.

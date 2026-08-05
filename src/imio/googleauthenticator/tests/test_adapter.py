@@ -36,8 +36,6 @@ class TestEnhancedUserDataPanelAdapter(unittest.TestCase, BaseTest):
     def setUp(self):
         self.app = self.layer['app']
         self.portal = self.layer['portal']
-        self.qi_tool = getToolByName(self.portal, 'portal_quickinstaller')
-        self._install()
 
     def _own_schema_fields(self):
         """The fields this package adds, excluding Plone's own -- so a gap in
@@ -142,8 +140,6 @@ class TestCameFromAdapter(unittest.TestCase, BaseTest):
         self.app = self.layer['app']
         self.portal = self.layer['portal']
         self.request = self.layer['request']
-        self.qi_tool = getToolByName(self.portal, 'portal_quickinstaller')
-        self._install()
 
     def test_get_came_from_quotes_the_value(self):
         """Covers four scenarios in one method (R5/WR-03):

@@ -7,7 +7,6 @@ from imio.googleauthenticator.tests.base import BaseTest
 from plone import api
 from plone.app.testing import setRoles
 from plone.app.testing import TEST_USER_ID
-from Products.CMFCore.utils import getToolByName
 
 import unittest2 as unittest
 
@@ -36,9 +35,7 @@ class TestGoogleAuthenticatorSettingsEditForm(unittest.TestCase, BaseTest):
         self.app = self.layer['app']
         self.portal = self.layer['portal']
         self.request = self.layer['request']
-        self.qi_tool = getToolByName(self.portal, 'portal_quickinstaller')
         self.portal_url = api.portal.get().absolute_url()
-        self._install()
 
     def test_render_appends_the_extra_links(self):
         # The control panel requires cmf.ManagePortal, exactly as

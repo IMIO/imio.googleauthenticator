@@ -45,7 +45,6 @@ class TestResetBarCodeLockout(unittest.TestCase, BaseTest):
         self.app = self.layer['app']
         self.portal = self.layer['portal']
         self.portal_url = api.portal.get().absolute_url()
-        self._install()
 
         self._previous_key = os.environ.get(helpers.ENV_VAR_NAME)
         os.environ[helpers.ENV_VAR_NAME] = Fernet.generate_key()

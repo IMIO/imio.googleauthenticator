@@ -7,7 +7,6 @@ from cryptography.fernet import Fernet
 from plone.testing.z2 import Browser
 from plone import api
 from plone.app.testing import login
-from plone.app.testing import quickInstallProduct
 from plone.app.testing import TEST_USER_NAME
 from plone.app.testing import TEST_USER_PASSWORD
 from zope.globalrequest import setRequest
@@ -33,10 +32,8 @@ class TestPas(unittest.TestCase, BaseTest):
     def setUp(self):
         self.app = self.layer['app']
         self.portal = self.layer['portal']
-        self.qi_tool = getToolByName(self.portal, 'portal_quickinstaller')
         self.pas = getToolByName(self.portal, 'acl_users')
         self.portal_url = api.portal.get().absolute_url()
-        self._install()
 
         self._previous_key = os.environ.get(helpers.ENV_VAR_NAME)
         os.environ[helpers.ENV_VAR_NAME] = Fernet.generate_key()
@@ -161,9 +158,8 @@ class TestPas(unittest.TestCase, BaseTest):
         user.setMemberProperties(
             mapping={'enable_two_factor_authentication': True})
         # overwrite=True: force a fresh secret encrypted under this test's
-        # own setUp key, rather than trusting a property that may already be
-        # set -- memberdata commits inside BaseTest._install()'s testbrowser
-        # calls survive across test methods in this layer.
+        # own setUp key, rather than trusting a property that may already
+        # be set by an earlier test method in this layer.
         get_or_create_secret(user, overwrite=True)
 
         request = self.layer['request']
