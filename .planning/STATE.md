@@ -5,12 +5,12 @@ milestone_name: milestone
 current_phase: 8
 current_phase_name: Coverage Instrument and Test Layers
 status: planning
-stopped_at: Completed 07-03-PLAN.md
-last_updated: "2026-08-05T09:25:29.695Z"
+stopped_at: Phase 8 context gathered
+last_updated: "2026-08-05T09:42:48.215Z"
 last_activity: 2026-08-05
 last_activity_desc: Phase 07 complete, transitioned to Phase 8
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 7
   total_plans: 25
   completed_plans: 25
@@ -46,6 +46,7 @@ Two items came out of Phase 7 that are NOT Phase 7 work:
 - **COEX-10, fixed** in quick task `260805-f5m` (commit `184f053`): this package's
   instance-wide user-created subscriber aborted Plone site creation in any site that had
   not installed its profile. Found while setting up 07-04's verification.
+
 - **MFA-14, open and unassigned to a phase**: enabling the "Globally enabled" setting does
   not enrol accounts that already exist when the add-on is installed. The operator decided
   it does not block Phase 7. Details and three candidate remedies are in the Gaps section
@@ -206,6 +207,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-04T16:04:10.111Z
-Stopped at: Completed 07-03-PLAN.md
-Resume file: None
+Last session: 2026-08-05T09:42:48.193Z
+Stopped at: Phase 8 context gathered
+Resume file: .planning/phases/08-coverage-instrument-and-test-layers/08-CONTEXT.md
