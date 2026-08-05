@@ -1,6 +1,11 @@
 # Testing Patterns
 
 **Analysis Date:** 2026-07-28
+**Corrected:** 2026-08-05 (Phase 8 plan 08-05, D-19) — package renamed to `imio.googleauthenticator`,
+the test-layer install mechanism and testing layers rewritten in plans 08-02/08-03, the coverage
+instrument corrected and gated in plans 08-01/08-04. Only the sections below that D-19 names
+(coverage, test layers, package-name references, test count) were rewritten; the rest of this
+document otherwise still reflects the 2026-07-28 analysis.
 
 ## Test Framework
 
@@ -11,7 +16,9 @@
 - Underlying framework: unittest2 (Python 2.7 compatible)
 - Config: `setup.py` with `extras_require = {'test': ['plone.app.testing', 'plone.app.robotframework']}`
 - CI: `.github/workflows/package-test.yml` → `IMIO/gha-workflows` `package-test-legacy.yml@v1`,
-  with `test_command: 'bin/test -t !robot'` (Travis was removed)
+  with `test_command: 'bin/test-coverage -t !robot'` (Travis was removed; the coverage-gated
+  command replaced the plain `bin/test` invocation in Phase 8 plan 08-04, so CI now fails if
+  branch coverage regresses below 90%)
 
 **Assertion Library:**
 - unittest2 assertions (assertEqual, assertTrue, assertFalse, assertIn, etc.)
@@ -31,52 +38,81 @@ make test                          # bin/test -t '!robot'  (the normal command)
 make test opt='-t "helpers"'       # Filter by pattern
 bin/test -t test_product_is_installed   # Single test
 bin/test                           # ALL tests, robot included — needs a browser, will fail
-bin/createcoverage --output-dir=htmlcov -t "--layer=!Robot"  # Coverage (excludes Robot tests)
-bin/code-analysis                  # flake8 + isort — currently exits 1 on pre-existing debt
+bin/test-coverage -t '!robot'      # Coverage-gated run; fails (exit non-zero) below 90% branch coverage
+bin/code-analysis                  # flake8 + isort — exits 0 (QUAL-06, cleared in Phase 8 plan 08-05)
 ```
 
-**Current status:** 8 tests, 0 failures, 0 errors under `make test`.
+**Current status:** 128 tests, 0 failures, 0 errors under `bin/test -t '!robot'`. Branch coverage
+90% TOTAL (90.03% precise at `--precision=2`) against the corrected `.coveragerc` instrument.
 
 ## Load-Bearing Version Constraint
 
 **`plone.testing` must stay unpinned** in `test-4.3.cfg` so Plone 4.3's own 4.1.3 applies.
 
 The upstream scripts-buildout `test-4.3.cfg` pins `plone.testing = 5.0.0`, which introduces
-the `TestIsolationBroken` guard (`plone/testing/z2.py:you_broke_it`). Every browser test in
-this package trips it: `tests/base.py:_install()` drives a `plone.testing.z2.Browser`
-against `IntegrationTesting`, and the quickinstaller round-trip commits a transaction.
-Under 5.0.0 all 6 browser-based tests error with `HTTP Error 500` masking a
-`TestIsolationBroken`. The pin was therefore dropped, with a comment in `test-4.3.cfg`
+the `TestIsolationBroken` guard (`plone/testing/z2.py:you_broke_it`). This package's
+Browser-driven functional tests (`test_challenge.py`, `test_generic.py`, `test_helpers.py`,
+`test_reset_bar_code.py`, `test_token.py`) drive a `plone.testing.z2.Browser` and would trip
+that guard under 5.0.0. The pin was therefore dropped, with a comment in `test-4.3.cfg`
 recording why.
 
-**Proper fix (not yet done):** move those tests onto
-`COLLECTIVE_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING`, which already exists in
-`src/collective/googleauthenticator/testing.py` and is currently unused. That would let
-`plone.testing` float forward again.
+## Coverage
+
+**Requirements:** Enforced minimum: 90% branch coverage, checked by `--fail-under=90` in the
+`[test-coverage]` buildout part's inline script.
+
+**Configuration:**
+- `.coveragerc` (`[run]` section): `source = src/imio/googleauthenticator`,
+  `omit = */tests/*`, `branch = True`. No `[report] include` key — that key had been admitting
+  the test modules themselves into the coverage denominator before Phase 8 plan 08-01 corrected it.
+- `coverage == 5.5` pinned in `test-4.3.cfg` (last release supporting Python 2.7).
+- `bin/test-coverage` is the only coverage-running script this buildout generates; Phase 8
+  plan 08-01 removed the previous, unscoped coverage part/pin along with the `[report] include`
+  bug above.
+
+**Run it:**
+```bash
+bin/test-coverage -t '!robot'
+# Runs bin/coverage run --rcfile=.coveragerc bin/test -t '!robot', then
+# bin/coverage html and bin/coverage report -m --fail-under=90.
+# set -e as the script's first line means a failing test aborts before the
+# coverage report ever runs, so a red build never produces a misleadingly
+# clean TOTAL row.
+```
+
+**View Coverage:**
+```bash
+bin/test-coverage -t '!robot'
+# Generated report: htmlcov/index.html (bin/coverage html output)
+```
 
 ## Test File Organization
 
 **Location:**
-- `src/collective/googleauthenticator/tests/` directory
+- `src/imio/googleauthenticator/tests/` directory
 - Co-located with source package, not in separate test directory
 
 **Naming:**
-- Pattern: `test_*.py` for unit/integration tests
-- Example: `test_helpers.py`, `test_generic.py`, `test_pas_plugin.py`, `test_security.py`, `test_robot.py`
+- Pattern: `test_*.py` for unit/functional tests
+- Example: `test_helpers.py`, `test_generic.py`, `test_pas_plugin.py`, `test_security.py`,
+  `test_controlpanel.py`, `test_token.py`, `test_challenge.py`, `test_disable_two_factor_authentication.py`,
+  `test_reset_bar_code.py`, `test_request_bar_code_reset.py`, `test_setuphandlers.py`,
+  `test_subscribers.py`, `test_user_setup.py`, `test_adapter.py`, `test_robot.py`
 - Robot tests: `robot_test.txt` (Robot Framework format, not Python)
 
 **Structure:**
 ```
-src/collective/googleauthenticator/
+src/imio/googleauthenticator/
 ├── tests/
 │   ├── __init__.py
-│   ├── base.py              # BaseTest mixin with shared test utilities
-│   ├── test_generic.py      # Integration tests for product installation
+│   ├── base.py              # BaseTest mixin: _get_browser/_login_browser only
+│   ├── test_generic.py      # Product-installation and layer-registration tests
 │   ├── test_helpers.py      # Unit tests for helper functions
 │   ├── test_pas_plugin.py   # Tests for PAS plugin
-│   ├── test_security.py     # Security-related tests
+│   ├── test_security.py     # Placeholder (empty test_() body) — see Best Practices Observed
 │   ├── test_robot.py        # Robot Framework test suite runner
 │   └── robot_test.txt       # Robot Framework acceptance tests
+│   └── ... one test_*.py per production module (see Naming above)
 ```
 
 ## Test Structure
@@ -88,9 +124,9 @@ Test classes inherit from `unittest.TestCase` and mix in `BaseTest` for shared u
 ```python
 class TestIPWhitelisting(unittest.TestCase, BaseTest):
     """Test class for IP whitelisting functionality."""
-    
-    layer = COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
-    
+
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+
     def test_get_ip_ranges_always_returns_networks_and_accepts_single_ip(self):
         """Test that get_ip_ranges normalizes IP addresses."""
         ranges = get_ip_ranges(['127.0.0.1', '192.168.0.0/16'])
@@ -99,7 +135,9 @@ class TestIPWhitelisting(unittest.TestCase, BaseTest):
             ranges)
 ```
 
-**Pattern - Three-layer test architecture:**
+**Pattern - Two-layer test architecture** (the third, integration, layer described in the
+2026-07-28 analysis was retired in Phase 8 plan 08-03 — every test class now runs on the single
+functional layer, which carries no HTTP server but does give per-test `DemoStorage` isolation):
 
 1. **Unit tests** - Test individual helper functions with direct calls:
    ```python
@@ -109,24 +147,25 @@ class TestIPWhitelisting(unittest.TestCase, BaseTest):
        self.assertEqual([IPv4Network('127.0.0.1'), ...], ranges)
    ```
 
-2. **Integration tests** - Test with Plone layer setup/teardown:
+2. **Functional tests (no HTTP server)** - Test with Plone layer setup/teardown, product
+   already installed by the layer's own site-setup hook:
    ```python
    # From test_generic.py
    def setUp(self):
        self.app = self.layer['app']
        self.portal = self.layer['portal']
-       self.qi_tool = getToolByName(self.portal, 'portal_quickinstaller')
+       self.pas = getToolByName(self.portal, 'acl_users')
        self.portal_url = api.portal.get().absolute_url()
-       self._install()  # Install product
-   
+
    def test_product_is_installed(self):
-       """Validate that product GS profile has been run."""
-       pid = 'collective.googleauthenticator'
-       installed = [p['id'] for p in self.qi_tool.listInstalledProducts()]
-       self.assertTrue(pid in installed)
+       """Validate installedness via what the install path actually guarantees."""
+       from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
+       plugin_ids = [pid for pid, _ in self.pas.plugins.listPlugins(IAuthenticationPlugin)]
+       self.assertIn(PAS_ID, plugin_ids)
    ```
 
-3. **Functional/Browser tests** - Test UI interactions:
+3. **Browser tests** - Test UI interactions with a `plone.testing.z2.Browser` against the same
+   ZSERVER-free functional layer (no full HTTP round trip, but real form traversal):
    ```python
    # From test_generic.py
    def test_control_panel_view(self):
@@ -138,15 +177,17 @@ class TestIPWhitelisting(unittest.TestCase, BaseTest):
 
 **Patterns:**
 
-- **Setup pattern** - `setUp()` method initializes layer fixtures and calls `_install()` from BaseTest:
+- **Setup pattern** - `setUp()` initializes layer fixtures directly; the product is already
+  installed by `ImiogoogleauthenticatorLayer.setUpPloneSite`, once per layer, not per test:
   ```python
   def setUp(self):
       self.app = self.layer['app']
       self.portal = self.layer['portal']
-      self._install()  # From BaseTest mixin
   ```
 
-- **Teardown pattern** - Handled automatically by Plone testing layer; no explicit tearDown() needed in most tests
+- **Teardown pattern** - Handled automatically by the functional layer's per-test `DemoStorage`
+  stacking (`testSetUp`/`testTearDown`), which discards every write a test commits; no explicit
+  `tearDown()` needed in most tests
 
 - **Assertion pattern** - Standard unittest assertions:
   ```python
@@ -167,14 +208,14 @@ class TestIPWhitelisting(unittest.TestCase, BaseTest):
 - **Fixture-based testing** - Plone provides fixtures via testing layer:
   ```python
   from plone.app.testing import SITE_OWNER_NAME, SITE_OWNER_PASSWORD, TEST_USER_NAME, TEST_USER_PASSWORD
-  
+
   browser._login_browser(browser, SITE_OWNER_NAME, SITE_OWNER_PASSWORD)
   ```
 
 - **Browser object** - Simulates HTTP client without actual HTTP:
   ```python
   from plone.testing.z2 import Browser
-  
+
   browser = Browser(self.app)
   browser.open('{0}/login_form'.format(self.portal.absolute_url()))
   browser.getControl(name='__ac_name').value = SITE_OWNER_NAME
@@ -184,7 +225,7 @@ class TestIPWhitelisting(unittest.TestCase, BaseTest):
 - **No third-party mocks** - Tests use actual Plone objects with test layer isolation
 
 **What to Mock:**
-- Not typically mocked; integration tests use real Plone instances within layer isolation
+- Not typically mocked; functional tests use real Plone instances within layer isolation
 - If mocking needed, would use `unittest.mock` (Python 3.3+) but codebase targets Python 2.7
 
 **What NOT to Mock:**
@@ -197,20 +238,12 @@ class TestIPWhitelisting(unittest.TestCase, BaseTest):
 
 **Test Data:**
 
-Fixtures provided by `plone.app.testing` and custom `BaseTest` mixin:
+Fixtures provided by `plone.app.testing` and the `BaseTest` mixin:
 
 ```python
-# From base.py - BaseTest mixin
+# From base.py - BaseTest mixin (Browser-helper methods only; no install helper --
+# ImiogoogleauthenticatorLayer.setUpPloneSite installs the product once per layer)
 class BaseTest(object):
-    def _install(self):
-        """Install the package using browser-based quick installer."""
-        browser = Browser(self.app)
-        browser.open('{0}/login_form'.format(self.portal.absolute_url()))
-        browser.getControl(name='__ac_name').value = SITE_OWNER_NAME
-        browser.getControl(name='__ac_password').value = SITE_OWNER_PASSWORD
-        browser.getControl(name='submit').click()
-        # ... install via UI
-
     def _get_browser(self):
         """Get a new Browser instance for testing."""
         browser = Browser(self.app)
@@ -238,23 +271,6 @@ TEST_USER_PASSWORD = 'secret'
 - `tests/base.py` - Shared BaseTest mixin for all test classes
 - `testing.py` - Testing layer fixtures and configuration (separate file)
 
-## Coverage
-
-**Requirements:** No enforced target; coverage tracking enabled
-
-**Configuration:**
-- `.coveragerc` includes `src/collective/googleauthenticator/*`
-- Coverage report generated excluding Robot tests:
-  ```bash
-  bin/createcoverage --output-dir=htmlcov -t "--layer=!Robot"
-  ```
-
-**View Coverage:**
-```bash
-bin/createcoverage --output-dir=htmlcov -t "--layer=!Robot"
-# Generated report: htmlcov/index.html
-```
-
 ## Test Types
 
 **Unit Tests:**
@@ -264,38 +280,41 @@ bin/createcoverage --output-dir=htmlcov -t "--layer=!Robot"
 - Example:
   ```python
   class TestIPWhitelisting(unittest.TestCase, BaseTest):
-      layer = COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
-      
+      layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+
       def test_get_ip_ranges_always_returns_networks_and_accepts_single_ip(self):
           ranges = get_ip_ranges(['127.0.0.1', '192.168.0.0/16'])
           self.assertEqual([IPv4Network('127.0.0.1'), ...], ranges)
   ```
 
-**Integration Tests:**
-- Location: `test_generic.py`, `test_pas_plugin.py`, `test_security.py`
-- Scope: Test with Plone environment, product installation, database
-- Approach: Use `COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING` layer
-- Setup: Install product, get portal/quickinstaller tools
+**Functional Tests (layer-backed, no HTTP server):**
+- Location: `test_generic.py`, `test_pas_plugin.py`, `test_controlpanel.py`, and most other
+  `test_*.py` files
+- Scope: Test with a real Plone portal, already carrying the installed product
+- Approach: Use the `IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING` layer
+- Setup: `self.app`/`self.portal` from the layer; no install step in `setUp` (the layer's own
+  `setUpPloneSite` hook already applied the profile before any test runs)
 - Example:
   ```python
   class TestGeneric(unittest.TestCase, BaseTest):
-      layer = COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
-      
+      layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+
       def setUp(self):
           self.app = self.layer['app']
           self.portal = self.layer['portal']
-          self._install()
-      
+          self.pas = getToolByName(self.portal, 'acl_users')
+
       def test_product_is_installed(self):
-          installed = [p['id'] for p in self.qi_tool.listInstalledProducts()]
-          self.assertTrue('collective.googleauthenticator' in installed)
+          plugin_ids = [pid for pid, _ in self.pas.plugins.listPlugins(IAuthenticationPlugin)]
+          self.assertIn(PAS_ID, plugin_ids)
   ```
 
-**Functional/Browser Tests:**
-- Location: `test_generic.py` (methods with `_view` suffix)
-- Scope: Test HTTP endpoints and form interactions
-- Approach: Use Browser object to simulate user interactions
-- Layer: `COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING` (no Z2 server)
+**Browser Tests:**
+- Location: `test_generic.py`, `test_challenge.py`, `test_helpers.py`, `test_reset_bar_code.py`,
+  `test_token.py` (methods driving a `plone.testing.z2.Browser`)
+- Scope: Test HTTP-shaped endpoints and form interactions without a real socket
+- Approach: Use the `Browser` object (via `BaseTest._get_browser`/`_login_browser`) against the
+  same ZSERVER-free functional layer used by every other test
 - Example:
   ```python
   def test_control_panel_view(self):
@@ -308,7 +327,8 @@ bin/createcoverage --output-dir=htmlcov -t "--layer=!Robot"
 **Robot Framework Tests:**
 - Location: `robot_test.txt` (Robot Framework syntax)
 - Framework: Selenium-based, requires browser automation
-- Layer: `COLLECTIVE_GOOGLEAUTHENTICATOR_ROBOT_TESTING` (with Z2ZSERVER_FIXTURE)
+- Layer: `IMIO_GOOGLEAUTHENTICATOR_ROBOT_TESTING` (functional layer + `z2.ZSERVER_FIXTURE` +
+  `REMOTE_LIBRARY_BUNDLE_FIXTURE`)
 - Scope: End-to-end acceptance testing
 - Example:
   ```robot
@@ -317,7 +337,7 @@ bin/createcoverage --output-dir=htmlcov -t "--layer=!Robot"
   Library  Remote  ${PLONE_URL}/RobotRemote
   Test Setup  Open test browser
   Test Teardown  Close all browsers
-  
+
   *** Test Cases ***
   Plone is installed
       Go to  ${PLONE_URL}
@@ -329,23 +349,26 @@ bin/createcoverage --output-dir=htmlcov -t "--layer=!Robot"
 
 ## Testing Layers
 
-**Three testing contexts provided:**
+**Two testing contexts provided** (`src/imio/googleauthenticator/testing.py`):
 
-1. **COLLECTIVE_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING**
-   - Base: `COLLECTIVE_GOOGLEAUTHENTICATOR_FIXTURE`
-   - Scope: Plone instance with package installed, no HTTP server
-   - Use for: Unit and integration tests
-   - Files: `test_helpers.py`, `test_generic.py`, `test_pas_plugin.py`
+1. **`IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING`**
+   - Base: `IMIO_GOOGLEAUTHENTICATOR_FIXTURE` (a `PloneSandboxLayer` whose `setUpPloneSite(self,
+     portal)` calls `applyProfile(portal, 'imio.googleauthenticator:default')` once per layer
+     setup — the product is installed before any test class runs, not per test class)
+   - Scope: Plone instance with the package installed, no HTTP server, per-test `DemoStorage`
+     isolation (every write a test commits is discarded at `testTearDown`)
+   - Use for: unit, functional, and Browser-driven tests alike — every non-Robot `test_*.py`
+     file's `layer` class attribute names this layer
+   - The `IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING` layer described in the 2026-07-28
+     analysis, and the per-test-class `BaseTest._install()` Browser round trip that ran on it,
+     were both deleted in Phase 8 (plans 08-02/08-03) — installedness is now proven through PAS
+     plugin registration and `IGoogleAuthenticatorSettings` registry-record presence, checked
+     once against the layer's own `setUpPloneSite` install hook rather than re-driven per test.
 
-2. **COLLECTIVE_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING**
-   - Base: Above + `z2.ZSERVER_FIXTURE`
-   - Scope: Full HTTP server with Plone
-   - Use for: Browser tests that need HTTP
-   - No examples in current test suite
-
-3. **COLLECTIVE_GOOGLEAUTHENTICATOR_ROBOT_TESTING**
-   - Base: Above + `REMOTE_LIBRARY_BUNDLE_FIXTURE`
-   - Scope: Selenium automation, full browser simulation
+2. **`IMIO_GOOGLEAUTHENTICATOR_ROBOT_TESTING`**
+   - Base: `IMIO_GOOGLEAUTHENTICATOR_FIXTURE` + `REMOTE_LIBRARY_BUNDLE_FIXTURE` +
+     `z2.ZSERVER_FIXTURE`
+   - Scope: Selenium automation, full browser simulation, real HTTP server
    - Use for: Robot Framework acceptance tests
    - Files: `test_robot.py` (runner), `robot_test.txt` (tests)
 
@@ -375,21 +398,26 @@ def test_token_view(self):
 ```
 
 **Skipped/Incomplete Tests:**
-- Some tests commented out: `test_disable_view` in `test_generic.py`
-- Incomplete test: `test_` in `test_security.py` (empty body)
+- Incomplete test: `test_()` in `test_security.py` (empty body; the file's other imports were
+  all unused and were deleted in Phase 8 plan 08-05's lint cleanup, since nothing in the class
+  exercises them)
 
 ## Best Practices Observed
 
 1. **Descriptive test names** - Methods clearly state what is tested: `test_get_ip_ranges_always_returns_networks_and_accepts_single_ip`
 
-2. **Shared utilities via BaseTest** - Common operations (_install, _get_browser, _login_browser) in base class
+2. **Shared utilities via BaseTest** - Browser helpers (`_get_browser`, `_login_browser`) in
+   base class; install is a layer concern, not a per-test-class one
 
-3. **Layer-based test isolation** - Each test class declares its layer, ensuring proper setup/teardown
+3. **Layer-based test isolation** - Every test class declares the same functional layer, which
+   gives per-test `DemoStorage` isolation without needing a second, integration-only layer
 
-4. **Separation of concerns** - Helper tests, plugin tests, and security tests in separate files
+4. **Separation of concerns** - Helper tests, plugin tests, and per-view tests in separate files,
+   one `test_*.py` per production module
 
 5. **Browser error handling disabled** - `browser.handleErrors = False` in test browser for debugging
 
 ---
 
 *Testing analysis: 2026-07-28*
+*Corrected: 2026-08-05 (Phase 8 plan 08-05, D-19)*
