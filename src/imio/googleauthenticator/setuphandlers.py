@@ -9,6 +9,7 @@ _ = MessageFactory('imio.googleauthenticator')
 PAS_TITLE = 'Google Authenticator plugin (imio.googleauthenticator)'
 PAS_ID = 'google_auth'
 
+
 def _setup_secret_key():
     """
     Seed ska_secret_key at install time, if it is not already set.
@@ -28,6 +29,7 @@ def _setup_secret_key():
     settings = get_app_settings()
     if not settings.ska_secret_key:
         settings.ska_secret_key = unicode(uuid4())
+
 
 # MFA-03 decision record (2026-07-31): `credentials_basic_auth` is deliberately
 # left ACTIVE. Deactivating it was considered as defence in depth (ROADMAP.md
@@ -57,7 +59,7 @@ def _add_plugin(pas, pluginid=PAS_ID):
     if pluginid not in installed:
         plugin = GoogleAuthenticatorPlugin(pluginid, title=PAS_TITLE)
         pas._setObject(pluginid, plugin)
-    plugin = pas[pluginid] # get plugin acquisition wrapped!
+    plugin = pas[pluginid]  # get plugin acquisition wrapped!
     for info in pas.plugins.listPluginTypeInfo():
         interface = info['interface']
         if not interface.providedBy(plugin):
@@ -74,6 +76,7 @@ def _add_plugin(pas, pluginid=PAS_ID):
         # be the most recently activated entry, which was the previous
         # (accidental) mechanism for reaching index 0.
         pas.plugins.movePluginsTop(interface, [plugin.getId()])
+
 
 def setupVarious(context):
     """

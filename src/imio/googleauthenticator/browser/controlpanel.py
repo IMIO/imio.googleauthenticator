@@ -28,50 +28,51 @@ class IGoogleAuthenticatorSettings(Interface):
     Global Google Authenticator settings.
     """
     ska_secret_key = TextLine(
-        title = _("Secret Key"),
-        description = _("Enter your secret key for the site here. When choosing a secret key, "
-                        "think of it as some sort of a password."),
-        required = False,
-        default = u'',
+        title=_("Secret Key"),
+        description=_("Enter your secret key for the site here. When choosing a secret key, "
+                      "think of it as some sort of a password."),
+        required=False,
+        default=u'',
         )
     globally_enabled = Bool(
-        title = _("Globally enabled"),
-        description = _("If checked, globally enables the two-step verification for all users; "
-                        "otherwise - each user configures it himself. Note, that unchecking the "
-                        "checkbox does not disable the two-step verification for all users."),
-        required = False,
-        default = True,
+        title=_("Globally enabled"),
+        description=_("If checked, globally enables the two-step verification for all users; "
+                      "otherwise - each user configures it himself. Note, that unchecking the "
+                      "checkbox does not disable the two-step verification for all users."),
+        required=False,
+        default=True,
         )
     ip_addresses_whitelist = Text(
-        title = _("White-listed IP addresses"),
-        description = _("Two-step verification will be omitted for users that log in from white "
-                        "listed addresses."),
-        required = False,
-        default = u'',
+        title=_("White-listed IP addresses"),
+        description=_("Two-step verification will be omitted for users that log in from white "
+                      "listed addresses."),
+        required=False,
+        default=u'',
         )
     max_failed_attempts = Int(
-        title = _("Maximum failed second-factor attempts"),
-        description = _("Number of consecutive failed second-factor (token) submissions "
-                        "allowed before the account is temporarily locked."),
-        required = True,
-        default = 5,
-        min = 1,
+        title=_("Maximum failed second-factor attempts"),
+        description=_("Number of consecutive failed second-factor (token) submissions "
+                      "allowed before the account is temporarily locked."),
+        required=True,
+        default=5,
+        min=1,
         )
     lockout_duration = Int(
-        title = _("Lockout duration (seconds)"),
-        description = _("Number of seconds the account stays locked out of the second factor "
-                        "after reaching the maximum failed attempts."),
-        required = True,
-        default = 900,
-        min = 1,
+        title=_("Lockout duration (seconds)"),
+        description=_("Number of seconds the account stays locked out of the second factor "
+                      "after reaching the maximum failed attempts."),
+        required=True,
+        default=900,
+        min=1,
         )
 
     fieldset(
         None,
         label=None,
         fields=['ska_secret_key', 'globally_enabled', 'ip_addresses_whitelist',
-                'max_failed_attempts', 'lockout_duration',]
+                'max_failed_attempts', 'lockout_duration', ]
         )
+
 
 class GoogleAuthenticatorSettingsEditForm(AutoExtensibleForm, form.EditForm):
     """
@@ -102,11 +103,11 @@ class GoogleAuthenticatorSettingsEditForm(AutoExtensibleForm, form.EditForm):
     def render(self, *args, **kwargs):
         res = super(GoogleAuthenticatorSettingsEditForm, self).render(*args, **kwargs)
         additional = self.additional_template(
-            enable_url = '{0}/{1}'.format(self.context.absolute_url(), '@@google-authenticator-enable-for-all-users'),
-            enable_text = _("Enable two-step verification for all users"),
-            disable_url = '{0}/{1}'.format(self.context.absolute_url(), '@@google-authenticator-disable-for-all-users'),
-            disable_text = _("Disable two-step verification for all users"),
-            charset = 'utf-8',
+            enable_url='{0}/{1}'.format(self.context.absolute_url(), '@@google-authenticator-enable-for-all-users'),
+            enable_text=_("Enable two-step verification for all users"),
+            disable_url='{0}/{1}'.format(self.context.absolute_url(), '@@google-authenticator-disable-for-all-users'),
+            disable_text=_("Disable two-step verification for all users"),
+            charset='utf-8',
             )
         return res + additional
 
@@ -115,9 +116,7 @@ class GoogleAuthenticatorSettingsEditForm(AutoExtensibleForm, form.EditForm):
         """
         Update properties of all users.
         """
-        from imio.googleauthenticator.helpers import (
-            enable_two_factor_authentication_for_users, disable_two_factor_authentication_for_users
-            )
+        from imio.googleauthenticator.helpers import enable_two_factor_authentication_for_users
         data, errors = self.extractData()
         if errors:
             self.status = self.formErrorsMessage
@@ -150,10 +149,10 @@ class GoogleAuthenticatorSettingsEditForm(AutoExtensibleForm, form.EditForm):
         elif globally_enabled is False:
             # Disable for all users
             users = api.user.get_users()
-            #disable_two_factor_authentication_for_users(users)
+            # disable_two_factor_authentication_for_users(users)
             logger.debug('Disabled')
 
-        changes = self.applyChanges(data)
+        self.applyChanges(data)
         if not enrollment_failed:
             IStatusMessage(self.request).addStatusMessage(_(u"Changes saved."), "info")
         self.request.response.redirect("%s/%s" % (self.context.absolute_url(), self.control_panel_view))

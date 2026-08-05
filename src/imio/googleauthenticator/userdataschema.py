@@ -17,6 +17,7 @@ logger = logging.getLogger("imio.googleauthenticator")
 
 _ = MessageFactory('imio.googleauthenticator')
 
+
 class CustomizedUserDataPanel(UserDataPanel):
     """
     Customise the user form shown in personal-preferences.
@@ -82,15 +83,15 @@ class IEnhancedUserDataSchema(IUserDataSchema):
         )
 
     two_factor_authentication_secret = TextLine(
-        title = _('Secret key'),
-        description = _('Automatically generated'),
-        required = False,
+        title=_('Secret key'),
+        description=_('Automatically generated'),
+        required=False,
     )
 
     bar_code_reset_token = TextLine(
-        title = _('Token to reset the bar code'),
-        description = _('Automatically generated'),
-        required = False,
+        title=_('Token to reset the bar code'),
+        description=_('Automatically generated'),
+        required=False,
     )
 
 
@@ -131,7 +132,7 @@ def userCreatedHandler(principal, event):
     user = api.user.get(username=principal.getId())
     if globally_enabled:
         get_or_create_secret(user)
-        user.setMemberProperties(mapping={'enable_two_factor_authentication': True,})
+        user.setMemberProperties(mapping={'enable_two_factor_authentication': True})
 
     logger.debug(user.getProperty('enable_two_factor_authentication'))
     logger.debug(user.getProperty('two_factor_authentication_secret'))

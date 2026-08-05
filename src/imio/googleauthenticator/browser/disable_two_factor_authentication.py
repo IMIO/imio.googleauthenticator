@@ -6,6 +6,7 @@ from zope.i18nmessageid import MessageFactory
 
 _ = MessageFactory('imio.googleauthenticator')
 
+
 class DisableTwoFactorAuthentication(BrowserView):
     """
     Disabling the two-step verification.
@@ -24,7 +25,7 @@ class DisableTwoFactorAuthentication(BrowserView):
 
         user = api.user.get_current()
         user.setMemberProperties(
-            mapping = {
+            mapping={
                 'enable_two_factor_authentication': False,
                 'two_factor_authentication_secret': '',
                 'bar_code_reset_token': ''

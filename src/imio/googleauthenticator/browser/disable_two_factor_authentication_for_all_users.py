@@ -7,6 +7,7 @@ from zope.i18nmessageid import MessageFactory
 
 _ = MessageFactory('imio.googleauthenticator')
 
+
 class DisableTwoFactorAuthenticationForAllUsers(BrowserView):
     """
     Disable the two-step verification for all users.

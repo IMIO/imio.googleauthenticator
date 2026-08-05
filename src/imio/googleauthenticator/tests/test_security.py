@@ -1,11 +1,6 @@
 from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 from plone import api
-from plone.app.testing import SITE_OWNER_NAME
-from plone.app.testing import SITE_OWNER_PASSWORD
-from plone.app.testing import TEST_USER_NAME
-from plone.app.testing import TEST_USER_PASSWORD
-from plone.testing.z2 import Browser
 
 import unittest2 as unittest
 

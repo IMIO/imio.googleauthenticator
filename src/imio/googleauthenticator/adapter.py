@@ -8,6 +8,7 @@ import logging
 
 logger = logging.getLogger(__file__)
 
+
 class EnhancedUserDataPanelAdapter(UserDataPanelAdapter):
     """
     Adapter for `imio.googleauthenticator.userdataschema.IEnhancedUserDataSchema`.
@@ -19,8 +20,8 @@ class EnhancedUserDataPanelAdapter(UserDataPanelAdapter):
         return self.context.getProperty('enable_two_factor_authentication', '')
 
     def set_enable_two_factor_authentication(self, value):
-        return # Read only
-        #return self.context.setMemberProperties({'enable_two_factor_authentication': value})
+        return  # Read only
+        # return self.context.setMemberProperties({'enable_two_factor_authentication': value})
 
     enable_two_factor_authentication = property(
         get_enable_two_factor_authentication,
@@ -34,8 +35,8 @@ class EnhancedUserDataPanelAdapter(UserDataPanelAdapter):
         return self.context.getProperty('two_factor_authentication_secret', '')
 
     def set_two_factor_authentication_secret(self, value):
-        return # Read only
-        #return self.context.setMemberProperties({'two_factor_authentication_secret': value})
+        return  # Read only
+        # return self.context.setMemberProperties({'two_factor_authentication_secret': value})
 
     two_factor_authentication_secret = property(
         get_two_factor_authentication_secret,
@@ -49,8 +50,8 @@ class EnhancedUserDataPanelAdapter(UserDataPanelAdapter):
         return self.context.getProperty('bar_code_reset_token', '')
 
     def set_bar_code_reset_token(self, value):
-        return # Read only
-        #return self.context.setMemberProperties({'bar_code_reset_token': value})
+        return  # Read only
+        # return self.context.setMemberProperties({'bar_code_reset_token': value})
 
     bar_code_reset_token = property(
         get_bar_code_reset_token,
@@ -87,13 +88,13 @@ class CameFromAdapter(object):
     >>> from plone import api
     >>> from imio.googleauthenticator.helpers import extract_next_url_from_referer
     >>> from imio.googleauthenticator.adapter import ICameFrom
-    >>> 
+    >>>
     >>> class CameFromAdapter(object):
     >>>     implements(ICameFrom)
-    >>> 
+    >>>
     >>>     def __init__(self, request):
     >>>         self.request = request
-    >>> 
+    >>>
     >>>     def getCameFrom(self):
     >>>         real_referrer = extract_next_url_from_referer(self.request)
     >>>         portal = api.portal.get()

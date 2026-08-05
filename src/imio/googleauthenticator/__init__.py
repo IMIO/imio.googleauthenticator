@@ -9,13 +9,14 @@ from zope.i18nmessageid import MessageFactory
 
 _ = MessageFactory('imio.googleauthenticator')
 
+
 def initialize(context):
     """
     Initializer called when used as a Zope 2 product.
     """
-    registerMultiPlugin(GoogleAuthenticatorPlugin.meta_type) # Add to PAS menu
+    registerMultiPlugin(GoogleAuthenticatorPlugin.meta_type)  # Add to PAS menu
     context.registerClass(
         GoogleAuthenticatorPlugin,
-        constructors = (manage_addGoogleAuthenticatorPluginForm, addGoogleAuthenticatorPlugin),
-        visibility = None
+        constructors=(manage_addGoogleAuthenticatorPluginForm, addGoogleAuthenticatorPlugin),
+        visibility=None
         )

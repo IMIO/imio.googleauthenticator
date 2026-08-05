@@ -66,32 +66,32 @@ class RequestBarCodeResetForm(form.SchemaForm):
                 # generated should be saved in the user profile `bar_code_reset_token`.
                 ska_secret_key = get_ska_secret_key(request=self.request, user=user)
                 signature = Signature.generate_signature(
-                    auth_user = username,
-                    secret_key = ska_secret_key,
-                    lifetime = 7200 # 2 hours
+                    auth_user=username,
+                    secret_key=ska_secret_key,
+                    lifetime=7200  # 2 hours
                     )
                 request_helper = RequestHelper(
-                    signature_param = 'signature',
-                    auth_user_param = 'auth_user',
-                    valid_until_param = 'valid_until'
+                    signature_param='signature',
+                    auth_user_param='auth_user',
+                    valid_until_param='valid_until'
                     )
 
                 signed_url = request_helper.signature_to_url(
-                    signature = signature,
-                    endpoint_url = '{0}/{1}'.format(self.context.absolute_url(), '@@reset-bar-code')
+                    signature=signature,
+                    endpoint_url='{0}/{1}'.format(self.context.absolute_url(), '@@reset-bar-code')
                 )
 
                 # Save the `signature` value to the `bar_code_reset_token`.
-                user.setMemberProperties(mapping={'bar_code_reset_token': str(signature),})
+                user.setMemberProperties(mapping={'bar_code_reset_token': str(signature)})
 
                 # Now we need to send an email to user with URL in and a small explanations.
                 try:
                     host = getToolByName(self, 'MailHost')
 
                     mail_text = self.mail_text_template(
-                        member = user,
-                        bar_code_reset_url = signed_url,
-                        charset = 'utf-8'
+                        member=user,
+                        bar_code_reset_url=signed_url,
+                        charset='utf-8'
                         )
                     mail_text = mail_text.format(bar_code_reset_url=signed_url)
 
@@ -105,11 +105,11 @@ class RequestBarCodeResetForm(form.SchemaForm):
                     # message declares, and never reaches MailHost.
                     host.send(
                         mail_text,
-                        immediate = True,
-                        charset = 'utf-8',
-                        msg_type = 'text/html'
+                        immediate=True,
+                        charset='utf-8',
+                        msg_type='text/html'
                         )
-                except SMTPRecipientsRefused as e:
+                except SMTPRecipientsRefused:
                     raise SMTPRecipientsRefused('Recipient address rejected by server')
 
                 # Deliberately no redirect: the caller reaches this form from

@@ -7,6 +7,7 @@ from zope.i18nmessageid import MessageFactory
 
 _ = MessageFactory('imio.googleauthenticator')
 
+
 class SettingsHelper(BrowserView):
     """
     Helper view for accessing some conditions from portal actions (actions.xml).

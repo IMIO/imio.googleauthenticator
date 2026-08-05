@@ -84,7 +84,7 @@ class ResetBarCodeForm(form.SchemaForm):
         username = self.request.get('auth_user', '')
         user = api.user.get(username=username)
 
-        #logger.debug('token: {0}'.format(token))
+        # logger.debug('token: {0}'.format(token))
 
         if not user:
             reason = _("User not found {0}.".format(username))
@@ -131,8 +131,8 @@ class ResetBarCodeForm(form.SchemaForm):
         # Validating the GoogleAuthenticator app token
         valid_token = validate_token(token, user=user)
 
-        #self.context.plone_log(valid_token)
-        #self.context.plone_log(token)
+        # self.context.plone_log(valid_token)
+        # self.context.plone_log(token)
 
         reason = None
         if valid_token:
@@ -155,7 +155,7 @@ class ResetBarCodeForm(form.SchemaForm):
                         )
                     return
 
-                user.setMemberProperties(mapping={'enable_two_factor_authentication': True,})
+                user.setMemberProperties(mapping={'enable_two_factor_authentication': True})
 
                 IStatusMessage(self.request).addStatusMessage(
                     _("Two-step verification bar-code is successfully reset for your account."),

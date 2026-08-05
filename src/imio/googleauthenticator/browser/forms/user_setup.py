@@ -94,15 +94,15 @@ class SetupForm(form.SchemaForm):
 
         valid_token = validate_token(token)
 
-        #self.context.plone_log(valid_token)
-        #self.context.plone_log(token)
+        # self.context.plone_log(valid_token)
+        # self.context.plone_log(token)
 
         reason = None
         if valid_token:
             try:
                 # Set the ``enable_two_factor_authentication`` to True
                 user = api.user.get_current()
-                user.setMemberProperties(mapping={'enable_two_factor_authentication': True,})
+                user.setMemberProperties(mapping={'enable_two_factor_authentication': True})
 
                 IStatusMessage(self.request).addStatusMessage(
                     _("Two-step verification is successfully enabled for your account."),
@@ -181,6 +181,7 @@ class SetupForm(form.SchemaForm):
                         u"unavailable for it.")
 
             return super(SetupForm, self).updateFields(*args, **kwargs)
+
 
 # View for the ``SetupForm``.
 SetupFormView = wrap_form(SetupForm)

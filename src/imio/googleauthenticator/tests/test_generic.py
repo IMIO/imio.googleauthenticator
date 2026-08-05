@@ -13,7 +13,6 @@ from plone.app.testing import TEST_USER_PASSWORD
 from plone.browserlayer.utils import registered_layers
 from plone.registry.interfaces import IRegistry
 from plone.supermodel.interfaces import FIELDSETS_KEY
-from plone.testing.z2 import Browser
 from Products.CMFCore.utils import getToolByName
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 from zope.component import getUtility
@@ -224,7 +223,6 @@ class TestGeneric(unittest.TestCase, BaseTest):
         losing either half fails; a length-only check would pass on README
         alone.
         """
-        import os
         import subprocess
         import sys
 

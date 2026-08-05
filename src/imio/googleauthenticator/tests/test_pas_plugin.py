@@ -9,7 +9,6 @@ from plone import api
 from plone.app.testing import login
 from plone.app.testing import TEST_USER_NAME
 from plone.app.testing import TEST_USER_PASSWORD
-from plone.testing.z2 import Browser
 from Products.CMFCore.utils import getToolByName
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 from zope.globalrequest import setRequest
