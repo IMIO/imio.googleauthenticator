@@ -106,11 +106,31 @@ def userCreatedHandler(principal, event):
     the ``setMemberProperties`` method defined (that's why we obtain the user
     using `plone.api`, 'cause that one has it).
     """
-    from imio.googleauthenticator.helpers import (
-        is_two_factor_authentication_globally_enabled, get_or_create_secret
-        )
+    from imio.googleauthenticator.helpers import get_or_create_secret
+    from imio.googleauthenticator.helpers import is_two_factor_authentication_globally_enabled
+    try:
+        globally_enabled = is_two_factor_authentication_globally_enabled()
+    except KeyError:
+        # This subscriber is registered instance-wide in configure.zcml, with
+        # no site or layer constraint, so it also fires for user creation in
+        # Plone sites that never installed this add-on's profile -- notably
+        # while imio.dms.mail's own profile creates its users, where the
+        # escaping KeyError aborted addPloneSite outright and no site was
+        # created at all. Such a site has no IGoogleAuthenticatorSettings
+        # records and there is nothing to enable in it (COEX-10).
+        #
+        # Deliberately NOT pushed down into helpers.get_app_settings(): every
+        # other caller of that function is reached only from an installed
+        # site, where a missing record is a real fault. Defaulting there would
+        # make is_two_factor_authentication_globally_enabled() answer False
+        # and silently stop enforcing two-factor authentication.
+        logger.debug(
+            'imio.googleauthenticator is not installed in this site; '
+            'skipping two-factor enrolment for %s', principal.getId())
+        return
+
     user = api.user.get(username=principal.getId())
-    if is_two_factor_authentication_globally_enabled():
+    if globally_enabled:
         get_or_create_secret(user)
         user.setMemberProperties(mapping={'enable_two_factor_authentication': True,})
 

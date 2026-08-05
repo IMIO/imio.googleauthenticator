@@ -7,8 +7,15 @@ from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlug
 
 from plone import api
 from plone.app.testing import applyProfile
+from plone.app.testing import setRoles
+from plone.app.testing import TEST_USER_ID
+from plone.registry import Record
+from plone.registry.interfaces import IRegistry
+
+from zope.component import getUtility
 
 import imio.googleauthenticator
+from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 from imio.googleauthenticator.helpers import get_app_settings
 from imio.googleauthenticator.helpers import get_ska_secret_key
 from imio.googleauthenticator.setuphandlers import PAS_ID
@@ -739,3 +746,52 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
             'These resource-registry ids do not start with {0!r}: {1}. '
             'This package must register, reposition and unregister only '
             'resources it owns.'.format(prefix, offenders))
+
+    def test_user_creation_survives_absent_settings_records(self):
+        """COEX-10: userdataschema.userCreatedHandler is registered
+        instance-wide in configure.zcml, with no site or layer constraint, so
+        it fires for user creation in every Plone site in the process --
+        including sites that never installed this add-on's profile. Reading
+        IGoogleAuthenticatorSettings there raised KeyError, and because
+        PluggableAuthService notifies the event from inside _doAddUser, that
+        raise escaped through addMember and aborted addPloneSite: creating a
+        site from imio.dms.mail's examples profile failed outright and no site
+        was created (observed 2026-08-05).
+
+        Exercises the real path rather than calling the handler directly --
+        api.user.create reaches _doAddUser -> notify() -> the subscriber,
+        which is what actually broke.
+        """
+        setRoles(self.portal, TEST_USER_ID, ['Manager'])
+        registry = getUtility(IRegistry)
+        record_name = '{0}.globally_enabled'.format(
+            IGoogleAuthenticatorSettings.__identifier__)
+
+        # Non-vacuity control: the record must exist to begin with, or
+        # removing it below proves nothing about the guard.
+        self.assertIn(
+            record_name, registry.records,
+            'Non-vacuity control: the record this test removes must exist '
+            'after install, otherwise removing it cannot exercise the guard.')
+
+        # Copy the field and value out before deleting. A Record cannot restore
+        # itself: Record.field looks the field up from registry._fields, which
+        # the delete below removes, so re-assigning the saved Record raises.
+        saved_field = registry.records[record_name].field
+        saved_value = registry.records[record_name].value
+        del registry.records[record_name]
+        try:
+            user = api.user.create(
+                email='no-settings-records@example.com',
+                username='no-settings-records-user',
+                password='Secret0123!')
+        finally:
+            registry.records[record_name] = Record(saved_field, saved_value)
+
+        self.assertFalse(
+            user.getProperty('enable_two_factor_authentication', False),
+            'COEX-10: a site with no settings records must not enrol the '
+            'user -- and must not raise while declining to.')
+        self.assertFalse(
+            user.getProperty('two_factor_authentication_secret', ''),
+            'COEX-10: no seed may be minted in a site that has no settings.')
