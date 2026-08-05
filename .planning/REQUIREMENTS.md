@@ -58,6 +58,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [x] **MFA-11**: A successful second factor resets the failure counter
 - [x] **MFA-12**: No second-factor state is written from the PAS plugin or a challenge plugin; all writes happen in the token form view, which is the only path that commits
 - [x] **MFA-13**: Every new memberdata property has a `memberdata_properties.xml` entry and a set/get round-trip test, since undeclared properties are silently discarded
+- [ ] **MFA-14**: Turning on `globally_enabled` covers accounts that already exist when this add-on is installed, not only accounts created afterwards. Installing into a site that already has users must not leave those users without a second factor. Today enrolment of existing users happens only when an administrator saves the settings control panel form (`browser/controlpanel.py:125-132`); `setuphandlers.setupVarious` enrols nobody, and the login gate (`helpers.py:1021`, `helpers.py:1044`) consults only each user's own `enable_two_factor_authentication` flag, never the global setting. Found 2026-08-05 in Phase 7 plan 07-04 verification: installing `imio.dms.mail` first left an existing Member unenrolled, the reverse order enrolled them
 
 ### Recovery codes (RECOV)
 
@@ -198,6 +199,7 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | MFA-11 | Phase 5 | Complete |
 | MFA-12 | Phase 5 | Complete |
 | MFA-13 | Phase 5 | Complete |
+| MFA-14 | Unassigned | Open — found in Phase 7 07-04 verification, needs a phase |
 | RECOV-01 | Phase 6 | Complete |
 | RECOV-02 | Phase 6 | Complete |
 | RECOV-03 | Phase 6 | Complete |
