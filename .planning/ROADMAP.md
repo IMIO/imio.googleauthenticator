@@ -324,10 +324,24 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 08-01-PLAN.md — Coverage instrument end to end: corrected `.coveragerc`, `set -e` in the `[test-coverage]` template, buildout parts + `coverage == 5.5`, proven with a real red build (QUAL-01, QUAL-02, QUAL-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 08-02-PLAN.md — Profile install moves to the layer's `setUpPloneSite`; the Browser-driven quickinstaller helper and all 21 call sites deleted; installedness asserted via plugin registration, registry records and browser layer (QUAL-05, QUAL-07)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 08-03-PLAN.md — Every test class moved to the ZSERVER-free `FunctionalTesting` layer, the integration layer retired, and every revealed failure fixed at its cause (QUAL-05)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 08-04-PLAN.md — Branch coverage taken above 90% with real tests for the four weakest modules, and CI pointed at `bin/test-coverage` (QUAL-04)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 08-05-PLAN.md — All lint findings fixed so `bin/code-analysis` exits 0 and the pre-commit hook works; stale figures in `CLAUDE.md` and `codebase/TESTING.md` corrected (QUAL-06)
 
 **Phase notes:**
