@@ -1100,7 +1100,7 @@ def extract_ip_address_from_request(request=None):
             ip = proxies[0]
 
     if not ip:
-        # No REMOTE_ADDR (seen with the IntegrationTesting test browser, and
+        # No REMOTE_ADDR (seen with the functional-testing test browser, and
         # possibly with a misconfigured front end): there is no client IP to
         # check against the whitelist. `ipaddress.ip_address('')` raises
         # ValueError, which -- now that RENAME-11 stops that being swallowed --

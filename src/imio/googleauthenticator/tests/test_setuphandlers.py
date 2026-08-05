@@ -20,7 +20,7 @@ from imio.googleauthenticator.helpers import get_app_settings
 from imio.googleauthenticator.helpers import get_ska_secret_key
 from imio.googleauthenticator.setuphandlers import PAS_ID
 from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 
 JSREGISTRY_XML = os.path.join(
@@ -69,7 +69,7 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
     mutate the registry.
     """
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']

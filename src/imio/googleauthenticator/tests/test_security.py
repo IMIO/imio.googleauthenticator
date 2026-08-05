@@ -4,13 +4,13 @@ from plone.app.testing import SITE_OWNER_NAME, SITE_OWNER_PASSWORD, TEST_USER_NA
 from plone import api
 
 from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 
 
 class TestGeneric(unittest.TestCase, BaseTest):
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']

@@ -32,7 +32,7 @@ from imio.googleauthenticator import subscribers
 from imio.googleauthenticator.helpers import get_or_create_secret
 from imio.googleauthenticator.setuphandlers import PAS_ID
 from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 
 
@@ -54,7 +54,7 @@ class TestPubBeforeCommitRedirect(unittest.TestCase, BaseTest):
     not hide whether the others still pass.
     """
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']

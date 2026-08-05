@@ -21,7 +21,7 @@ from plone.app.testing import TEST_USER_NAME
 from imio.googleauthenticator import helpers
 from imio.googleauthenticator.browser.controlpanel import GoogleAuthenticatorSettingsEditForm
 from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 
 from imio.googleauthenticator.helpers import decrypt_seed
@@ -45,7 +45,7 @@ from ipaddress import IPv4Address
 
 class TestIPWhitelisting(unittest.TestCase, BaseTest):
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def test_get_ip_ranges_always_returns_networks_and_accepts_single_ip(self):
         ranges = get_ip_ranges(['127.0.0.1', '192.168.0.0/16'])
@@ -130,7 +130,7 @@ class TestSkaSecretKey(unittest.TestCase, BaseTest):
     rather than a second class named for test_helpers.py itself.
     """
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']
@@ -231,7 +231,7 @@ class TestSeedEncryption(unittest.TestCase, BaseTest):
     onetimepass TOTP round trip -- rather than one helper function.
     """
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']
@@ -581,7 +581,7 @@ class TestDriftAndReplay(unittest.TestCase, BaseTest):
     05-02 adds this class's remaining drift/replay methods.
     """
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']

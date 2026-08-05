@@ -12,7 +12,7 @@ from imio.googleauthenticator import helpers
 from imio.googleauthenticator.adapter import CameFromAdapter
 from imio.googleauthenticator.adapter import EnhancedUserDataPanelAdapter
 from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 from imio.googleauthenticator.userdataschema import IEnhancedUserDataSchema
 
@@ -31,7 +31,7 @@ LOCKOUT_STATE_PROPERTIES = (
 
 class TestEnhancedUserDataPanelAdapter(unittest.TestCase, BaseTest):
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']
@@ -134,7 +134,7 @@ class TestCameFromAdapter(unittest.TestCase, BaseTest):
     ``TestEnhancedUserDataPanelAdapter`` above.
     """
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']

@@ -30,7 +30,7 @@ from plone.app.testing import TEST_USER_PASSWORD
 from imio.googleauthenticator import helpers
 from imio.googleauthenticator.helpers import get_or_create_secret
 from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 
 
@@ -39,7 +39,7 @@ class TestResetBarCodeLockout(unittest.TestCase, BaseTest):
     follows.
     """
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']

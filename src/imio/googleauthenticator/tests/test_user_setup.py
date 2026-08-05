@@ -17,7 +17,7 @@ from imio.googleauthenticator import helpers
 from imio.googleauthenticator.browser.forms import user_setup
 from imio.googleauthenticator.browser.forms.user_setup import SetupForm
 from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 
 
@@ -76,7 +76,7 @@ class TestSetupForm(unittest.TestCase, BaseTest):
     branch that skips every assignment.
     """
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']

@@ -2,7 +2,7 @@
 Tests for the Google Authenticator control panel form.
 """
 from imio.googleauthenticator.browser.controlpanel import GoogleAuthenticatorSettingsEditForm
-from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 from plone import api
 from plone.app.testing import setRoles
@@ -29,7 +29,7 @@ class TestGoogleAuthenticatorSettingsEditForm(unittest.TestCase, BaseTest):
     noticing. ``render()`` is the method under test.
     """
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']

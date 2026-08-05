@@ -1,7 +1,6 @@
 from plone.app.testing import PloneSandboxLayer
 from plone.app.testing import applyProfile
 from plone.app.testing import PLONE_FIXTURE
-from plone.app.testing import IntegrationTesting
 from plone.app.testing import FunctionalTesting
 from plone.app.robotframework.testing import REMOTE_LIBRARY_BUNDLE_FIXTURE
 from plone.testing import z2
@@ -34,10 +33,6 @@ class ImiogoogleauthenticatorLayer(PloneSandboxLayer):
 
 
 IMIO_GOOGLEAUTHENTICATOR_FIXTURE = ImiogoogleauthenticatorLayer()
-IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING = IntegrationTesting(
-    bases=(IMIO_GOOGLEAUTHENTICATOR_FIXTURE,),
-    name="ImiogoogleauthenticatorLayer:Integration"
-)
 IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING = FunctionalTesting(
     bases=(IMIO_GOOGLEAUTHENTICATOR_FIXTURE,),
     name="ImiogoogleauthenticatorLayer:Functional"

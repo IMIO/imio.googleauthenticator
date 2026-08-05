@@ -12,13 +12,13 @@ from plone.app.testing import TEST_USER_NAME
 from imio.googleauthenticator.browser.forms.request_bar_code_reset import \
     RequestBarCodeResetForm
 from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 
 
 class TestRequestBarCodeReset(unittest.TestCase, BaseTest):
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']
