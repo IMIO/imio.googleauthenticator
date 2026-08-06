@@ -522,6 +522,101 @@ class TestPas(unittest.TestCase, BaseTest):
             'subscribers.py at all -- see this method\'s docstring for '
             'what this generalised check does not cover.')
 
+    def test_missing_seed_encryption_key_refuses_cleanly_for_a_seedless_enrolled_user(self):
+        """D-07: an account with the flag set and no stored seed -- the
+        state install-time bulk enrollment (MFA-15) creates at scale -- must
+        not reach an uncontrolled error page when the seed encryption key is
+        missing or malformed. authenticateCredentials must refuse the login
+        synchronously, on this same request, rather than let a ValueError
+        surface later from inside send_2fa_redirect.
+
+        Covers both shapes: an absent key, and a key set to a malformed
+        value (the latter closer to a real half-configured deployment).
+        Both must produce the same clean refusal: authenticateCredentials
+        returns None, raises nothing, and stashes no pending-2FA signal --
+        read directly off request.other, the one channel
+        subscribers.redirect_pending_2fa (and, on the challenge() path,
+        send_2fa_redirect) would act on.
+        """
+        login(self.portal, TEST_USER_NAME)
+        user = api.user.get_current()
+        user.setMemberProperties(mapping={
+            'enable_two_factor_authentication': True,
+            'two_factor_authentication_secret': '',
+            'two_factor_authentication_enrolled': False,
+        })
+
+        request = self.layer['request']
+        setRequest(request)
+        plugin = self.pas[PAS_ID]
+        key_set_by_setup = os.environ[helpers.ENV_VAR_NAME]
+
+        try:
+            os.environ.pop(helpers.ENV_VAR_NAME, None)
+            credentials = {
+                'login': TEST_USER_NAME, 'password': TEST_USER_PASSWORD}
+            result = plugin.authenticateCredentials(credentials)
+            self.assertIsNone(result)
+            self.assertIsNone(
+                request.other.get(pas_plugin.REQUEST_KEY_PENDING),
+                'D-07: a missing seed encryption key must refuse the login '
+                'outright -- send_2fa_redirect must never run for it')
+
+            request.other.clear()
+            os.environ[helpers.ENV_VAR_NAME] = 'not-a-fernet-key'
+            credentials = {
+                'login': TEST_USER_NAME, 'password': TEST_USER_PASSWORD}
+            result = plugin.authenticateCredentials(credentials)
+            self.assertIsNone(result)
+            self.assertIsNone(
+                request.other.get(pas_plugin.REQUEST_KEY_PENDING),
+                'D-07: a malformed key -- the shape a half-configured '
+                'deployment is more likely to produce -- must refuse the '
+                'same way as an absent key')
+        finally:
+            os.environ[helpers.ENV_VAR_NAME] = key_set_by_setup
+            setRequest(None)
+
+    def test_routing_decision_reads_enrollment_completion_not_seed_presence(self):
+        """D-06/MFA-19 adjacency probe: the routing decision reads
+        two_factor_authentication_enrolled, not seed presence -- a user
+        holding a seed they have never seen must still be routed to the
+        enrollment page.
+        """
+        login(self.portal, TEST_USER_NAME)
+        user = api.user.get_current()
+        user.setMemberProperties(mapping={
+            'enable_two_factor_authentication': True,
+            'two_factor_authentication_enrolled': False,
+        })
+        get_or_create_secret(user, overwrite=True)
+
+        request = self.layer['request']
+        setRequest(request)
+        plugin = self.pas[PAS_ID]
+
+        try:
+            credentials = {
+                'login': TEST_USER_NAME, 'password': TEST_USER_PASSWORD}
+            plugin.authenticateCredentials(credentials)
+            self.assertTrue(
+                request.other.get(pas_plugin.REQUEST_KEY_ENROLLMENT_NEEDED),
+                'D-06: a user holding a seed they have never seen must '
+                'still be routed to the enrollment page')
+
+            request.other.clear()
+            user.setMemberProperties(
+                mapping={'two_factor_authentication_enrolled': True})
+            credentials = {
+                'login': TEST_USER_NAME, 'password': TEST_USER_PASSWORD}
+            plugin.authenticateCredentials(credentials)
+            self.assertFalse(
+                request.other.get(pas_plugin.REQUEST_KEY_ENROLLMENT_NEEDED),
+                'D-06: once enrollment is recorded complete, the same '
+                'account must be routed to the code-entry page instead')
+        finally:
+            setRequest(None)
+
     def test_exception_path_still_wipes_credentials(self):
         """ROADMAP success criterion 5: an exception raised after the 2FA
         branch has begun must leave the shared credentials dict empty, so

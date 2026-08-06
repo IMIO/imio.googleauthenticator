@@ -15,6 +15,7 @@ from Globals import InitializeClass
 from imio.googleauthenticator.adapter import ICameFrom
 from imio.googleauthenticator.helpers import get_secret
 from imio.googleauthenticator.helpers import has_completed_enrollment
+from imio.googleauthenticator.helpers import is_seed_encryption_available
 from imio.googleauthenticator.helpers import is_whitelisted_client
 from imio.googleauthenticator.helpers import sign_user_data
 from plone import api
@@ -300,6 +301,46 @@ class GoogleAuthenticatorPlugin(BasePlugin):
             # it only surfaces a decrypt failure that would otherwise wait,
             # silently, until send_2fa_redirect runs on IPubBeforeCommit.
             get_secret(user)
+
+            # D-07: close the gap get_secret() above cannot cover. An
+            # enrolled user with a broken key already raised one line up
+            # via get_secret()/decrypt_seed() -- but that call is a no-op
+            # for a seedless account (get_secret returns None when there
+            # is no stored secret to decrypt), so a never-enrolled account
+            # sailed through it and would only hit the same ValueError
+            # later, inside send_2fa_redirect's sign_user_data() call, as
+            # an uncontrolled error page. Gated on enrollment_needed only:
+            # an already-enrolled user is fully covered by get_secret()
+            # above, and running this check for them too would be
+            # redundant.
+            #
+            # Returning None here is a refusal, not a bypass: the
+            # credentials dict was already emptied above, before any
+            # delegation, so no later IAuthenticationPlugin can log this
+            # user in on the password alone -- they get Plone's ordinary
+            # login failure, not a second-factor skip. Losing that
+            # property would be the one way this check could make things
+            # worse.
+            #
+            # Pure read -- is_seed_encryption_available() touches only the
+            # environment and the cryptography library, no member-data, no
+            # registry, no ZODB -- so the extended MFA-12 guard test
+            # continues to hold.
+            #
+            # Residual this does NOT close: on the challenge() path the
+            # transaction is already aborted, so even with a valid key the
+            # seed minted while signing an enrollment redirect is
+            # discarded and the resulting signature will not validate --
+            # a separate, pre-existing hazard send_2fa_redirect's own
+            # comment and subscribers.py's docstring already describe.
+            if enrollment_needed and not is_seed_encryption_available():
+                logger.critical(
+                    '{0} is not set or is not a valid Fernet key; refusing '
+                    'login for {1} instead of raising later from inside '
+                    'send_2fa_redirect'.format(
+                        'IMIO_GOOGLEAUTHENTICATOR_SEED_KEY',
+                        user.getUserName()))
+                return None
 
             # Decide-only: stash the pending signal for
             # subscribers.redirect_pending_2fa to act on later, on

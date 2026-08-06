@@ -113,6 +113,37 @@ def _get_fernet():
             '{0} is set but is not a valid Fernet key'.format(ENV_VAR_NAME))
 
 
+def is_seed_encryption_available():
+    """
+    D-07: a pure, side-effect-free probe of whether :func:`_get_fernet`
+    would succeed right now, so a caller can refuse a login synchronously
+    instead of letting the ``ValueError`` surface later from inside
+    ``send_2fa_redirect``.
+
+    This function looks exactly like the shape :func:`_get_fernet`'s own
+    docstring forbids -- catching its ``ValueError`` locally. The
+    difference is what happens with the result: a caller that swallows
+    this to fall back to plaintext or password-only auth would be exactly
+    the downgrade that prohibition describes. This function's one caller
+    (``pas_plugin.authenticateCredentials``) does the opposite -- it uses
+    a ``False`` result to refuse the login outright, sooner and more
+    loudly, not to skip the second factor. Catches ``ValueError`` only:
+    that is the single exception ``_get_fernet`` raises (both for an
+    absent key and for a key that is set but not valid Fernet), and a
+    bare ``except Exception`` here would hide a genuine defect instead of
+    the one failure mode this function exists to anticipate.
+
+    :return bool: True if a Fernet instance can be built from the
+        environment right now, False otherwise. Writes nothing in either
+        case.
+    """
+    try:
+        _get_fernet()
+    except ValueError:
+        return False
+    return True
+
+
 def encrypt_seed(plaintext_seed):
     """
     Encrypts a plaintext TOTP seed for storage.
