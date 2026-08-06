@@ -299,6 +299,48 @@ Changelog
   deliberate and accepted, not a defect, and is an input for the catalogue
   rebuild rather than something patched in this release.
   [chris-adam]
+- **Installing this add-on with ``globally_enabled`` on now covers every
+  account already in the site, not only accounts created afterwards.**
+  ``setuphandlers.setupVarious`` sets the enable flag for every pre-existing
+  account (no seed minted, no encryption key required at install time); each
+  of those accounts is walked through the enrollment page -- QR code and
+  secret, not a code-entry prompt -- the next time it logs in (MFA-15,
+  MFA-19).
+  [chris-adam]
+- **With ``globally_enabled`` on, nobody can turn a second factor off --
+  neither a user their own, nor an administrator everyone's at once.** Both
+  ``@@disable-two-factor-authentication`` and
+  ``@@disable-two-factor-authentication-for-all-users`` now refuse while the
+  setting is on, before reading or writing any member data. Turn the setting
+  off first (MFA-16).
+  [chris-adam]
+- New internal member-data property, ``two_factor_authentication_enrolled``,
+  recording whether an account has actually completed enrollment (as
+  opposed to merely having the flag set). It has no profile-form field and
+  no ``@@user-information`` accessor -- like the existing lockout and
+  replay-counter properties, it is written and read through
+  ``helpers.py`` only -- and it is **not** removed by the uninstall
+  profile, so a reinstall does not re-enrol someone who already finished
+  setup.
+  [chris-adam]
+- With ``globally_enabled`` off, a user can enrol themselves from their own
+  profile regardless of when their account was created, and whatever the
+  global setting says, an installed site always has at least one reachable
+  route to enrollment -- the enable link, or "Regenerate recovery codes" for
+  an account that has already completed enrollment (MFA-17, MFA-18).
+  [chris-adam]
+- **Consequence for an account that was already enrolled before this
+  release, worth knowing before you upgrade a populated site.** Such an
+  account is shown the enrollment page once more on its next login. Its
+  existing authenticator app keeps producing accepted codes -- the QR
+  renders the account's existing seed, nothing is re-minted -- but
+  completing that page mints a fresh set of ten recovery codes, displayed
+  in that same response, and the account's previous set of recovery codes
+  stops working. Accepted rather than migrated: no site with real enrolled
+  accounts has been deployed yet, because the seed-key Puppet fragment this
+  package depends on has not shipped from the separate ``industrialisation``
+  repository.
+  [chris-adam]
 
 0.3.0 (unreleased)
 ------------------
