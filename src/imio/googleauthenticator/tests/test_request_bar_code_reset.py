@@ -11,6 +11,7 @@ from Products.MailHost.MailHost import MailBase
 from Products.statusmessages.interfaces import IStatusMessage
 from smtplib import SMTPRecipientsRefused
 
+import socket
 import unittest2 as unittest
 
 
@@ -201,3 +202,34 @@ class TestRequestBarCodeReset(unittest.TestCase, BaseTest):
                 'bar_code_reset_token'),
             'bar_code_reset_token was rolled back on a send failure -- '
             'D-12 says it should not be.')
+
+    def test_an_unreachable_mail_server_reports_the_same_failure(self):
+        """BUG-07 (D-09): a refused connection is not an SMTP-protocol
+        failure -- it raises ``socket.error``, which is not an
+        ``SMTPException`` at all -- so it is not reachable through the
+        first name in the catch tuple. Without this scenario the
+        ``socket.error`` arm would be untested and could be silently
+        narrowed later.
+        """
+        self.portal.manage_changeProperties(
+            email_from_name='iMio', email_from_address='noreply@imio.be')
+        user = api.user.get(username=TEST_USER_NAME)
+        user.setMemberProperties(mapping={'email': 'cadam@imio.be'})
+        request = self.layer['request']
+        IStatusMessage(request).show()  # drain prior messages
+
+        self._submit_reset_request_with_failing_send(
+            TEST_USER_NAME, socket.error(111, 'Connection refused'))
+
+        self.assertIsNone(
+            request.response.getHeader('Location'),
+            'The handler redirected the caller away from the form; an '
+            'anonymous caller lands on the login form instead of reading '
+            'the error message.')
+        messages = [m.message for m in IStatusMessage(request).show()]
+        self.assertEqual(
+            [u'Request for bar-code reset is failed! An unexpected error '
+             u'occurred.'],
+            messages,
+            'The caller was not told about the send failure on a page they '
+            'can actually see, or was also told the send succeeded.')
