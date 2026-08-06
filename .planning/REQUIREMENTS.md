@@ -52,7 +52,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [x] **MFA-05**: A TOTP code from the immediately preceding time step is accepted (one step of drift, RFC 6238 §6)
 - [x] **MFA-06**: A TOTP code already consumed is rejected on reuse (RFC 6238 §5.2 MUST NOT), and the rejection is logged without the username in plaintext
 - [x] **MFA-07**: Only exactly-6-digit input is treated as a candidate token
-- [x] **MFA-08**: After N consecutive failed second-factor attempts the account is locked for the configured duration, and the lock is checked before the token is evaluated so a locked account is not an oracle
+- [x] **MFA-08**: After N consecutive failed second-factor attempts the account is locked for the configured duration, and the lock is checked before the token is evaluated so a locked account is not an oracle. This holds at all three endpoints that evaluate a TOTP code: `browser/forms/token.py` (login), `browser/forms/reset_bar_code.py` (bar-code reset) and `browser/forms/user_setup.py` (enrolment, which `actions.xml` also uses for recovery-code regeneration). The third was added 2026-08-06 by quick task 260806-fsp, closing 06-REVIEW.md CR-01
 - [x] **MFA-09**: The lock expires on its own; no admin action is required
 - [x] **MFA-10**: N and the lock duration are editable in the control panel, defaulting to 5 and 900 seconds
 - [x] **MFA-11**: A successful second factor resets the failure counter
@@ -77,7 +77,7 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 - [x] **COEX-03**: The vendored `popupforms.js` copy, its `jsregistry.xml` entries, and the `remove="True"` line that permanently unregisters Plone's own resource are all deleted
 - [x] **COEX-04**: `control_panel_extra.html` and `request_bar_code_reset_email.pt` still work, converted to `ViewPageTemplateFile` — they are reached by `restrictedTraverse` and are not overrides
 - [x] **COEX-05**: The skin layer, `skins.xml`, `registerDirectory` and the `skins/` directory are gone
-- [x] **COEX-06**: A real `profiles/uninstall/` restores anything the install profile changed
+- [x] **COEX-06**: A real `profiles/uninstall/` restores anything the install profile changed. Phase 7 plan 07-03 delivered the two resource-registry entries; quick task 260806-gfr (2026-08-06) widened it to also reverse the local `IUserDataSchemaProvider` utility, the three `portal_actions` entries, the browser layer, the control panel configlet, the `IGoogleAuthenticatorSettings` records, and — via a new `setuphandlers.uninstallVarious` import step, since a profile cannot do it declaratively — the `google_auth` PAS plugin. Two things are deliberately NOT reversed, each for a stated reason: the eight `memberdata_properties.xml` declarations, because removing them would destroy every enrolled user's encrypted seed and recovery-code hashes; and the `enable_two_factor_authentication` element in `user_registration_fields`, because that property belongs to Plone and rewriting a list this package does not own is forbidden by the project's coexistence constraint
 - [x] **COEX-07**: Installing this package alongside `imio.dms.mail` leaves both working regardless of install order, verified with both orders
 - [x] **COEX-08**: The challenge fires on both paths — `IChallengePlugin` for requests ending in `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which returns HTTP 200
 - [x] **COEX-09**: Login through the header "Log in" link (not a direct POST) reaches the token form and completes

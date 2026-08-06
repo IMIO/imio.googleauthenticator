@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-08-06)
 Phase: 08 — complete
 Plan: Not started
 Status: All phases complete — milestone v1.0 ready to close
-Last activity: 2026-08-06 — Completed quick task 260806-fsp: wired the lockout counter into the enrollment form's TOTP check
+Last activity: 2026-08-06 — Completed quick tasks 260806-fsp and 260806-gfr, closing both gaps the v1.0 milestone audit found
 
 Progress: [████████████████████] 30/30 plans (100%) · **8 of 8 roadmap phases complete**
 
@@ -232,6 +232,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260805-f5m | Guard userCreatedHandler against absent settings records (COEX-10) | 2026-08-05 | 184f053 | [260805-f5m-guard-usercreatedhandler-against-absent-](./quick/260805-f5m-guard-usercreatedhandler-against-absent-/) |
 | 260806-fsp | Wire the lockout counter into the enrollment form's TOTP check — closes 06-REVIEW.md CR-01 (CRITICAL) / v1.0 audit Gap 1 | 2026-08-06 | 8acfd42 | [260806-fsp-wire-lockout-counter-into-enrollment-for](./quick/260806-fsp-wire-lockout-counter-into-enrollment-for/) |
+| 260806-gfr | Widen the uninstall profile to reverse the PAS plugin, local utility, actions, browser layer, configlet and registry records — closes v1.0 audit Gap 2 (COEX-06) | 2026-08-06 | 29fbeff | [260806-gfr-widen-the-uninstall-profile-to-reverse-w](./quick/260806-gfr-widen-the-uninstall-profile-to-reverse-w/) |
 
 ## Deferred Items
 
