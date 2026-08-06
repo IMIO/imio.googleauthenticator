@@ -461,6 +461,35 @@ class TestSetupForm(unittest.TestCase, BaseTest):
                 'RECOV-03 guard: the ten recovery codes must still render '
                 'in the same response as the retargeted link.')
 
+    def test_setup_form_shows_the_secret_as_selectable_text(self):
+        """UX-02: the enrollment page's qr_code field description carries
+        the base32 secret as selectable text beside the QR image -- the
+        exact value ``get_or_create_secret`` already returns for this user,
+        not a re-derivation. This is a GET-render concern reached through
+        ``updateFields``, so no ``handleSubmit`` call and no token are
+        needed.
+        """
+        form = self._build_form('')
+        description = form.fields.get('qr_code').field.description
+
+        # Read the stored seed *after* the form has been built, so the
+        # comparison is against the seed updateFields() actually rendered,
+        # not a competing value minted by this assertion itself.
+        secret = helpers.get_or_create_secret(
+            api.user.get_current(), overwrite=False)
+
+        self.assertIn(
+            secret, description,
+            'The base32 secret must appear as text beside the QR code.')
+        self.assertIn(
+            '<img', description,
+            'The QR image must still be present -- the text is added '
+            'beside it, not in place of it.')
+        self.assertIn(
+            '<code', description,
+            'The secret must be wrapped in a <code> element, so a browser '
+            'gives it a select-all-in-element affordance.')
+
     def test_handleSubmit_refuses_a_locked_account_even_with_a_correct_code(self):
         """CR-01/T-fsp-01: the lock gate must run strictly before
         ``validate_token``, so a locked account cannot enrol -- and cannot
