@@ -329,7 +329,17 @@ def get_or_create_secret(user, overwrite=False):
 
 def get_token_description(user=None, overwrite_secret=False):
     """
-    Gets description with bar code image.
+    Gets description with bar code image, plus the same secret as
+    selectable text (UX-02, D-07, D-08). ``get_or_create_secret`` is
+    called exactly once and its value is reused for both the QR and the
+    text below it -- calling it a second time would risk minting a fresh
+    seed and invalidating an already-enrolled authenticator (T-09-05).
+
+    Note: ``SetupForm.updateFields`` re-wraps this whole return value in
+    ``_()``, so the label passed to this module's own ``_`` factory below
+    is an extraction marker for Phase 13's catalogue rebuild, not a live
+    translation lookup -- the same is already true of the surrounding
+    markup.
 
     :param Products.PlonePAS.tools.memberdata user:
     :return string:
@@ -339,12 +349,14 @@ def get_token_description(user=None, overwrite_secret=False):
     if user is None:
         user = api.user.get_current()
 
-    return '<div><img src="{url}" alt="QR Code" /></div>'.format(
-        url=get_barcode_image(
-            get_username(user),
-            get_domain_name(request),
-            get_or_create_secret(user, overwrite=overwrite_secret)
-        ),
+    secret = get_or_create_secret(user, overwrite=overwrite_secret)
+    return (
+        '<div><img src="{url}" alt="QR Code" /></div>'
+        '<p>{label} <code>{secret}</code></p>'
+    ).format(
+        url=get_barcode_image(get_username(user), get_domain_name(request), secret),
+        label=_(u'Setup key:'),
+        secret=secret,
     )
 
 
