@@ -4,6 +4,7 @@ from imio.googleauthenticator.browser.forms import user_setup
 from imio.googleauthenticator.browser.forms.user_setup import SetupForm
 from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
+from onetimepass import get_totp
 from plone import api
 from plone.app.testing import login
 from plone.app.testing import SITE_OWNER_NAME
@@ -13,6 +14,7 @@ from Products.statusmessages.interfaces import IStatusMessage
 from zope.globalrequest import setRequest
 
 import os
+import time
 import unittest2 as unittest
 
 
@@ -69,6 +71,15 @@ class TestSetupForm(unittest.TestCase, BaseTest):
        branch, no new message string.
     redirect_url is bound on all four reachable paths -- there is no fifth
     branch that skips every assignment.
+
+    CR-01/MFA-08/MFA-11: this class also covers the lockout-counter wiring
+    added to ``handleSubmit`` -- the enrolment/regeneration form is the
+    third of the three ``validate_token`` callers in this package to share
+    the ``is_account_locked``/``register_failed_second_factor``/
+    ``reset_failed_second_factor`` counter that ``token.py`` and
+    ``reset_bar_code.py`` already used. The BUG-02 framing above this
+    docstring paragraph describes only the original regression guard; it no
+    longer describes the whole class.
     """
 
     layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
@@ -100,9 +111,36 @@ class TestSetupForm(unittest.TestCase, BaseTest):
         # to decrypt that stale ciphertext under this test's fresh key and
         # raise. Force a fresh secret under the current key up front.
         helpers.get_or_create_secret(api.user.get_current(), overwrite=True)
+        # Same MemberData-cache leakage hazard, applied to the lockout/
+        # replay/enrolment/recovery-code properties: a lock, a counter, a
+        # last-accepted-interval or a stored recovery-code set left behind
+        # by an earlier test method (in this class or an earlier one
+        # sharing the layer) would make the assertions below vacuous, or
+        # would make a genuinely-correct code read as a replay (MFA-06).
+        api.user.get_current().setMemberProperties(mapping={
+            'enable_two_factor_authentication': False,
+            'two_factor_authentication_failed_attempts': 0,
+            'two_factor_authentication_locked_until': 0,
+            'two_factor_authentication_last_interval': 0,
+            'two_factor_authentication_recovery_codes_salt': '',
+            'two_factor_authentication_recovery_codes_hashes': (),
+        })
 
     def tearDown(self):
         setRequest(None)
+        # Mirrors test_reset_bar_code.py's tearDown: a lock or counter set
+        # by one test method here must not leak into a later class sharing
+        # this layer.
+        user = api.user.get(username=TEST_USER_NAME)
+        if user is not None:
+            user.setMemberProperties(mapping={
+                'enable_two_factor_authentication': False,
+                'two_factor_authentication_failed_attempts': 0,
+                'two_factor_authentication_locked_until': 0,
+                'two_factor_authentication_last_interval': 0,
+                'two_factor_authentication_recovery_codes_salt': '',
+                'two_factor_authentication_recovery_codes_hashes': (),
+            })
         if self._previous_key is None:
             os.environ.pop(helpers.ENV_VAR_NAME, None)
         else:
@@ -111,6 +149,10 @@ class TestSetupForm(unittest.TestCase, BaseTest):
     def _clear_location(self):
         if 'location' in self.request.response.headers:
             del self.request.response.headers['location']
+
+    def _wrong_code(self, correct_code):
+        """Mirrors test_reset_bar_code.py::_wrong_code."""
+        return u'000000' if correct_code != u'000000' else u'111111'
 
     def _build_form(self, token_value):
         """Builds and updates a fresh SetupForm with ``token_value`` (which
@@ -369,3 +411,130 @@ class TestSetupForm(unittest.TestCase, BaseTest):
                 code, fresh_markup,
                 'RECOV-03: a fresh form instance must never redisplay a '
                 'previously issued code.')
+
+    def test_handleSubmit_refuses_a_locked_account_even_with_a_correct_code(self):
+        """CR-01/T-fsp-01: the lock gate must run strictly before
+        ``validate_token``, so a locked account cannot enrol -- and cannot
+        mint a fresh recovery-code set -- with a currently-correct TOTP
+        code. Uses a real code, not a stubbed ``validate_token``, so the
+        test measures the actual gate rather than the stub.
+        """
+        user = api.user.get_current()
+        secret = helpers.get_secret(user)
+        correct_code = get_totp(secret, as_string=True)
+        user.setMemberProperties(mapping={
+            'two_factor_authentication_locked_until': int(time.time()) + 900,
+        })
+        self.assertTrue(
+            helpers.is_account_locked(user),
+            'precondition: the account must actually be locked, or the '
+            'refusal below proves nothing')
+        hashes_before = user.getProperty(
+            'two_factor_authentication_recovery_codes_hashes')
+
+        form = self._build_form(correct_code)
+        SetupForm.handleSubmit.func(form, None)
+
+        current = api.user.get(username=TEST_USER_NAME)
+        self.assertFalse(
+            current.getProperty('enable_two_factor_authentication'),
+            'A locked account must not be enrolled, even by a correct code.')
+        self.assertEqual(
+            hashes_before,
+            current.getProperty('two_factor_authentication_recovery_codes_hashes'),
+            'A locked account must not have a fresh recovery-code set '
+            'minted for it.')
+        self.assertIsNone(
+            form.issued_recovery_codes,
+            'A locked account must not be shown any recovery codes.')
+
+    def test_handleSubmit_wrong_code_increments_the_failed_attempts_counter(self):
+        """One wrong code at this form must count into the shared
+        lockout counter, the same one ``token.py`` and ``reset_bar_code.py``
+        already share.
+        """
+        user = api.user.get_current()
+        secret = helpers.get_secret(user)
+        correct_code = get_totp(secret, as_string=True)
+        wrong_code = self._wrong_code(correct_code)
+        self.assertEqual(
+            0,
+            user.getProperty('two_factor_authentication_failed_attempts'),
+            'precondition')
+
+        form = self._build_form(wrong_code)
+        SetupForm.handleSubmit.func(form, None)
+
+        current = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            1,
+            current.getProperty('two_factor_authentication_failed_attempts'),
+            'One wrong code must increment the shared failed-attempts '
+            'counter.')
+
+    def test_handleSubmit_correct_code_clears_the_failed_attempts_counter(self):
+        """MFA-11: a correct code at this form must clear the shared
+        counter -- proven with a non-vacuity control that the submit
+        itself actually succeeded, so this cannot pass by the code being
+        rejected.
+        """
+        user = api.user.get_current()
+        secret = helpers.get_secret(user)
+        correct_code = get_totp(secret, as_string=True)
+        user.setMemberProperties(mapping={
+            'two_factor_authentication_failed_attempts': 3,
+        })
+        self.assertEqual(
+            3,
+            user.getProperty('two_factor_authentication_failed_attempts'),
+            'precondition')
+
+        form = self._build_form(correct_code)
+        SetupForm.handleSubmit.func(form, None)
+
+        current = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            0,
+            current.getProperty('two_factor_authentication_failed_attempts'),
+            'A correct code must clear the shared failed-attempts counter.')
+        self.assertTrue(
+            current.getProperty('enable_two_factor_authentication'),
+            'non-vacuity control: enrolment must actually have succeeded, '
+            'or the counter-clear assertion above is meaningless.')
+
+    def test_handleSubmit_reaching_max_failed_attempts_locks_the_account(self):
+        """Reaching ``max_failed_attempts`` consecutive wrong codes at this
+        form must lock the account, bounded by ``lockout_duration`` -- the
+        same guarantee ``token.py``/``reset_bar_code.py`` already give.
+        """
+        user = api.user.get_current()
+        secret = helpers.get_secret(user)
+        correct_code = get_totp(secret, as_string=True)
+        wrong_code = self._wrong_code(correct_code)
+        max_failed_attempts = int(
+            helpers.get_app_settings().max_failed_attempts)
+
+        for _attempt in range(max_failed_attempts - 1):
+            form = self._build_form(wrong_code)
+            SetupForm.handleSubmit.func(form, None)
+            self._clear_location()
+
+        current = api.user.get(username=TEST_USER_NAME)
+        self.assertEqual(
+            0,
+            current.getProperty('two_factor_authentication_locked_until'),
+            'non-vacuity control: max_failed_attempts - 1 consecutive '
+            'failures must not lock the account yet')
+
+        form = self._build_form(wrong_code)
+        SetupForm.handleSubmit.func(form, None)
+
+        current = api.user.get(username=TEST_USER_NAME)
+        self.assertTrue(
+            helpers.is_account_locked(current),
+            'Reaching max_failed_attempts must lock the account.')
+        lockout_duration = int(helpers.get_app_settings().lockout_duration)
+        self.assertLessEqual(
+            current.getProperty('two_factor_authentication_locked_until'),
+            int(time.time()) + lockout_duration,
+            'The lock must be bounded by the configured lockout_duration.')
