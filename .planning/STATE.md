@@ -5,15 +5,15 @@ milestone_name: Enrollment Control and Account Safety
 current_phase: 10
 current_phase_name: Global Enforcement and Enrollment
 status: executing
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-08-06T16:45:08.143Z"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-08-06T16:58:15.980Z"
 last_activity: 2026-08-06
 last_activity_desc: Phase 10 execution started
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
+  completed_plans: 7
   percent: 20
 ---
 
@@ -30,11 +30,11 @@ human-validated. Phase 10 is planned as 6 plans in 3 waves and is now executing.
 ## Current Position
 
 Phase: 10 (Global Enforcement and Enrollment) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-08-06 — Phase 10 execution started
 
-Progress: [██████░░░░] 60% of v1.1 (1 of 5 phases complete)
+Progress: [███████░░░] 70% of v1.1 (1 of 5 phases complete)
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ this file stays a digest.*
 | Phase 09 P04 | ~20min | 2 tasks | 1 files |
 | Phase 10 P01 | ~2h | 3 tasks | 11 files |
 | Phase 10 P02 | ~1h | 2 tasks | 1 files |
+| Phase 10 P03 | ~25min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -150,6 +151,7 @@ build on the decision rather than merely know it happened.
 - [Phase ?]: ISetupForm['qr_code'].description is process-wide mutable schema-field state, same hazard test_reset_bar_code.py already documents for IResetBarCodeForm -- TestEnrollmentRedirect now resets it in setUp the same way
 - [Phase ?]: 10-02: No production code change needed -- plan 10-01's _enroll_existing_users already satisfies the full MFA-15 install-time matrix (every account, no seed, no key, idempotent, root-account excluded).
 - [Phase ?]: 10-02: RESEARCH.md assumption A1 confirmed true -- a per-user install-time failure propagates unswallowed out of setupVarious/applyProfile; 'let it raise' satisfies D-04 as designed.
+- [Phase ?]: 10-03: the empty-user-list probe's off-branch does not assert zero mutation for real accounts -- helpers.disable_two_factor_authentication_for_users(users) falls back to api.user.get_users() when passed an empty list, so an empty list and 'no argument' are indistinguishable to that pre-existing function; this plan's guard is orthogonal to it
 
 ### Pending Todos
 
@@ -226,8 +228,8 @@ that v1.1 picks up are now mapped to phases and repeated under Blockers above.
 
 ## Session Continuity
 
-Last session: 2026-08-06T16:45:08.132Z
-Stopped at: Completed 10-02-PLAN.md
+Last session: 2026-08-06T16:58:15.968Z
+Stopped at: Completed 10-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

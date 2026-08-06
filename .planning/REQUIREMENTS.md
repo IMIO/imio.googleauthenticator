@@ -22,7 +22,7 @@ unchanged and still applies to second-factor checks at login.
 - [x] **MFA-15**: A user whose account existed before this add-on was installed is required to
       present a second factor at login when `globally_enabled` is on
 
-- [ ] **MFA-16**: With `globally_enabled` on, a user cannot turn their own second factor off
+- [x] **MFA-16**: With `globally_enabled` on, a user cannot turn their own second factor off
 - [ ] **MFA-17**: With `globally_enabled` off, a user can enroll themselves in a second factor
       from their own profile
 
@@ -174,7 +174,7 @@ ended at Phase 8.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | MFA-15 | Phase 10 | Complete |
-| MFA-16 | Phase 10 | Pending |
+| MFA-16 | Phase 10 | Complete |
 | MFA-17 | Phase 10 | Pending |
 | MFA-18 | Phase 10 | Pending |
 | MFA-19 | Phase 10 | Complete |
