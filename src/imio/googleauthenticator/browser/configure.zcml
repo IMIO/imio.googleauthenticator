@@ -105,6 +105,15 @@
         permission="zope2.View"
         />
 
+    <!-- -*- additional helper view for checking the if regenerate recovery codes link should be shown -*- -->
+    <browser:page
+        name="show-regenerate-recovery-codes-link"
+        class=".settings_helper.SettingsHelper"
+        for="Products.CMFCore.interfaces.ISiteRoot"
+        attribute="show_regenerate_recovery_codes_link"
+        permission="zope2.View"
+        />
+
     <browser:page
         for="Products.CMFPlone.Portal.PloneSite"
         name="personal-information"
