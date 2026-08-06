@@ -1,3 +1,5 @@
+from cryptography.fernet import Fernet
+from imio.googleauthenticator import helpers
 from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 from imio.googleauthenticator.helpers import get_app_settings
 from imio.googleauthenticator.helpers import get_ska_secret_key
@@ -7,12 +9,16 @@ from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL
 from imio.googleauthenticator.tests.base import BaseTest
 from plone import api
 from plone.app.testing import applyProfile
+from plone.app.testing import login
 from plone.app.testing import setRoles
+from plone.app.testing import SITE_OWNER_NAME
 from plone.app.testing import TEST_USER_ID
+from plone.app.testing import TEST_USER_NAME
 from plone.app.users.userdataschema import IUserDataSchemaProvider
 from plone.browserlayer.utils import registered_layers
 from plone.registry import Record
 from plone.registry.interfaces import IRegistry
+from plone.testing import z2
 from Products.CMFCore.utils import getToolByName
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 from xml.dom import minidom
@@ -251,6 +257,210 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
             self.pas.plugins.listPlugins(IAuthenticationPlugin)[0][0],
             'MFA-03: re-applying the profile must restore the plugin to first '
             'position after a deliberate displacement')
+
+    def test_install_enrolls_every_pre_existing_account_without_a_seed(self):
+        """MFA-15/D-01/D-02: install-time enrollment sets the flag for
+        every pre-existing account when ``globally_enabled`` is on, mints
+        no seed for any of them, and needs no encryption key to do it --
+        D-02's whole point is that a boolean flag needs no key.
+
+        Without the per-account flag assertion, an ``_enroll_existing_
+        users`` that only touched the current user (the mistake the
+        multi-user shape in ``test_controlpanel.py:216-247`` exists to
+        catch) would still pass. Without the empty-seed assertion, a
+        regression that reintroduced ``get_or_create_secret`` at install
+        would pass unnoticed until an account holding a seed it never saw
+        reached the code-entry page instead of the enrollment page (the
+        D-06 hazard). Removing ``IMIO_GOOGLEAUTHENTICATOR_SEED_KEY`` for
+        the duration of the profile application is the assertion that
+        would fail the day someone "helpfully" reintroduces seed minting
+        at install: the whole application would raise instead of
+        enrolling anybody.
+        """
+        usernames = (
+            'install-enrolls-user-1',
+            'install-enrolls-user-2',
+            'install-enrolls-user-3',
+            )
+        for username in usernames:
+            api.user.create(
+                email='{0}@example.com'.format(username),
+                username=username, password='Secret0123!')
+
+        for username in usernames:
+            user = api.user.get(username=username)
+            self.assertFalse(
+                user.getProperty('enable_two_factor_authentication'),
+                'Non-vacuity control: {0!r}\'s flag must start unset, or '
+                'the post-install assertion below proves nothing.'.format(
+                    username))
+
+        get_app_settings().globally_enabled = True
+        saved_seed_key = os.environ.pop(helpers.ENV_VAR_NAME, None)
+        try:
+            applyProfile(self.portal, 'imio.googleauthenticator:default')
+        finally:
+            if saved_seed_key is not None:
+                os.environ[helpers.ENV_VAR_NAME] = saved_seed_key
+            get_app_settings().globally_enabled = False
+
+        for username in usernames:
+            user = api.user.get(username=username)
+            self.assertTrue(
+                user.getProperty('enable_two_factor_authentication'),
+                'MFA-15/D-01: {0!r} must be enrolled by install when '
+                'globally_enabled is on -- even with no seed encryption '
+                'key configured.'.format(username))
+            self.assertFalse(
+                user.getProperty('two_factor_authentication_secret'),
+                'D-02: install must not mint a seed for {0!r}. This is '
+                'the behavioural check: it fails whether a reintroduced '
+                'seed-minting call comes back directly or through a '
+                'helper.'.format(username))
+
+    def test_install_enrollment_is_idempotent_across_two_profile_applications(self):
+        """D-13/MFA-15 adjacency probe: applying the profile twice changes
+        nothing the first application already did to an already-enrolled
+        account -- flag, stored seed and ``two_factor_authentication_
+        enrolled`` are all byte-identical after the second application.
+
+        The stored-seed assertion is the one that matters most: a
+        re-mint would silently invalidate a working authenticator app.
+        The ``two_factor_authentication_enrolled`` assertion matters
+        because resetting it to False would route an already-enrolled
+        user back to the QR page at their next login.
+        """
+        username = 'install-idempotent-user'
+        api.user.create(
+            email='{0}@example.com'.format(username),
+            username=username, password='Secret0123!')
+        user = api.user.get(username=username)
+
+        get_app_settings().globally_enabled = True
+        saved_seed_key = os.environ.get(helpers.ENV_VAR_NAME)
+        os.environ[helpers.ENV_VAR_NAME] = Fernet.generate_key()
+        try:
+            user.setMemberProperties(mapping={
+                'enable_two_factor_authentication': True,
+                })
+            helpers.get_or_create_secret(user, overwrite=True)
+            user.setMemberProperties(mapping={
+                'two_factor_authentication_enrolled': True,
+                })
+
+            flag_before = user.getProperty('enable_two_factor_authentication')
+            seed_before = user.getProperty('two_factor_authentication_secret')
+            enrolled_before = user.getProperty(
+                'two_factor_authentication_enrolled')
+            self.assertTrue(
+                flag_before and seed_before and enrolled_before,
+                'Non-vacuity control: all three must be set before the '
+                'two profile applications below, or their being '
+                'unchanged afterwards proves nothing.')
+
+            applyProfile(self.portal, 'imio.googleauthenticator:default')
+            applyProfile(self.portal, 'imio.googleauthenticator:default')
+
+            user = api.user.get(username=username)
+            self.assertEqual(
+                flag_before,
+                user.getProperty('enable_two_factor_authentication'),
+                'D-13: a second install must not change an '
+                'already-set flag.')
+            self.assertEqual(
+                seed_before,
+                user.getProperty('two_factor_authentication_secret'),
+                'D-13: a second install must not re-mint an '
+                'already-stored seed -- byte-identical, since a re-mint '
+                'would silently invalidate a working authenticator app.')
+            self.assertEqual(
+                enrolled_before,
+                user.getProperty('two_factor_authentication_enrolled'),
+                'D-13: a second install must not reset '
+                'two_factor_authentication_enrolled to False, which '
+                'would route an enrolled user back to the QR page at '
+                'their next login.')
+        finally:
+            if saved_seed_key is None:
+                os.environ.pop(helpers.ENV_VAR_NAME, None)
+            else:
+                os.environ[helpers.ENV_VAR_NAME] = saved_seed_key
+            get_app_settings().globally_enabled = False
+
+    def test_install_enrolls_nobody_when_globally_enabled_is_off(self):
+        """D-01, MFA-15: with ``globally_enabled`` off, install enrols
+        nobody. Two-halves structure, mirroring
+        ``test_reapply_profile_keeps_plugin_first_and_unique``: the
+        second half is a non-vacuity control -- without it, an
+        ``_enroll_existing_users`` that had been accidentally deleted
+        outright would pass the first half for the wrong reason.
+        """
+        usernames = ('install-off-user-1', 'install-off-user-2')
+        for username in usernames:
+            api.user.create(
+                email='{0}@example.com'.format(username),
+                username=username, password='Secret0123!')
+
+        get_app_settings().globally_enabled = False
+        applyProfile(self.portal, 'imio.googleauthenticator:default')
+        for username in usernames:
+            user = api.user.get(username=username)
+            self.assertFalse(
+                user.getProperty('enable_two_factor_authentication'),
+                'D-01: {0!r} must not be enrolled while globally_enabled '
+                'is off.'.format(username))
+
+        get_app_settings().globally_enabled = True
+        try:
+            applyProfile(self.portal, 'imio.googleauthenticator:default')
+            for username in usernames:
+                user = api.user.get(username=username)
+                self.assertTrue(
+                    user.getProperty('enable_two_factor_authentication'),
+                    'Non-vacuity control: {0!r} must be enrolled once '
+                    'globally_enabled is turned on, or the refusal '
+                    'asserted above could pass even if '
+                    '_enroll_existing_users had been deleted '
+                    'outright.'.format(username))
+        finally:
+            get_app_settings().globally_enabled = False
+
+    def test_install_enrolls_no_account_it_cannot_gate(self):
+        """MFA-15, prohibition: install must not claim a second factor for
+        an account whose login this plugin cannot intercept. Reporting a
+        security control that was never installed is worse than reporting
+        no control, because it stops anyone looking again (T-03-23,
+        already established for self-enrollment; this pins it for
+        install-time bulk enrollment too).
+
+        ``api.user.get_users()`` -> ``portal_membership.listMembers()`` ->
+        ``BaseTool.listMembers`` lists only the site's own ``acl_users``,
+        so the Zope-root account is not expected to be among the
+        candidates ``_enroll_existing_users`` iterates at all. This test
+        proves the outcome directly rather than trusting that chain.
+        """
+        z2.login(self.app['acl_users'], SITE_OWNER_NAME)
+        try:
+            root = api.user.get_current()
+            self.assertFalse(
+                helpers.is_site_local_user(root),
+                'precondition: the Zope-root account must not resolve as '
+                'site-local, or the refusal below proves nothing')
+
+            get_app_settings().globally_enabled = True
+            try:
+                applyProfile(self.portal, 'imio.googleauthenticator:default')
+                root = api.user.get_current()
+                self.assertFalse(
+                    root.getProperty('enable_two_factor_authentication', False),
+                    'MFA-15: install must not enrol the Zope-root account '
+                    '-- its login is authenticated above the site and '
+                    'this plugin can never intercept it.')
+            finally:
+                get_app_settings().globally_enabled = False
+        finally:
+            z2.logout()
+            login(self.portal, TEST_USER_NAME)
 
     def test_memberdata_properties_import_declares_expected_types(self):
         """MFA-13 (import half): the GenericSetup import of
@@ -862,11 +1072,17 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         """T-gfr-04 (deliberate exclusion, pinned): the uninstall profile
         must NOT touch ``portal_memberdata``'s property declarations or an
         enrolled user's stored seed. ``memberdata_properties.xml`` stays
-        out of ``profiles/uninstall/`` on purpose -- removing those eight
+        out of ``profiles/uninstall/`` on purpose -- removing those nine
         declarations would destroy every enrolled user's encrypted seed
         and recovery-code hashes with no recovery path, and an uninstall
         is often temporary. A future edit that starts deleting user data
         must turn this test red.
+
+        Nine, not eight: ``two_factor_authentication_enrolled`` (D-06(b),
+        plan 10-01) joined the other eight in
+        ``profiles/default/memberdata_properties.xml`` -- this makes the
+        uninstall profile's deliberate exclusion of member data cover
+        this phase's new property too.
         """
         portal_memberdata = getToolByName(self.portal, 'portal_memberdata')
         expected_properties = (
@@ -878,9 +1094,10 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
             'two_factor_authentication_last_interval',
             'two_factor_authentication_recovery_codes_salt',
             'two_factor_authentication_recovery_codes_hashes',
+            'two_factor_authentication_enrolled',
             )
 
-        # Non-vacuity: all eight are declared before the uninstall, or
+        # Non-vacuity: all nine are declared before the uninstall, or
         # their survival below proves nothing.
         for name in expected_properties:
             self.assertIn(
