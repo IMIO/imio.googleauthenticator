@@ -240,6 +240,16 @@ Changelog
   ``googleauthenticator_custom`` skin layer left in ``portal_skins`` on the
   same site is the second such leftover artifact to clear.
   [chris-adam]
+- ``@@setup-two-factor-authentication`` (enrollment, and its reuse as the
+  recovery-code regeneration form) now shares the same lockout counter as
+  the login token form and the bar-code reset form: a locked account is
+  refused before its TOTP code is even checked, a wrong code counts as a
+  failed attempt, and a correct code clears the counter. Previously this
+  was the only one of the three ``validate_token`` callers with no limit,
+  so a caller already holding an authenticated session could brute-force
+  six-digit codes without limit and, on a hit, replace a user's stored
+  recovery-code hashes with a freshly minted set (CR-01).
+  [chris-adam]
 
 0.3.0 (unreleased)
 ------------------
