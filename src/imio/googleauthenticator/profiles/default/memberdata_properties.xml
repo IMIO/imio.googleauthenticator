@@ -8,4 +8,5 @@
   <property name="two_factor_authentication_last_interval" type="int">0</property>
   <property name="two_factor_authentication_recovery_codes_salt" type="string"></property>
   <property name="two_factor_authentication_recovery_codes_hashes" type="lines"></property>
+  <property name="two_factor_authentication_enrolled" type="boolean">False</property>
 </object>

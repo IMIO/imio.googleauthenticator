@@ -1028,6 +1028,57 @@ def has_enabled_two_factor_authentication(user):
     return user.getProperty('enable_two_factor_authentication', False)
 
 
+def has_completed_enrollment(user):
+    """
+    Checks whether ``user`` has completed second-factor enrollment -- i.e.
+    has already submitted one valid code from their own authenticator app
+    -- as opposed to merely having the requirement flag set by install-time
+    bulk enrollment (MFA-15) or a control-panel/user-creation bulk-enable
+    path.
+
+    D-17: this property exists because neither "flag set" nor "has a
+    stored seed" can answer that question alone. Signing an enrollment
+    redirect for a seedless user was rejected (D-06 mechanism (a)): the
+    user's own seed is one of the three inputs to the ``ska`` signing key
+    built by ``get_ska_secret_key`` (alongside the site-wide secret and a
+    hash of the User-Agent), and dropping it collapses that key's
+    per-user entropy to something shared across every not-yet-enrolled
+    user of the same browser. ``sign_user_data`` mints a seed as a side
+    effect of signing *any* redirect -- including the enrollment redirect
+    itself -- so a user who abandons enrollment after being redirected
+    already holds a seed they have never seen; "has no seed" stops being
+    a safe signal the moment that happens. This property is set exactly
+    once, by ``mark_enrollment_completed``, on the first accepted code,
+    and is never cleared afterwards -- in particular not by ordinary
+    recovery-code consumption, which empties
+    ``two_factor_authentication_recovery_codes_hashes`` over the lifetime
+    of an account and would otherwise be indistinguishable from "never
+    enrolled".
+
+    Pure read, no fallback to ``api.user.get_current()``: every caller in
+    this phase already has a resolved user object, and a silent
+    current-user fallback on the PAS routing path would answer for the
+    wrong account.
+
+    :param Products.PlonePAS.tools.memberdata user:
+    :return bool:
+    """
+    return user.getProperty('two_factor_authentication_enrolled', False)
+
+
+def mark_enrollment_completed(user):
+    """
+    Records that ``user`` has completed second-factor enrollment. The
+    only writer of ``two_factor_authentication_enrolled`` anywhere in
+    this package -- see ``has_completed_enrollment`` for why the
+    property exists at all.
+
+    :param Products.PlonePAS.tools.memberdata user:
+    """
+    user.setMemberProperties(
+        mapping={'two_factor_authentication_enrolled': True})
+
+
 def enable_two_factor_authentication_for_users(users=None):
     """
     Enable two-factor authentication for the list of users given.
