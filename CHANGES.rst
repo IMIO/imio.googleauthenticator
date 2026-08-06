@@ -262,6 +262,43 @@ Changelog
   two-step verification instead of stranding everyone who had enrolled
   (COEX-06 widening, v1.0-MILESTONE-AUDIT.md Gap 2).
   [chris-adam]
+- A rejected or unreachable mail server on the bar-code reset form now
+  reports itself with the same in-page failure message every other error on
+  that form already produces, instead of escaping as an unhandled exception
+  and a bare Zope error page. The ``except SMTPRecipientsRefused: raise
+  SMTPRecipientsRefused(...)`` re-raise -- which the enclosing
+  ``except ValueError`` could not catch -- was deleted outright, and the
+  catch now also covers ``socket.error`` (an unreachable server, not an
+  ``SMTPException`` at all) (BUG-07).
+  [chris-adam]
+- The ``enable_two_factor_authentication`` profile field's description no
+  longer links to ``@@setup-two-factor-authentication`` or
+  ``@@disable-two-factor-authentication``. Both views act on the *viewing*
+  user's own account, never on the profile being viewed, and this
+  description is the only thing ``@@user-information`` (the
+  administrator-viewing-another-user form) renders for the field -- so an
+  administrator viewing someone else's profile who clicked "disable" cleared
+  their own second factor while being told it had succeeded (BUG-08).
+  [chris-adam]
+- A user who finishes enrollment now lands on a recovery-codes page whose
+  one link goes to the site's home page -- resolved through
+  ``context/@@plone/navigationRootUrl`` -- instead of back to their own
+  profile (UX-01).
+  [chris-adam]
+- The enrollment page now shows the base32 TOTP secret as selectable
+  ``<code>`` text beside the QR code, produced from the same
+  ``get_or_create_secret()`` call already used to build the QR, so nothing
+  is minted or looked up twice (UX-02).
+  [chris-adam]
+- **Known consequence.** Shortening the ``enable_two_factor_authentication``
+  field description above (BUG-08) retires its old message id. The French
+  translation of the old two-link text, at
+  ``locales/fr/LC_MESSAGES/imio.googleauthenticator.po:76-77``, is now
+  orphaned, so that field reads in English for a French-speaking
+  administrator until the message catalogues are rebuilt. This is
+  deliberate and accepted, not a defect, and is an input for the catalogue
+  rebuild rather than something patched in this release.
+  [chris-adam]
 
 0.3.0 (unreleased)
 ------------------
