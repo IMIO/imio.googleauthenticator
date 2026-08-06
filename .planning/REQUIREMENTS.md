@@ -91,10 +91,10 @@ hard dependency of enabling or disabling a second factor.
 
 ### Usability
 
-- [ ] **UX-01**: After completing MFA setup, the user lands on the site home page rather than
+- [x] **UX-01**: After completing MFA setup, the user lands on the site home page rather than
       their own profile page. Covers requested item 1
 
-- [ ] **UX-02**: The enrollment page shows the TOTP secret as selectable text alongside the QR
+- [x] **UX-02**: The enrollment page shows the TOTP secret as selectable text alongside the QR
       code, for password managers and desktop TOTP clients. Covers requested item 5. The QR
       already encodes the same secret, so this adds no new secret to the page; it makes it
       copyable
@@ -188,8 +188,8 @@ ended at Phase 8.
 | NOTF-07 | Phase 12 | Pending |
 | BUG-07 | Phase 9 | Complete |
 | BUG-08 | Phase 9 | Complete |
-| UX-01 | Phase 9 | Pending |
-| UX-02 | Phase 9 | Pending |
+| UX-01 | Phase 9 | Complete |
+| UX-02 | Phase 9 | Complete |
 | I18N-01 | Phase 13 | Pending |
 | I18N-02 | Phase 13 | Pending |
 
