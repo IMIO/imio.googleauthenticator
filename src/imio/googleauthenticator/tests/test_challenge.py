@@ -77,6 +77,7 @@ class TestPubBeforeCommitRedirect(unittest.TestCase, BaseTest):
             user.setMemberProperties(mapping={
                 'enable_two_factor_authentication': False,
                 'two_factor_authentication_secret': '',
+                'two_factor_authentication_enrolled': False,
             })
             transaction.commit()
 
@@ -96,11 +97,20 @@ class TestPubBeforeCommitRedirect(unittest.TestCase, BaseTest):
         transaction -- without the commit, the memberdata write is
         invisible to the plugin's own ``api.user.get()`` lookup on the
         next request.
+
+        D-06(b)/D-17: also marks enrollment completed -- this fixture
+        represents a user who already has a real, known secret loaded
+        into an authenticator app (i.e. already went through the QR step
+        in an earlier session), not one mid-enrollment, so every caller of
+        this helper expects a real login to land on the code-entry page,
+        not the enrollment page.
         """
         login(self.portal, TEST_USER_NAME)
         user = api.user.get_current()
-        user.setMemberProperties(
-            mapping={'enable_two_factor_authentication': True})
+        user.setMemberProperties(mapping={
+            'enable_two_factor_authentication': True,
+            'two_factor_authentication_enrolled': True,
+        })
         get_or_create_secret(user, overwrite=True)
         transaction.commit()
         return user

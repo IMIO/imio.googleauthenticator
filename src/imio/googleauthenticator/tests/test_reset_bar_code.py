@@ -91,6 +91,7 @@ class TestResetBarCodeLockout(unittest.TestCase, BaseTest):
                 'two_factor_authentication_locked_until': 0,
                 'two_factor_authentication_last_interval': 0,
                 'bar_code_reset_token': '',
+                'two_factor_authentication_enrolled': False,
             })
             transaction.commit()
 
@@ -101,12 +102,17 @@ class TestResetBarCodeLockout(unittest.TestCase, BaseTest):
 
     def _enable_2fa(self):
         """Shared enrollment boilerplate, the same shape as
-        test_token.py::TestTokenFormLockout._enable_2fa.
+        test_token.py::TestTokenFormLockout._enable_2fa. D-06(b)/D-17:
+        also marks enrollment completed -- this fixture represents an
+        already-set-up user, so a real login must land on the code-entry
+        page, not the enrollment page.
         """
         login(self.portal, TEST_USER_NAME)
         user = api.user.get_current()
-        user.setMemberProperties(
-            mapping={'enable_two_factor_authentication': True})
+        user.setMemberProperties(mapping={
+            'enable_two_factor_authentication': True,
+            'two_factor_authentication_enrolled': True,
+        })
         get_or_create_secret(user, overwrite=True)
         transaction.commit()
         return user

@@ -14,6 +14,7 @@ from AccessControl.SecurityInfo import ClassSecurityInfo
 from Globals import InitializeClass
 from imio.googleauthenticator.adapter import ICameFrom
 from imio.googleauthenticator.helpers import get_secret
+from imio.googleauthenticator.helpers import has_completed_enrollment
 from imio.googleauthenticator.helpers import is_whitelisted_client
 from imio.googleauthenticator.helpers import sign_user_data
 from plone import api
@@ -36,6 +37,11 @@ logger = logging.getLogger("imio.googleauthenticator")
 # is an ImportError rather than a silent bypass (MFA-02/COEX-08).
 REQUEST_KEY_PENDING = '_2fa_pending'
 REQUEST_KEY_USER_ID = '_2fa_user_id'
+# D-05/D-06(b): the routing decision (code-entry page vs. enrollment page),
+# carried the same way -- request.other only, never request.form/cookies --
+# and for the same reason: a routing bit read through the request's general
+# accessor would be forgeable from a query string (T-10-05).
+REQUEST_KEY_ENROLLMENT_NEEDED = '_2fa_enrollment_needed'
 
 manage_addGoogleAuthenticatorPluginForm = PageTemplateFile(
     './www/add_google_authenticator_form',
@@ -58,7 +64,7 @@ def addGoogleAuthenticatorPlugin(self, id, title='', REQUEST=None):
                 self.absolute_url(), msg))
 
 
-def _mark_2fa_pending(request, user):
+def _mark_2fa_pending(request, user, enrollment_needed=False):
     """
     Stashes the pending-2FA signal on ``request.other`` (``request.set`` is
     ``BaseRequest.__setitem__``, ZPublisher/BaseRequest.py:233-241), the one
@@ -67,11 +73,18 @@ def _mark_2fa_pending(request, user):
     second factor -- the actual redirect happens later, in
     ``subscribers.redirect_pending_2fa``, driven by ``IPubBeforeCommit``.
 
+    ``enrollment_needed`` defaults to False so every pre-existing direct
+    caller of this function (this module's own ``challenge()`` tests)
+    keeps routing to the code-entry page unchanged.
+
     :param ZPublisher.HTTPRequest request:
     :param Products.PlonePAS.tools.memberdata user:
+    :param bool enrollment_needed: D-05/D-06(b) -- True routes the user to
+        the enrollment page instead of the code-entry page.
     """
     request.set(REQUEST_KEY_PENDING, True)
     request.set(REQUEST_KEY_USER_ID, user.getUserId())
+    request.set(REQUEST_KEY_ENROLLMENT_NEEDED, enrollment_needed)
 
 
 def send_2fa_redirect(request, response):
@@ -101,8 +114,29 @@ def send_2fa_redirect(request, response):
 
     response.setCookie('__ac', '', path='/')
 
+    # D-05/D-06(b): route to the enrollment page for a user who has not
+    # completed enrollment yet, to the code-entry page otherwise. Both
+    # names stay string literals here -- the routing signal is a boolean,
+    # not a URL, so the sign target can never be data-driven.
+    #
+    # D-07 asymmetry, recorded rather than fixed: sign_user_data() calls
+    # get_or_create_secret(), so signing the enrollment target is what
+    # mints the seed the QR then renders. On the IPubBeforeCommit path
+    # (the login-form POST, which returns 200 and commits) that mint
+    # persists and the signature validates. On the challenge() path the
+    # transaction is already aborted, so the mint is discarded and the
+    # resulting signature will not validate -- the user sees a refusal on
+    # the enrollment page and a normal login-form retry then works. This
+    # is the pre-existing behaviour subscribers.py's docstring already
+    # describes for the token target; it is reached more often here
+    # because a first-time enrollee always needs a mint. Not fixed in
+    # this phase; carried as a residual in a later plan.
+    target_url = (
+        '@@setup-two-factor-authentication'
+        if request.other.get(REQUEST_KEY_ENROLLMENT_NEEDED)
+        else '@@google-authenticator-token')
     signed_url = sign_user_data(
-        request=request, user=user, url='@@google-authenticator-token')
+        request=request, user=user, url=target_url)
 
     came_from_adapter = ICameFrom(request)
     # Appending possible `came_from`, but give it another name.
@@ -199,6 +233,17 @@ class GoogleAuthenticatorPlugin(BasePlugin):
         logger.debug("Two-step verification enabled: {0}".format(
             two_factor_authentication_enabled))
 
+        # D-05/D-06(b)/D-03: which page to send the user to, decided here
+        # and only stashed (see _mark_2fa_pending below), never acted on.
+        # Expressed through the has_completed_enrollment() helper rather
+        # than a direct getProperty() call, so the property name itself
+        # never appears in this file. D-03: this stays a user-level read
+        # only -- is_two_factor_authentication_globally_enabled() is
+        # deliberately NOT consulted here; under install-time enrollment
+        # the flag above is already set for everyone who should see a
+        # second factor.
+        enrollment_needed = not has_completed_enrollment(user)
+
         if two_factor_authentication_enabled:
             # Consume the credentials before delegating, so every exit from
             # this branch -- normal, early-return, and exception -- leaves
@@ -260,7 +305,7 @@ class GoogleAuthenticatorPlugin(BasePlugin):
             # subscribers.redirect_pending_2fa to act on later, on
             # IPubBeforeCommit. No RESPONSE access and no ZODB write here --
             # see send_2fa_redirect for the actual redirect/body-clear.
-            _mark_2fa_pending(self.REQUEST, user)
+            _mark_2fa_pending(self.REQUEST, user, enrollment_needed)
 
             return None
 

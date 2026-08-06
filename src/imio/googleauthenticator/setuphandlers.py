@@ -1,5 +1,8 @@
 from imio.googleauthenticator.helpers import get_app_settings
+from imio.googleauthenticator.helpers import has_enabled_two_factor_authentication
+from imio.googleauthenticator.helpers import is_two_factor_authentication_globally_enabled
 from imio.googleauthenticator.pas_plugin import GoogleAuthenticatorPlugin
+from plone import api
 from uuid import uuid4
 from zope.i18nmessageid import MessageFactory
 
@@ -78,6 +81,44 @@ def _add_plugin(pas, pluginid=PAS_ID):
         pas.plugins.movePluginsTop(interface, [plugin.getId()])
 
 
+def _enroll_existing_users():
+    """
+    MFA-15/D-01/D-02: enrol every pre-existing account when
+    ``globally_enabled`` is on, at install time -- flag only, no seed.
+    Mirrors ``_add_plugin``'s own "check current state before writing"
+    shape for idempotency (D-13): re-applying the profile enrols only
+    whoever is not enrolled yet, so a second application changes nothing
+    the first one already did.
+
+    Deliberately does NOT call ``get_or_create_secret`` (D-02): the seed
+    is minted when the enrollment redirect is signed, and shown as a QR
+    in that same request chain -- not here. Minting here would give
+    every account a seed nobody has seen, and would make installation
+    fail outright on any site where ``IMIO_GOOGLEAUTHENTICATOR_SEED_KEY``
+    is unset.
+
+    Deliberately does NOT wrap the loop body in a bare ``except
+    Exception`` that logs and continues -- the shape
+    ``enable_two_factor_authentication_for_users`` uses at
+    ``helpers.py``. D-04 forbids that here: at install it would mean some
+    accounts enrolled and some not, with nothing visible to the operator.
+    A per-user failure is left to propagate out of the import step
+    instead, so a broken install is a visible failure, not a silent
+    partial one.
+
+    Deliberately does NOT reuse ``enable_two_factor_authentication_for_
+    users``: that function calls ``get_or_create_secret`` before its own
+    flag check, and swallows every per-user exception except
+    ``ValueError`` -- both of which this function must not do.
+    """
+    if not is_two_factor_authentication_globally_enabled():
+        return
+    for user in api.user.get_users():
+        if not has_enabled_two_factor_authentication(user):
+            user.setMemberProperties(
+                mapping={'enable_two_factor_authentication': True})
+
+
 def setupVarious(context):
     """
     @param context: Products.GenericSetup.context.DirectoryImportContext instance
@@ -95,6 +136,8 @@ def setupVarious(context):
 
     pas = portal.acl_users
     _add_plugin(pas)
+
+    _enroll_existing_users()
 
 
 def _remove_plugin(pas, pluginid=PAS_ID):

@@ -548,13 +548,23 @@ class TestSeedEncryption(unittest.TestCase, BaseTest):
 
     def test_user_creation_fails_closed_when_seed_key_is_broken(self):
         """T-03-22: userdataschema.userCreatedHandler runs
-        get_or_create_secret on every new-user IPrincipalCreatedEvent
-        because globally_enabled defaults True, so a missing/malformed key
-        does not only refuse logins -- it stops account creation entirely.
-        Correct fail-closed, different blast radius: plan 03-02's DOC-03
-        records it in README.rst so an operator learns it from the docs
-        rather than from a broken registration form.
+        get_or_create_secret on every new-user IPrincipalCreatedEvent when
+        globally_enabled is True, so a missing/malformed key does not only
+        refuse logins -- it stops account creation entirely. Correct
+        fail-closed, different blast radius: plan 03-02's DOC-03 records
+        it in README.rst so an operator learns it from the docs rather
+        than from a broken registration form.
+
+        globally_enabled defaults True on the schema (browser/
+        controlpanel.py), but plan 10-01's testing.py turns it off for the
+        whole suite's shared layer baseline (MFA-15: leaving it on there
+        would auto-enrol -- and auto-fail-closed-crash -- every fixture
+        user the base PLONE_FIXTURE creates before this add-on's own
+        profile applies). Set it explicitly here rather than relying on
+        the historical ambient default this test's docstring used to
+        describe.
         """
+        get_app_settings().globally_enabled = True
         setRoles(self.portal, TEST_USER_ID, ['Manager'])
 
         # Control, run first: with the good key from setUp, account
