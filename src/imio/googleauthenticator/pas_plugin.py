@@ -10,26 +10,32 @@ If user has not enabled the two-step verification for his account
 (``enable_two_factor_authentication`` is set to False), then do nothing so
 that Plone continues logging in the user normal way.
 """
-import logging
-
-from Globals import InitializeClass
 from AccessControl.SecurityInfo import ClassSecurityInfo
-
-from plone import api
-
-from Products.PluggableAuthService.PluggableAuthService import reraise
-from Products.PluggableAuthService.PluggableAuthService import _SWALLOWABLE_PLUGIN_EXCEPTIONS
-from Products.PluggableAuthService.plugins.BasePlugin import BasePlugin
-from Products.PluggableAuthService.utils import classImplements
-from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
-from Products.PageTemplates.PageTemplateFile import PageTemplateFile
-
+from Globals import InitializeClass
 from imio.googleauthenticator.adapter import ICameFrom
+from imio.googleauthenticator.helpers import get_secret
 from imio.googleauthenticator.helpers import is_whitelisted_client
 from imio.googleauthenticator.helpers import sign_user_data
+from plone import api
+from Products.PageTemplates.PageTemplateFile import PageTemplateFile
+from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
+from Products.PluggableAuthService.interfaces.plugins import IChallengePlugin
+from Products.PluggableAuthService.PluggableAuthService import _SWALLOWABLE_PLUGIN_EXCEPTIONS
+from Products.PluggableAuthService.PluggableAuthService import reraise
+from Products.PluggableAuthService.plugins.BasePlugin import BasePlugin
+from Products.PluggableAuthService.utils import classImplements
+
+import logging
 
 
 logger = logging.getLogger("imio.googleauthenticator")
+
+# Shared request.other keys between authenticateCredentials() (writer, via
+# _mark_2fa_pending) and subscribers.redirect_pending_2fa (reader). Both
+# sides import the constants rather than repeating the literals, so a typo
+# is an ImportError rather than a silent bypass (MFA-02/COEX-08).
+REQUEST_KEY_PENDING = '_2fa_pending'
+REQUEST_KEY_USER_ID = '_2fa_user_id'
 
 manage_addGoogleAuthenticatorPluginForm = PageTemplateFile(
     './www/add_google_authenticator_form',
@@ -52,6 +58,83 @@ def addGoogleAuthenticatorPlugin(self, id, title='', REQUEST=None):
                 self.absolute_url(), msg))
 
 
+def _mark_2fa_pending(request, user):
+    """
+    Stashes the pending-2FA signal on ``request.other`` (``request.set`` is
+    ``BaseRequest.__setitem__``, ZPublisher/BaseRequest.py:233-241), the one
+    channel form data and cookies cannot reach. This is the only thing
+    ``authenticateCredentials`` does once it has decided a login needs a
+    second factor -- the actual redirect happens later, in
+    ``subscribers.redirect_pending_2fa``, driven by ``IPubBeforeCommit``.
+
+    :param ZPublisher.HTTPRequest request:
+    :param Products.PlonePAS.tools.memberdata user:
+    """
+    request.set(REQUEST_KEY_PENDING, True)
+    request.set(REQUEST_KEY_USER_ID, user.getUserId())
+
+
+def send_2fa_redirect(request, response):
+    """
+    Builds and applies the 2FA challenge redirect: signs a
+    ``@@google-authenticator-token`` URL for the user stashed by
+    ``_mark_2fa_pending``, points the response at it, and empties the
+    response body so nothing rendered ahead of us on this request leaks to
+    the client. Shared by this plan's ``IPubBeforeCommit`` subscriber and
+    plan 04-03's challenge plugin, so the cookie clear, the ``ICameFrom``
+    ``next_url`` append, the status lock and the body clear+lock cannot
+    drift between the two call sites.
+
+    :param ZPublisher.HTTPRequest request:
+    :param ZPublisher.HTTPResponse.HTTPResponse response:
+    :return bool: True if the redirect was applied, False if the stashed
+        user id was missing or did not resolve (no response mutation in
+        that case).
+    """
+    user_id = request.other.get(REQUEST_KEY_USER_ID)
+    if not user_id:
+        return False
+
+    user = api.user.get(userid=user_id)
+    if user is None:
+        return False
+
+    response.setCookie('__ac', '', path='/')
+
+    signed_url = sign_user_data(
+        request=request, user=user, url='@@google-authenticator-token')
+
+    came_from_adapter = ICameFrom(request)
+    # Appending possible `came_from`, but give it another name.
+    came_from = came_from_adapter.getCameFrom()
+    if came_from:
+        signed_url = '{0}&next_url={1}'.format(signed_url, came_from)
+
+    # The status lock below is for HTTPResponse.exception
+    # (HTTPResponse.py:799-803): it calls self._unauthorized() -- hence
+    # PAS's challenge() -- and then unconditionally runs
+    # setStatus(Unauthorized) one line later. Without locking the status
+    # here, an unlocked 302 set on this line would be overwritten by that
+    # 401 on the challenge-plugin path plan 04-03 adds.
+    response.redirect(signed_url, lock=1)
+
+    # response.setBody('') alone is a no-op: HTTPResponse.py:453-460
+    # returns before ever assigning self.body when the argument is falsy.
+    # The plain attribute assignment is what actually clears what the
+    # publisher writes to the client (HTTPResponse.__str__, :947-966).
+    response.body = ''
+    response.setHeader('content-length', '0')
+    # Locking the body below sets _locked_body, which setBody checks first
+    # (HTTPResponse.py:454-455). plone.transformchain 1.2.2 is registered
+    # for the same IPubBeforeCommit event in this buildout and calls
+    # setBody(...) unconditionally; subscriber order for one interface is
+    # undefined, so without locking it here the emptiness would hold only
+    # by luck.
+    response.setBody('', lock=1)
+
+    return True
+
+
 class GoogleAuthenticatorPlugin(BasePlugin):
     """
     Google Authenticator PAS Plugin
@@ -66,8 +149,14 @@ class GoogleAuthenticatorPlugin(BasePlugin):
     # off the plugin instance it is handed, so it is scoped to us: later plugins
     # still get their post-credentials-wipe KeyError swallowed (below), which the
     # veto this plugin performs depends on. The plugin's own inner delegation loop
-    # (which calls reraise() on the *other* plugins) is deliberately left alone --
-    # Phase 4 owns that boundary rework.
+    # (which calls reraise() on the *other* plugins) is deliberately left alone.
+    # Phase 4's boundary rework turned out to be: the credentials wipe now runs
+    # before first-factor delegation (authenticateCredentials below), so it holds
+    # on the exception exit too, and the flag/redirect split (send_2fa_redirect,
+    # challenge() below) means no RESPONSE/REQUEST access survives inside
+    # authenticateCredentials itself -- both redirect entry points (the login-POST
+    # IPubBeforeCommit subscriber and this class's own IChallengePlugin.challenge)
+    # go through the one shared builder instead.
     _dont_swallow_my_exceptions = True
 
     def __init__(self, id, title=None):
@@ -91,7 +180,7 @@ class GoogleAuthenticatorPlugin(BasePlugin):
         if is_whitelisted_client():
             return None
 
-        login = credentials['login']
+        login = credentials.get('login')
 
         if not login:
             return None
@@ -111,6 +200,24 @@ class GoogleAuthenticatorPlugin(BasePlugin):
             two_factor_authentication_enabled))
 
         if two_factor_authentication_enabled:
+            # Consume the credentials before delegating, so every exit from
+            # this branch -- normal, early-return, and exception -- leaves
+            # the shared dict empty. This prevents later IAuthenticationPlugins
+            # from authenticating the user before we verified the token. It
+            # does produce a "Login failed" status message though, that we
+            # need to remove in the token validation view. The wipe cannot
+            # literally precede the copy below: the delegated plugins still
+            # need the password to verify it. Also note PAS wraps the
+            # authenticator loop in ZCacheable_get/ZCacheable_set
+            # (PluggableAuthService.py:641-673); Plone 4.3 associates no
+            # cache manager with acl_users so ZCacheable_getCache() returns
+            # None and this loop always runs (OFS/Cache.py:150-168), but a
+            # cache manager added later would serve a previously cached
+            # *successful* result and skip this veto entirely.
+            delegated_credentials = dict(credentials)
+            for key in credentials.keys():
+                del credentials[key]
+
             # First see, if the password is correct.
             # We do this by allowing all IAuthenticationPlugin plugins to
             # authenticate the credentials, and pick the first one that is
@@ -125,7 +232,7 @@ class GoogleAuthenticatorPlugin(BasePlugin):
 
                 try:
                     authorized = authplugin.authenticateCredentials(
-                        credentials)
+                        delegated_credentials)
                 except _SWALLOWABLE_PLUGIN_EXCEPTIONS:
                     reraise(authplugin)
                     msg = 'AuthenticationPlugin {0} error'.format(plugid)
@@ -140,33 +247,20 @@ class GoogleAuthenticatorPlugin(BasePlugin):
                 # No auth plugin was able to authenticate the user
                 return None
 
-            # Consume the credentials after we verified the credentials above.
-            # We need to do this to prevent later IAuthenticationPlugins
-            # from authenticating the user before we verified the token.
-            # This does produce a "Login failed" status message though that
-            # we need to remove in the token validation view
-            for key in credentials.keys():
-                del credentials[key]
+            # SEC-03: force the seed-decrypt check synchronously, on this
+            # same request, so a broken encryption key still raises out of
+            # _extractUserIds -- exactly as it did before this plan's
+            # restructure. get_secret() is a pure read (never
+            # get_or_create_secret), so this cannot itself write the ZODB;
+            # it only surfaces a decrypt failure that would otherwise wait,
+            # silently, until send_2fa_redirect runs on IPubBeforeCommit.
+            get_secret(user)
 
-            # Setting the data in the session doesn't seem to work. That's why
-            # we use the `ska` package.
-            # The secret key would be then a combination of username, secret
-            # stored in users' profile and the browser version.
-            request = self.REQUEST
-            response = request['RESPONSE']
-            response.setCookie('__ac', '', path='/')
-
-            # Redirect to token thing...
-            signed_url = sign_user_data(request=request, user=user,
-                                        url='@@google-authenticator-token')
-
-            came_from_adapter = ICameFrom(request)
-            # Appending possible `came_from`, but give it another name.
-            came_from = came_from_adapter.getCameFrom()
-            if came_from:
-                signed_url = '{0}&next_url={1}'.format(signed_url, came_from)
-
-            response.redirect(signed_url, lock=1)
+            # Decide-only: stash the pending signal for
+            # subscribers.redirect_pending_2fa to act on later, on
+            # IPubBeforeCommit. No RESPONSE access and no ZODB write here --
+            # see send_2fa_redirect for the actual redirect/body-clear.
+            _mark_2fa_pending(self.REQUEST, user)
 
             return None
 
@@ -175,6 +269,37 @@ class GoogleAuthenticatorPlugin(BasePlugin):
 
         return None
 
+    def challenge(self, request, response):
+        """
+        IChallengePlugin's other half of COEX-08: fires for requests that end
+        in ``Unauthorized`` (``HTTPResponse.exception`` ->
+        ``PluggableAuthService.challenge`` at
+        ``PluggableAuthService.py:1152-1192``, called once per
+        ``IChallengePlugin`` in listing order) rather than the login-form POST
+        the ``IPubBeforeCommit`` subscriber (``subscribers.redirect_pending_2fa``)
+        already covers -- one hook does not cover both paths.
 
-classImplements(GoogleAuthenticatorPlugin, IAuthenticationPlugin)
+        By the time this runs the transaction is already aborted
+        (``ZPublisher/Publish.py:194,218``), so any write here is discarded
+        silently and forever; this method must stay write-free for Phase 5's
+        MFA-12 (lockout state) to mean anything. It deliberately sets no
+        ``protocol`` attribute -- ``HTTPBasicAuthHelper.protocol = "http"`` is
+        the group PAS's challenger-protocol/``IRequestTypeSniffer`` machinery
+        routes WebDAV/FTP/XML-RPC request types into, and joining it would
+        hand those clients an HTML redirect instead of a clean 401.
+        ``send_2fa_redirect`` issues the redirect with ``lock=1`` because
+        ``HTTPResponse.exception`` overwrites the status with 401
+        immediately after this returns (``HTTPResponse.py:799-803``); an
+        unlocked 302 would be silently overwritten one line later.
+
+        :param ZPublisher.HTTPRequest request:
+        :param ZPublisher.HTTPResponse.HTTPResponse response:
+        :return bool: True if the redirect was applied, False otherwise.
+        """
+        if not request.other.get(REQUEST_KEY_PENDING):
+            return False
+        return send_2fa_redirect(request, response)
+
+
+classImplements(GoogleAuthenticatorPlugin, IAuthenticationPlugin, IChallengePlugin)
 InitializeClass(GoogleAuthenticatorPlugin)

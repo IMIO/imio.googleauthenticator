@@ -1,22 +1,25 @@
 """
 Reset bar-code.
 """
-import logging
-
-from zope.i18nmessageid import MessageFactory
-
-from z3c.form import button, field
-
-from plone.directives import form
+from imio.googleauthenticator.helpers import get_token_description
+from imio.googleauthenticator.helpers import is_account_locked
+from imio.googleauthenticator.helpers import is_site_local_user
+from imio.googleauthenticator.helpers import register_failed_second_factor
+from imio.googleauthenticator.helpers import reset_failed_second_factor
+from imio.googleauthenticator.helpers import validate_bar_code_reset_token
+from imio.googleauthenticator.helpers import validate_token
+from imio.googleauthenticator.helpers import validate_user_data
 from plone import api
+from plone.directives import form
 from plone.z3cform.layout import wrap_form
-
 from Products.statusmessages.interfaces import IStatusMessage
+from z3c.form import button
+from z3c.form import field
+from zope.i18nmessageid import MessageFactory
 from zope.schema import TextLine
 
-from imio.googleauthenticator.helpers import get_token_description, is_site_local_user, validate_token, \
-    validate_user_data
-from imio.googleauthenticator.helpers import validate_bar_code_reset_token
+import logging
+
 
 logger = logging.getLogger('imio.googleauthenticator')
 
@@ -81,7 +84,7 @@ class ResetBarCodeForm(form.SchemaForm):
         username = self.request.get('auth_user', '')
         user = api.user.get(username=username)
 
-        #logger.debug('token: {0}'.format(token))
+        # logger.debug('token: {0}'.format(token))
 
         if not user:
             reason = _("User not found {0}.".format(username))
@@ -105,14 +108,41 @@ class ResetBarCodeForm(form.SchemaForm):
                 )
             return
 
+        # This branch deliberately emits the same assembled wrapper and
+        # reason as the wrong-code path does at the shared
+        # `reason is not None` tail at the bottom of this handler -- the
+        # two must be changed together, or the lock becomes readable
+        # again from the message alone (MFA-08). The gate itself still
+        # runs strictly before `validate_token`, so a locked account
+        # never reaches TOTP arithmetic. This makes a locked account
+        # indistinguishable from an unlocked, enrolled one -- it does
+        # NOT make either indistinguishable from a username that does
+        # not exist or from an account defined outside this Plone site;
+        # the two guards above keep their own distinct messages by
+        # decision P5-17.
+        if is_account_locked(user):
+            reason = _("Invalid token or token expired.")
+            IStatusMessage(self.request).addStatusMessage(
+                _("Setup failed! {0}".format(reason)),
+                'error'
+                )
+            return
+
         # Validating the GoogleAuthenticator app token
         valid_token = validate_token(token, user=user)
 
-        #self.context.plone_log(valid_token)
-        #self.context.plone_log(token)
+        # self.context.plone_log(valid_token)
+        # self.context.plone_log(token)
 
         reason = None
         if valid_token:
+            # The second factor succeeded regardless of what the
+            # bar-code-reset-token comparison below decides, so the
+            # counter/lock reset happens here -- before the try block --
+            # rather than inside it (P5-14): a PropertyValueError from a
+            # mis-declared property must surface, not be caught by the
+            # except Exception below and reported as an unexpected error.
+            reset_failed_second_factor(user)
             try:
                 # Checking if token generated for resetting the bar code image is equal
                 # to the one taken from current request.
@@ -125,7 +155,7 @@ class ResetBarCodeForm(form.SchemaForm):
                         )
                     return
 
-                user.setMemberProperties(mapping={'enable_two_factor_authentication': True,})
+                user.setMemberProperties(mapping={'enable_two_factor_authentication': True})
 
                 IStatusMessage(self.request).addStatusMessage(
                     _("Two-step verification bar-code is successfully reset for your account."),
@@ -137,6 +167,7 @@ class ResetBarCodeForm(form.SchemaForm):
                 logger.exception("Bar-code reset failed for %r", username)
                 reason = _("An unexpected error occurred.")
         else:
+            register_failed_second_factor(user)
             reason = _("Invalid token or token expired.")
 
         if reason is not None:

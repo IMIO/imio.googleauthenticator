@@ -3,15 +3,14 @@ Direct-call tests for ``subscribers.on_process_starting`` (SEC-08). No
 layer: the handler touches no Zope state -- its only argument is an event
 nobody inspects.
 """
+from cryptography.fernet import Fernet
+from imio.googleauthenticator import helpers
+from imio.googleauthenticator import subscribers
+
+import imio.googleauthenticator
 import os
 import unittest2 as unittest
 import xml.dom.minidom
-
-from cryptography.fernet import Fernet
-
-import imio.googleauthenticator
-from imio.googleauthenticator import helpers
-from imio.googleauthenticator import subscribers
 
 
 class _StubLogger(object):

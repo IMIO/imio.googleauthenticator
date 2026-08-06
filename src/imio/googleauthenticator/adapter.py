@@ -1,11 +1,13 @@
+from imio.googleauthenticator.helpers import extract_next_url_from_referer
+from plone.app.users.browser.personalpreferences import UserDataPanelAdapter
+from zope.interface import implements
+from zope.interface import Interface
+
 import logging
 
-from zope.interface import Interface, implements
-
-from plone.app.users.browser.personalpreferences import UserDataPanelAdapter
-from imio.googleauthenticator.helpers import extract_next_url_from_referer
 
 logger = logging.getLogger(__file__)
+
 
 class EnhancedUserDataPanelAdapter(UserDataPanelAdapter):
     """
@@ -18,8 +20,8 @@ class EnhancedUserDataPanelAdapter(UserDataPanelAdapter):
         return self.context.getProperty('enable_two_factor_authentication', '')
 
     def set_enable_two_factor_authentication(self, value):
-        return # Read only
-        #return self.context.setMemberProperties({'enable_two_factor_authentication': value})
+        return  # Read only
+        # return self.context.setMemberProperties({'enable_two_factor_authentication': value})
 
     enable_two_factor_authentication = property(
         get_enable_two_factor_authentication,
@@ -33,8 +35,8 @@ class EnhancedUserDataPanelAdapter(UserDataPanelAdapter):
         return self.context.getProperty('two_factor_authentication_secret', '')
 
     def set_two_factor_authentication_secret(self, value):
-        return # Read only
-        #return self.context.setMemberProperties({'two_factor_authentication_secret': value})
+        return  # Read only
+        # return self.context.setMemberProperties({'two_factor_authentication_secret': value})
 
     two_factor_authentication_secret = property(
         get_two_factor_authentication_secret,
@@ -48,8 +50,8 @@ class EnhancedUserDataPanelAdapter(UserDataPanelAdapter):
         return self.context.getProperty('bar_code_reset_token', '')
 
     def set_bar_code_reset_token(self, value):
-        return # Read only
-        #return self.context.setMemberProperties({'bar_code_reset_token': value})
+        return  # Read only
+        # return self.context.setMemberProperties({'bar_code_reset_token': value})
 
     bar_code_reset_token = property(
         get_bar_code_reset_token,
@@ -67,10 +69,15 @@ class CameFromAdapter(object):
     """
     Came from handling.
 
-    Plone `came_from` field had to be taken out of the login form, so that users always get the
-    token validation screen, prior to being redirected to page they came from. The came_from
-    is instead extracted from referer and handled in such a way, that Plone functionality stays
-    intact.
+    The `came_from` value is recovered from the referer's query string, deliberately
+    independent of whatever hidden inputs the login form itself renders -- Plone's own
+    `login_form.cpt` (no longer overridden by this package) is free to carry its stock
+    `came_from` hidden input again without this adapter needing to read it, because the
+    token-validation step this package inserts always happens between the login form and
+    the page the user came from, and `getCameFrom()` is the sole channel across that gap.
+    The value returned is percent-encoded, because the consumer appends it to a query
+    string as `&next_url=...` and the reader `unquote()`s it -- an unquoted `&` or `=` in
+    a `came_from` would otherwise split into a forged extra parameter.
 
     In cases your existing package smuggles with `came_from` (for example, you want users first
     to accept terms and conditions prior redirection), you would likely need to define
@@ -81,13 +88,13 @@ class CameFromAdapter(object):
     >>> from plone import api
     >>> from imio.googleauthenticator.helpers import extract_next_url_from_referer
     >>> from imio.googleauthenticator.adapter import ICameFrom
-    >>> 
+    >>>
     >>> class CameFromAdapter(object):
     >>>     implements(ICameFrom)
-    >>> 
+    >>>
     >>>     def __init__(self, request):
     >>>         self.request = request
-    >>> 
+    >>>
     >>>     def getCameFrom(self):
     >>>         real_referrer = extract_next_url_from_referer(self.request)
     >>>         portal = api.portal.get()
@@ -108,6 +115,11 @@ class CameFromAdapter(object):
         """
         Extracts the ``came_from`` value from the referrer (uses global request).
 
+        The value is quoted (``quote_url=True``) because the caller appends it to a
+        query string as ``&next_url=...`` and the reader ``unquote()``s it -- an
+        unquoted ``&``, ``=``, ``+`` or space in a ``came_from`` would otherwise split
+        into, or corrupt, a forged extra parameter.
+
         :return string:
         """
-        return extract_next_url_from_referer(self.request)
+        return extract_next_url_from_referer(self.request, quote_url=True)

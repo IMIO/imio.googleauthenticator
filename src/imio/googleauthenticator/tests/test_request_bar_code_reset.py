@@ -2,37 +2,28 @@
 Tests for the bar-code reset request form.
 """
 
-import unittest2 as unittest
-
-from Products.CMFCore.utils import getToolByName
-from Products.MailHost.MailHost import MailBase
+from imio.googleauthenticator.browser.forms.request_bar_code_reset import RequestBarCodeResetForm
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+from imio.googleauthenticator.tests.base import BaseTest
 from plone import api
 from plone.app.testing import TEST_USER_NAME
+from Products.MailHost.MailHost import MailBase
+from Products.statusmessages.interfaces import IStatusMessage
 
-from imio.googleauthenticator.browser.forms.request_bar_code_reset import \
-    RequestBarCodeResetForm
-from imio.googleauthenticator.testing import \
-    IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
-from imio.googleauthenticator.tests.base import BaseTest
+import unittest2 as unittest
 
 
 class TestRequestBarCodeReset(unittest.TestCase, BaseTest):
 
-    layer = IMIO_GOOGLEAUTHENTICATOR_INTEGRATION_TESTING
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 
     def setUp(self):
         self.app = self.layer['app']
         self.portal = self.layer['portal']
-        self.qi_tool = getToolByName(self.portal, 'portal_quickinstaller')
         self.portal_url = api.portal.get().absolute_url()
-        self._install()
-        # The email body is a skin template, so it is only traversable once
-        # the portal's skin is bound to this request.
-        self.portal.setupCurrentSkin(self.layer['request'])
-        # Memberdata writes commit inside BaseTest._install()'s testbrowser
-        # calls and survive across test methods in this layer, so a leftover
-        # token from a sibling test would make the control below pass
-        # vacuously.
+        # Memberdata writes survive across test methods in this layer, so a
+        # leftover token from a sibling test would make the control below
+        # pass vacuously.
         api.user.get(username=TEST_USER_NAME).setMemberProperties(
             mapping={'bar_code_reset_token': ''})
 
@@ -89,6 +80,45 @@ class TestRequestBarCodeReset(unittest.TestCase, BaseTest):
             1, len(sent),
             'The reset email was never handed to MailHost for delivery.')
         self.assertIn('noreply@imio.be', sent[0])
+
+    def test_successful_request_keeps_the_caller_on_the_form(self):
+        """A successful reset request must not redirect to the site root.
+
+        The caller arrives here from the token form, by which point the PAS
+        plugin has cleared their ``__ac`` cookie -- they are anonymous. A
+        redirect to the portal root therefore sends an anonymous visitor to the
+        login form on any site whose root is not anonymously viewable, which
+        reads as "the reset bounced me back to login" and hides the
+        confirmation. Not redirecting -- exactly what the ``reason is not
+        None`` failure branch already does -- re-renders this form, which is
+        registered ``permission="zope2.View"`` and so is readable while
+        anonymous, with the confirmation message on it.
+
+        Asserted on the response's ``Location`` header rather than on the
+        absence of the two source lines, so the test tracks the user-visible
+        outcome and would still catch a redirect reintroduced by another route.
+        """
+        self.portal.manage_changeProperties(
+            email_from_name='iMio', email_from_address='noreply@imio.be')
+        user = api.user.get(username=TEST_USER_NAME)
+        user.setMemberProperties(mapping={'email': 'cadam@imio.be'})
+        request = self.layer['request']
+        IStatusMessage(request).show()  # drain prior messages
+
+        self._submit_reset_request(TEST_USER_NAME)
+
+        self.assertIsNone(
+            request.response.getHeader('Location'),
+            'The handler redirected the caller away from the form; an '
+            'anonymous caller lands on the login form instead of reading the '
+            'confirmation.')
+        messages = [m.message for m in IStatusMessage(request).show()]
+        self.assertEqual(
+            [u'An email with instructions on resetting your bar-code is sent '
+             u'successfully.'],
+            messages,
+            'The caller was not told, on a page they can actually see, that '
+            'the reset email was sent.')
 
     def test_reset_request_stores_a_reset_token(self):
         """Non-vacuity control for the test above: proves the handler ran its

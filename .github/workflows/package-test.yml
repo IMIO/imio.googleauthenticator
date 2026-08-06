@@ -11,4 +11,4 @@ jobs:
             buildout_config_file: test-4.3.cfg
             requirements_file: requirements-4.3.txt
             runner_label: gha-runners-docs-py2
-            test_command: 'bin/test -t !robot'
+            test_command: 'bin/test-coverage -t !robot'

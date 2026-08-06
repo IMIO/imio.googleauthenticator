@@ -90,6 +90,156 @@ Changelog
   swallowed it and reported only "An unexpected error occurred.", leaving a
   locked-out user with no working recovery path.
   [chris-adam]
+- A refused login no longer serves the protected page in its response body.
+  Previously a 2FA-gated request returned a 302 whose body still contained
+  the rendered page, readable by any client that does not follow redirects.
+  [chris-adam]
+- The 2FA redirect moved out of the PAS plugin's ``authenticateCredentials``
+  into an ``IPubBeforeCommit`` subscriber and an ``IChallengePlugin``, so it
+  now fires on both the login-form POST (which returns HTTP 200 and never
+  raises) and on requests that end in ``Unauthorized``. The plugin itself no
+  longer touches the response or performs the redirect.
+  [chris-adam]
+- Plugin ordering is now set explicitly with ``movePluginsTop`` and
+  re-asserted every time the ``imio.googleauthenticator:default`` profile is
+  applied, not only on first install. Re-applying the profile now restores
+  the ordering if another add-on has displaced the plugin.
+  [chris-adam]
+- The shared-credentials wipe now runs before delegating to the other
+  authentication plugins, so an exception raised mid-login still refuses
+  the login rather than leaving intact credentials for a later plugin to
+  authenticate on.
+  [chris-adam]
+- Reviewed whether to deactivate the ``credentials_basic_auth`` extractor as
+  defence in depth, and decided to keep it active: see ``README.rst``'s new
+  "HTTP Basic Auth, WebDAV, FTP and XML-RPC" section for the decision, the
+  evidence behind it and its known gap.
+  [chris-adam]
+- ``README.rst`` now documents the Zope-root/emergency-user limitation and
+  the Basic Auth / WebDAV / FTP / XML-RPC consequence of the above decision,
+  including the supported service-account-plus-IP-whitelist alternative for
+  scripts and API consumers.
+  [chris-adam]
+- TOTP validation now accepts the immediately preceding 30-second interval
+  as well as the current one, and refuses a code whose interval has
+  already been accepted -- a replay of a code already used to log in no
+  longer succeeds. The accepted interval is recorded per user.
+  [chris-adam]
+- Only exactly six ASCII digits are now treated as a candidate token; every
+  other shape (too short, too long, non-digit, a non-ASCII digit) is
+  refused before the stored seed is ever fetched or decrypted.
+  [chris-adam]
+- Five consecutive failed second-factor attempts now lock an account for
+  900 seconds, evaluated before the submitted code is checked at all, on
+  both ``@@google-authenticator-token`` and ``@@reset-bar-code``. The lock
+  releases itself once its stored epoch passes -- no administrator action
+  is needed -- and a successful second factor clears the counter.
+  [chris-adam]
+- The attempt limit (``max_failed_attempts``) and the lock duration
+  (``lockout_duration``) are new control-panel settings, defaulting to 5
+  and 900 seconds.
+  [chris-adam]
+- **Upgrade note:** this release adds two ``plone.registry`` records
+  (``max_failed_attempts``, ``lockout_duration``) and three
+  ``portal_memberdata`` properties (the failed-attempts counter, the lock
+  epoch, and the last-accepted TOTP interval). It ships **no** GenericSetup
+  upgrade step -- consistent with this same section's existing note that
+  deployers recreate the Plone site rather than migrate it. The
+  ``imio.googleauthenticator:default`` profile must be (re-)imported for
+  these records and properties to exist. The failure mode on a site that
+  is not reimported is loud, not silent:
+  ``registry.forInterface(IGoogleAuthenticatorSettings)`` raises on the two
+  missing records, and ``getProperty(...)`` on an undeclared memberdata
+  property raises ``ValueError`` rather than returning a falsy default --
+  so a lockout that never locks is not among the possible outcomes.
+  [chris-adam]
+- Both JavaScript registrations in ``profiles/default/jsregistry.xml`` now pin
+  their position with ``insert-bottom``. ``BaseRegistry.storeResource`` appends,
+  so without a position directive the load order depended on when the profile's
+  import step happened to run. Installing onto an existing site appended after
+  Plone's own registrations and worked; on a fresh site, where GenericSetup could
+  import this step before Plone registered jQuery, ``main.js`` and the vendored
+  ``popupforms.js`` landed at positions 0 and 1 with
+  ``++resource++plone.app.jquery.js`` at 2. Since cooking merges adjacent
+  compatible resources into a single bundle, the ``$ is not defined`` thrown at
+  the top of ``main.js`` aborted that bundle before jQuery defined itself, so
+  every jQuery-dependent script on the site failed and every Plone overlay form
+  rendered as a full page. Observed on a real deployment. Re-importing the step
+  repairs a site already in that state, because the importer applies the move to
+  an existing resource as well as a new one.
+  [chris-adam]
+- The replay and lockout counters are no longer declared on
+  ``IEnhancedUserDataSchema``. They were never form fields in intent -- they are
+  written only by ``helpers.py`` through ``setMemberProperties`` and persist by
+  virtue of their ``memberdata_properties.xml`` entry, which a schema field
+  neither provides nor replaces. Declaring them broke
+  ``plone.app.users``' ``@@user-information``, the form an administrator uses to
+  edit another user's profile: that view is not overridden by this package, so it
+  rendered all six schema fields, and ``adapter.py`` supplies an accessor for only
+  the original three -- ``AttributeError: 'EnhancedUserDataPanelAdapter' object
+  has no attribute 'two_factor_authentication_failed_attempts'``. The
+  ``omit()`` in ``CustomizedUserDataPanel`` never covered it, being registered for
+  ``personal-information`` alone. Removing the fields also removes the write path
+  by which a user could have set their own lockout deadline to zero.
+  [chris-adam]
+- ``@@request-bar-code-reset`` no longer redirects to the portal root once it
+  has sent the reset email. The caller reaches that form from the token form,
+  by which point the PAS plugin has cleared their ``__ac`` cookie, so they are
+  anonymous: on any site whose root is not anonymously viewable the redirect
+  sent them to the login form, the "email sent" confirmation was never read,
+  and the bounce looked like the reset had failed. The form now re-renders
+  itself with the confirmation, as its failure branch already did.
+  [chris-adam]
+- Deleted the vendored login-form override (``skins/googleauthenticator_custom/
+  login_form.cpt``) and the vendored copy of Plone's overlay script
+  (``browser/static/plone_ecmascript/popupforms.js``), along with the entire
+  skin layer (``skins/`` directory, ``profiles/default/skins.xml``, and
+  ``configure.zcml``'s filesystem-directory registration). Plone's own stock
+  login form and overlay script are now used unmodified (COEX-02, COEX-03,
+  COEX-05).
+  [chris-adam]
+- ``TokenForm`` now renders ``id="login_form"`` on the served
+  ``@@google-authenticator-token`` markup, the selector Plone's own untouched
+  overlay script binds its ajax fetch on, so the token step loads inside the
+  same overlay the stock login form uses (COEX-01, COEX-09).
+  [chris-adam]
+- The two auxiliary templates the control panel and the bar-code reset email
+  used to reach through a skin-name ``restrictedTraverse`` lookup
+  (``control_panel_extra.html``, ``request_bar_code_reset_email.pt``) are now
+  ``ViewPageTemplateFile`` class attributes on their respective views (COEX-04).
+  [chris-adam]
+- Added a real ``profiles/uninstall/`` for this package's own two resources:
+  ``++resource++imio.googleauthenticator/main.js`` and ``main.css``. Uninstalling
+  no longer leaves the whole site without Plone's overlay script, is idempotent,
+  and is reversible by re-applying the default profile (COEX-06).
+  [chris-adam]
+- Proved, in both application orders and under a repeated profile import, that
+  this package's own profile does not collide with ``imio.dms.mail``'s bare
+  reposition entry for Plone's stock ``popupforms.js`` resource (COEX-07,
+  automated half; the real two-egg install is a manual verification item).
+  [chris-adam]
+- The post-token redirect target is now validated against the portal with
+  ``isURLInPortal()`` before redirecting: an off-site ``next_url`` is refused
+  and falls back to the portal context URL instead of being honoured (BUG-01).
+  [chris-adam]
+- ``CameFromAdapter.getCameFrom()`` now percent-encodes the ``came_from`` value
+  it reads, so a value containing ``&``, ``=``, ``+`` or a space can no longer
+  forge or truncate the ``&next_url=...`` query-string parameter it is appended
+  to (BUG-06).
+  [chris-adam]
+
+  **Upgrade note.** A site that already applied a previous version of this
+  package's ``profiles/default/jsregistry.xml`` had Plone's own
+  ``popupforms.js`` resource unregistered from ``portal_javascripts``. This
+  release does not re-register it -- nothing in this package can, only
+  Plone's own ``Products.CMFPlone`` profile registers that resource. On such
+  a site, upgrading the egg and re-applying this package's profile will
+  **not** bring the overlay script back. Recover by re-running
+  ``Products.CMFPlone``'s own ``jsregistry`` import step from
+  ``portal_setup``, or by recreating the site. The stale
+  ``googleauthenticator_custom`` skin layer left in ``portal_skins`` on the
+  same site is the second such leftover artifact to clear.
+  [chris-adam]
 
 0.3.0 (unreleased)
 ------------------

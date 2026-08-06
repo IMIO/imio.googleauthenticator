@@ -1,2 +1,4 @@
-[report]
-include = src/imio/googleauthenticator/*
+[run]
+source = src/imio/googleauthenticator
+omit = */tests/*
+branch = True

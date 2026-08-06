@@ -1,0 +1,28 @@
+<div i18n:domain="imio.googleauthenticator"
+     xmlns:tal="http://xml.zope.org/namespaces/tal"
+     xmlns:i18n="http://xml.zope.org/namespaces/i18n">
+
+  <h1 i18n:translate="">Your recovery codes</h1>
+
+  <p class="portalMessage warning" i18n:translate="">
+    These codes are shown only this one time and cannot be retrieved again.
+    Write them down or store them in a safe place before leaving this page.
+  </p>
+
+  <ol>
+    <li tal:repeat="code view/issued_recovery_codes">
+      <code tal:content="code">RECOVERYCODE0</code>
+    </li>
+  </ol>
+
+  <p i18n:translate="">
+    Each code works once, in place of the verification code from your
+    authenticator app, if you ever lose access to your device.
+  </p>
+
+  <p>
+    <a tal:attributes="href string:${context/absolute_url}/@@personal-information"
+       i18n:translate="">Continue to your profile</a>
+  </p>
+
+</div>

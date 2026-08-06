@@ -33,11 +33,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Rename and Fail-Closed** - `imio.googleauthenticator` everywhere, and a plugin exception becomes a 500 instead of a password-only login (completed 2026-07-29)
 - [x] **Phase 2: Registry Seeding and Import-Step Ordering** - New Plone sites install cleanly, and the ordering that makes them clean is asserted rather than accidental (completed 2026-07-29)
 - [x] **Phase 3: Encrypted Seeds and Local QR** - Seeds are Fernet-encrypted at rest, never sent to Google, and never fall back to plaintext (completed 2026-07-30)
-- [ ] **Phase 4: PAS Boundary** - The second factor cannot be bypassed by any credentials extractor, and the refusal leaks nothing
-- [ ] **Phase 5: Drift, Replay and Lockout** - A replayed code fails, brute force stops at N attempts, and the counters actually persist
-- [ ] **Phase 6: Recovery Codes** - A user who loses their phone gets back in without an admin, on a throttled path
-- [ ] **Phase 7: Coexistence with imio.dms.mail** - Both packages install in either order with no vendored JavaScript, no skin layer, and no open redirect
-- [ ] **Phase 8: Coverage Instrument and Test Layers** - The build fails when tests fail, the coverage number means something, and `bin/code-analysis` exits 0
+- [x] **Phase 4: PAS Boundary** - The second factor cannot be bypassed by any credentials extractor, and the refusal leaks nothing (completed 2026-07-31)
+- [x] **Phase 5: Drift, Replay and Lockout** - A replayed code fails, brute force stops at N attempts, and the counters actually persist (completed 2026-08-03)
+- [x] **Phase 6: Recovery Codes** - A user who loses their phone gets back in without an admin, on a throttled path (completed 2026-08-04)
+- [x] **Phase 7: Coexistence with imio.dms.mail** - Both packages install in either order with no vendored JavaScript, no skin layer, and no open redirect (completed 2026-08-05)
+- [x] **Phase 8: Coverage Instrument and Test Layers** - The build fails when tests fail, the coverage number means something, and `bin/code-analysis` exits 0 (completed 2026-08-06)
 
 ## Phase Details
 
@@ -163,10 +163,22 @@ Plans:
   4. The challenge fires on both paths, each with its own test: `IChallengePlugin` for requests ending in `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which returns HTTP 200 and never raises. One hook does not cover both.
   5. An exception inside `authenticateCredentials` wipes the credentials dict and refuses the login rather than falling through to `source_users`; and DOC-01 (Zope-root admins architecturally out of reach) and DOC-02 (the basic-auth consequence, naming the service-account alternative for scripts, WebDAV, FTP and XML-RPC) are written.
 
-**Plans**: TBD
+**Plans**: 4/4 plans executed
+
+Plans:
+**Wave 1**
+
+- [x] 04-01-PLAN.md — Tracer: decide-only `authenticateCredentials`, the shared `send_2fa_redirect`, the `IPubBeforeCommit` subscriber and its ZCML, and the body-emptiness control against a real `HTTPResponse` (MFA-02, COEX-08 login-POST half)
+- [x] 04-02-PLAN.md — `movePluginsTop` re-asserted on every profile application, the ordering and no-`protocol` assertions, and the blocking `credentials_basic_auth` decision checkpoint (MFA-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 04-03-PLAN.md — `IChallengePlugin.challenge` for the `Unauthorized` path, one veto assertion per extractor with non-vacuity controls, and the exception-path wipe (MFA-01, MFA-04, COEX-08 challenge half)
+- [x] 04-04-PLAN.md — `README.rst` DOC-01/DOC-02 with fact-presence tests, the reconciled ZMI ordering section, and the changelog (DOC-01, DOC-02)
 
 **Phase notes:**
 
+- **Planning found three mechanical errors in `04-RESEARCH.md`**, each verified against the installed egg and recorded in 04-01-PLAN.md's `<research_corrections>`: `response.setBody('')` is a no-op (`HTTPResponse.py:459` returns before assigning `self.body`); the challenge-path redirect needs `lock=1` because `HTTPResponse.exception` runs `setStatus(Unauthorized)` immediately after calling the challenge (`:799-803`); and `request.get('_2fa_pending')` falls through to form data and cookies (`HTTPRequest.py:1250-1255`), making the research's recommended read attacker-settable. Read from `request.other` only.
 - **Open Decision to settle here, not assume:** whether to deactivate the `credentials_basic_auth` extractor outright. It is the only genuinely order-independent fix, at the cost of site-wide WebDAV/FTP/XML-RPC password auth. **Check `imio.dms.mail` and `server.dmsmail` for basic-auth dependence FIRST**, then choose and record the choice.
 - **Open Decision to settle here:** none other; the `ajax_load` question belongs to Phase 7.
 - The design is decision/redirect/grant split: `authenticateCredentials` **decides only** — whitelist check, 2FA check, first-factor verification, wipe the dict, set `request['_2fa_pending']`, return `None`. It never touches `RESPONSE` and **never writes to the ZODB**. Move the credentials wipe to the top of the 2FA branch so it also runs on the exception path.
@@ -183,10 +195,30 @@ Plans:
   1. A test asserts a code from the immediately preceding time step is accepted (RFC 6238 §6), and another asserts a code already consumed is rejected on reuse (RFC 6238 §5.2 MUST NOT). **Both land in one commit** — they are the same six lines on `get_hotp(secret, intervals_no=i)`, and splitting them produces drift-accepted-but-replay-undetected, which is strictly worse than today.
   2. A test asserts the replay rejection is logged, and that the log line carries no plaintext username (ASVS 2.8.4/2.8.5).
   3. A test asserts 5 consecutive failures lock the account for 900 seconds; that the lock is evaluated **before** the token, so a locked account answers identically for a valid and an invalid code and is not an oracle; and that the lock expires on its own with no admin action.
-  4. A test asserts a successful second factor resets the failure counter, and that only exactly-6-digit input is treated as a candidate token (`_is_possible_token` currently accepts `"1"` and `"123"`). N and the duration are editable in the control panel, defaulting to 5 and 900.
+  4. A test asserts a successful second factor resets the failure counter, and that only exactly-6-digit input is treated as a candidate token. This requires a **new** gate in `helpers.py`, checked before `onetimepass` is ever called: the permissive `_is_possible_token` that accepts `"1"` and `"123"` is a private function inside the pinned `onetimepass==0.2.2` egg, so it cannot be patched (corrected during Phase 5 research — the earlier wording implied it lived in this package). N and the duration are editable in the control panel, defaulting to 5 and 900.
   5. Every new memberdata property has a `memberdata_properties.xml` entry and a `setMemberProperties()` → `getProperty()` round-trip test; and a test asserts the failure counter still increments after a request that ends in `Unauthorized`, proving the write lives in the token form view and not on an aborted path.
 
-**Plans**: TBD
+**Plans**: 5/5 plans executed
+
+Plans:
+**Wave 1**
+
+- [x] 05-01-PLAN.md — Memberdata counter substrate, control-panel policy fields, and the lockout wired end to end on the token form (MFA-08..13)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 05-02-PLAN.md — Drift acceptance, replay rejection and the exact-six-digit gate in `helpers.validate_token`, one commit (MFA-05, MFA-06, MFA-07)
+- [x] 05-03-PLAN.md — The same counter and lock on `@@reset-bar-code`, closing the anonymous guessing oracle (MFA-08 reset path, MFA-11, MFA-12)
+
+**Wave 3** *(gap closure, blocked on Wave 2 completion)*
+
+- [x] 05-04-PLAN.md — Move the lockout gate in `token.py` to run after signature validation so an unsigned caller can no longer read account lock state, plus the anonymous no-signature test (MFA-08)
+
+**Wave 4** *(gap closure, additive — all prior plans already executed)*
+
+- [x] 05-05-PLAN.md — Make the locked-account and wrong-code failures at `@@reset-bar-code` emit the same assembled status message, plus the anonymous equality test the 05-03 substring criterion could not catch (MFA-08)
+
+**UI hint**: no
 
 **Phase notes:**
 
@@ -196,6 +228,7 @@ Plans:
 - The ConflictError worry is a non-issue and PROJECT.md's stated reason for memberdata was wrong: storage is an `OOBTree` keyed by user id, so cross-user writes merge and `retry_max_count = 3` handles same-user parallel brute force correctly (the retry re-reads the fresh counter). The decision stands; the hazard to design against is `transaction.abort()`.
 - Control panel follows `imio.dms.mail`'s `RegistryEditForm` + `layout.wrap_form(..., ControlPanelFormWrapper)` pattern.
 - N=5 / 900 s ≈ 1042 days expected time-to-hit for a 6-digit code; NIST SP 800-63B §5.2.2's 100 attempts is a ceiling, not a target.
+- **Lockout scope decided at plan time (2026-07-31):** the counter and lock cover **both** `browser/forms/token.py` **and** `browser/forms/reset_bar_code.py`, not the token form alone. `reset-bar-code` is registered `permission="zope2.View"`, takes its target account from an attacker-supplied `auth_user` query parameter, and calls `validate_token` at `reset_bar_code.py:109` — *before* it checks the signed `bar_code_reset_token` at line 120, with a distinct error message for each failure. Left unmetered it is an anonymous TOTP guessing oracle, which would make this phase's goal untrue while appearing met. Both are browser form views that return 200/302 and commit, so covering both keeps the MFA-12 invariant intact. `user_setup.py` is deliberately **excluded**: it validates against the enrolling user's own in-progress secret, so a counter there would let a user lock themselves out mid-setup.
 
 ### Phase 6: Recovery Codes
 
@@ -210,7 +243,17 @@ Plans:
   4. The user can regenerate the whole set, and a test asserts every previously issued code stops working.
   5. The user is warned when 3 or fewer codes remain.
 
-**Plans**: TBD
+**Plans**: 3/3 plans executed
+
+Plans:
+**Wave 1**
+
+- [x] 06-01-PLAN.md — Tracer: the recovery-code substrate end to end — two memberdata properties, the hash/generate/validate-and-consume helpers, the promoted `validate_second_factor` dispatcher at the token form's one call site, and a real browser login with a recovery code (RECOV-02, RECOV-04). Opens with a `checkpoint:decision` on the two one-way choices: the PBKDF2 iteration count and the storage shape.
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 06-02-PLAN.md — Issue the codes at enrollment, render them exactly once in the same response (no redirect, no stored plaintext), and add a `regenerate_recovery_codes` portal action reusing the existing availability view (RECOV-01, RECOV-03, RECOV-06)
+- [x] 06-03-PLAN.md — The shared lockout counter proven at the real form, the "3 or fewer remain" warning on the success path only, and the MFA-12 source guard extended to this phase's new writers (RECOV-05, RECOV-07)
 
 **Phase notes:**
 
@@ -231,16 +274,39 @@ Plans:
   4. A test asserts an off-site `next_url` is refused and an on-site one honoured, with query-string values URL-encoded on the way in. **Same commit as the `login_form.cpt` deletion**: the stale copy deleted Plone 4.3.20's `came_from` hidden input, which is the only reason `CameFromAdapter` exists, so removing the copy restores the field and changes what `ICameFrom` sees.
   5. `control_panel_extra.html` and `request_bar_code_reset_email.pt` still render, converted to `ViewPageTemplateFile`, with no `restrictedTraverse` into a skin left in the package.
 
-**Plans**: TBD
+**Plans**: 4/4 plans executed
+
+Plans:
+**Wave 1**
+
+- [x] 07-01-PLAN.md — Tracer: restore Plone's own login overlay (delete the vendored script and the `remove="True"` mutation), make `TokenForm` render the `id` the overlay binds on, prove login through the header link; then delete the `login_form.cpt` override with the `next_url` allowlist guard and the query-string encoding in the same commit (COEX-01, COEX-02, COEX-03, COEX-09, BUG-01, BUG-06)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 07-02-PLAN.md — Convert both live skin templates to `ViewPageTemplateFile` class attributes and delete the skin directory, `skins.xml`, `registerDirectory` and the packaging include in one commit, plus the absence assertions (COEX-04, COEX-05)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 07-03-PLAN.md — A real `profiles/uninstall/` scoped to this package's own two resources, the two-order collision proof, the resource-ownership invariant test, and the README/docs/CHANGES corrections (COEX-06, COEX-07, COEX-03)
+
+**Wave 4** *(blocked on Wave 3 completion, non-autonomous)*
+
+- [x] 07-04-PLAN.md — The two verifications `bin/test` cannot reach: a real two-egg install in both orders on the `server.dmsmail` MOD-1076 environment, and a real browser click through the stock overlay (COEX-07, COEX-09 manual halves)
+
 **UI hint**: yes
 
 **Phase notes:**
 
-- **Open Decision to settle here:** whether `ska` tolerates the `ajax_load` parameter the overlay injects. `pb.add_ajax_load` prepends a hidden `ajax_load=<timestamp>` input and `pb.ajax_click` appends it to the GET. It *should* be ignored (`validate_signed_request_data` reads named keys), but a signature failure here is **silent from the user's side**. One browser test settles it.
+- **Planned 2026-08-04. Three corrections to this section, established by reading the installed egg source — the plans implement the corrected version, not the text below:**
+  1. Success criterion 1's "`id = 'login_form'` on `TokenForm` as the only mechanism" is not achievable as written. `z3c.form 3.2.11`'s `Form.id` is a Python property, and `plone.z3cform 0.8.1`'s `titlelessform` macro — used by both the wrapped and the standalone render paths — emits no `id` attribute on the `<form>` tag at all. The class attribute produces no markup. A `render()` override that post-processes the emitted HTML is required; forking the macro would re-vendor what this phase removes. The *rendered* attribute is the only mechanism.
+  2. Success criterion 4's causal claim is imprecise: the restored stock `came_from` hidden input lands in `request.form`, whereas `CameFromAdapter.getCameFrom()` reads `HTTP_REFERER`'s **query string**. Restoring the input does not by itself change what `ICameFrom` sees. The same-commit grouping still holds — it is the commit where the whole redirect surface changes — but nothing depends on the restored input feeding the adapter.
+  3. The COEX-04 note below says the email path has zero test coverage. It has three tests that drive `handleSubmit` end to end and assert on the rendered mail body, so a missed conversion there **is** caught by CI. The half with genuinely zero coverage is the **control panel**, which no test renders — corrected in `07-VALIDATION.md`, and closed by a new `tests/test_controlpanel.py`. Also: `controlpanel.py:84` is actually line 101, and the skin directory holds **four** files, not five (the vendored script lives under `browser/static/plone_ecmascript/`).
+- **Open Decision settled at plan time, no browser test needed to settle it:** `ska 1.7.5` hashes only `auth_user` + `valid_until` (plus an `extra` dict this codebase never populates) — read directly from `ska/utils.py`'s `validate_request_data` and `ska/base.py`'s `Signature.get_base`. Any other query-string key, `ajax_load` included, is never read and never enters the hash. `ska` cannot fail on `ajax_load`. The browser test in 07-04 remains valuable for proving the overlay injects it correctly and the chain survives in practice, but the "silent signature failure" fear is unfounded.
+- **Open Decision to settle here (original text, superseded by the note above):** whether `ska` tolerates the `ajax_load` parameter the overlay injects. `pb.add_ajax_load` prepends a hidden `ajax_load=<timestamp>` input and `pb.ajax_click` appends it to the GET. It *should* be ignored (`validate_signed_request_data` reads named keys), but a signature failure here is **silent from the user's side**. One browser test settles it.
 - Also confirm in the same browser test that `common_content_filter` reaches the wrapped z3c.form — `plone.z3cform.layout`'s `wrap_form` renders inside `#content` and `el.find()` is a descendant search, so it should be reachable.
 - COEX-04 is the trap: `control_panel_extra.html` (`controlpanel.py:84`) and `request_bar_code_reset_email.pt` (`request_bar_code_reset.py:90`) are reached by `restrictedTraverse` and are **not** overrides. Deleting `skins/` deletes two live templates; convert both in the same commit. The email path has zero test coverage, so CI will not notice.
 - The vendored copies are stale and actively harmful, which is extra reason to delete rather than maintain: `popupforms.js` reverts `msieversion()` to `jQuery.browser.msie` (removed in jQuery 1.9) and drops `dl.portalMessage.warning` from `common_content_filter`, swallowing warning messages in every Plone overlay site-wide.
-- **UI hint** is set because this is the one phase with real frontend surface (login overlay, resource registries, templates). Phases 5 and 6 touch z3c.forms and a control panel but carry no visual design latitude, so they are deliberately unannotated.
+- **UI hint** is set because this is the one phase with real frontend surface (login overlay, resource registries, templates). Phases 5 and 6 touch z3c.forms and a control panel but carry no visual design latitude. Leaving them unannotated does **not** mean "no UI" to the tooling: the UI gate word-matches the phase section against a token list that includes `form`, `view` and `layout`, so `token form view`, `layout.wrap_form` and `RegistryEditForm` make it block for a missing UI-SPEC. Phase 5 therefore carries an explicit `**UI hint**: no`; Phase 6 still needs one added before it is planned.
 
 ### Phase 8: Coverage Instrument and Test Layers
 
@@ -255,7 +321,28 @@ Plans:
   4. Installedness is asserted through things this package controls — plugin registered for `IAuthenticationPlugin`, registry records present, browser layer active — not through `portal_quickinstaller`. `applyProfile` does not call `installProduct`, so `test_product_is_installed` can fail on an otherwise-correct change.
   5. `bin/code-analysis` exits 0 (~40 pre-existing findings), the `[coverage]` and `[test-coverage]` buildout parts are enabled with `coverage == 5.5` pinned, and the redundant `createcoverage` part and pin are dropped.
 
-**Plans**: TBD
+**Plans**: 5/5 plans executed
+
+Plans:
+**Wave 1**
+
+- [x] 08-01-PLAN.md — Coverage instrument end to end: corrected `.coveragerc`, `set -e` in the `[test-coverage]` template, buildout parts + `coverage == 5.5`, proven with a real red build (QUAL-01, QUAL-02, QUAL-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 08-02-PLAN.md — Profile install moves to the layer's `setUpPloneSite`; the Browser-driven quickinstaller helper and all 21 call sites deleted; installedness asserted via plugin registration, registry records and browser layer (QUAL-05, QUAL-07)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 08-03-PLAN.md — Every test class moved to the ZSERVER-free `FunctionalTesting` layer, the integration layer retired, and every revealed failure fixed at its cause (QUAL-05)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 08-04-PLAN.md — Branch coverage taken above 90% with real tests for the four weakest modules, and CI pointed at `bin/test-coverage` (QUAL-04)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 08-05-PLAN.md — All lint findings fixed so `bin/code-analysis` exits 0 and the pre-commit hook works; stale figures in `CLAUDE.md` and `codebase/TESTING.md` corrected (QUAL-06)
 
 **Phase notes:**
 
@@ -274,22 +361,23 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. Rename and Fail-Closed | 4/4 | Complete    | 2026-07-29 |
 | 2. Registry Seeding and Import-Step Ordering | 2/2 | Complete    | 2026-07-29 |
 | 3. Encrypted Seeds and Local QR | 3/3 | Complete    | 2026-07-30 |
-| 4. PAS Boundary | 0/TBD | Not started | - |
-| 5. Drift, Replay and Lockout | 0/TBD | Not started | - |
-| 6. Recovery Codes | 0/TBD | Not started | - |
-| 7. Coexistence with imio.dms.mail | 0/TBD | Not started | - |
-| 8. Coverage Instrument and Test Layers | 0/TBD | Not started | - |
+| 4. PAS Boundary | 4/4 | Complete    | 2026-07-31 |
+| 5. Drift, Replay and Lockout | 5/5 | Complete    | 2026-08-03 |
+| 6. Recovery Codes | 3/3 | Complete    | 2026-08-04 |
+| 7. Coexistence with imio.dms.mail | 4/4 | Complete    | 2026-08-05 |
+| 8. Coverage Instrument and Test Layers | 5/5 | Complete    | 2026-08-06 |
 
 ## Same-Commit Requirements
 
-These four groups must not be split across phases **or across plans within a phase**. Each was
+These five groups must not be split across phases **or across plans within a phase**. Each was
 identified because the split state is worse than either endpoint.
 
 | Must ship together | Phase | Why |
 |---|---|---|
 | Drift `{T, T−1}` + replay rejection (MFA-05 + MFA-06) | 5 | Same six lines. Split yields drift-accepted-but-replay-undetected — strictly worse than today. |
 | Fernet + fail-closed + local QR + `ipaddress` swap (SEC-01/03/05 + BUG-05) | 3 | Fail-closed is the one mistake that silently undoes encryption; a QR posted to Google makes encryption worthless; `cryptography` forces the `ipaddress` swap. |
-| Override deletion + `next_url` open-redirect fix (COEX-02/03 + BUG-01) | 7 | Deleting `login_form.cpt` restores Plone's `came_from` field and changes what `ICameFrom` sees. |
+| Override deletion + `next_url` open-redirect fix + query-string encoding (COEX-02 + BUG-01 + BUG-06) | 7 | This is the commit where the whole redirect surface changes. *(Planned as 07-01 Task 2. The original rationale — "deleting `login_form.cpt` restores Plone's `came_from` field and changes what `ICameFrom` sees" — is imprecise: the restored hidden input lands in `request.form`, while the adapter reads `HTTP_REFERER`'s query string. The grouping stands on the surface-change reason; nothing depends on the restored input.)* |
+| Both live-template conversions + skin-directory deletion (COEX-04 + COEX-05) | 7 | The directory holds two live templates that are not overrides. Deleting it first takes both fragments down, and the control-panel one fails inside a broad `except ValueError` that nothing in `bin/test` would notice. Planned as 07-02 Task 1. |
 | `.coveragerc` fix + `set -e` (QUAL-01 + QUAL-02) | 8 | Both must precede any new test, or the gate measures nothing and green means nothing. |
 
 ## Open Decisions

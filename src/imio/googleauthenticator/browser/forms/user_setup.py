@@ -2,20 +2,22 @@
 User setup.
 """
 
-import logging
-
-from zope.i18nmessageid import MessageFactory
-
-from z3c.form import button, field
-
-from plone.directives import form
+from imio.googleauthenticator.helpers import generate_recovery_codes
+from imio.googleauthenticator.helpers import get_token_description
+from imio.googleauthenticator.helpers import is_site_local_user
+from imio.googleauthenticator.helpers import validate_token
 from plone import api
+from plone.directives import form
 from plone.z3cform.layout import wrap_form
-
+from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
 from Products.statusmessages.interfaces import IStatusMessage
+from z3c.form import button
+from z3c.form import field
+from zope.i18nmessageid import MessageFactory
 from zope.schema import TextLine
 
-from imio.googleauthenticator.helpers import get_token_description, is_site_local_user, validate_token
+import logging
+
 
 logger = logging.getLogger('imio.googleauthenticator')
 
@@ -52,6 +54,12 @@ class SetupForm(form.SchemaForm):
     description = _(u"To setup two-step verification you need to install the Google"
                     u"Authenticator app on your phone. This app is available for "
                     u"Android, iOS and BlackBerry devices.")
+    # Not underscore-prefixed: Zope TAL path traversal refuses names
+    # beginning with an underscore, so ``view/_recovery_codes`` would be
+    # unreachable from recovery_codes.pt. Holds plaintext for the lifetime
+    # of one request only -- never assigned to anything persistent.
+    issued_recovery_codes = None
+    recovery_codes_template = ViewPageTemplateFile('recovery_codes.pt')
 
     @button.buttonAndHandler(_('Verify'))
     def handleSubmit(self, action):
@@ -86,21 +94,32 @@ class SetupForm(form.SchemaForm):
 
         valid_token = validate_token(token)
 
-        #self.context.plone_log(valid_token)
-        #self.context.plone_log(token)
+        # self.context.plone_log(valid_token)
+        # self.context.plone_log(token)
 
         reason = None
         if valid_token:
             try:
                 # Set the ``enable_two_factor_authentication`` to True
                 user = api.user.get_current()
-                user.setMemberProperties(mapping={'enable_two_factor_authentication': True,})
+                user.setMemberProperties(mapping={'enable_two_factor_authentication': True})
 
                 IStatusMessage(self.request).addStatusMessage(
                     _("Two-step verification is successfully enabled for your account."),
                     'info'
                     )
-                redirect_url = "{0}/@@personal-information".format(self.context.absolute_url())
+                # RECOV-03: mint the recovery codes only after the success
+                # message above has been queued, so the historical
+                # exception-branch scenario (a failure inside this try:)
+                # mints no codes at all -- a set generated but never shown
+                # is a set the user never received while their stored
+                # hashes were already replaced. redirect_url is set to
+                # None *after* this call: if generate_recovery_codes raises,
+                # redirect_url stays unbound here and the "if reason is not
+                # None:" fallback below binds it, preserving BUG-02's
+                # "bound on every reachable path" property unchanged.
+                self.issued_recovery_codes = generate_recovery_codes(user)
+                redirect_url = None
             except Exception:
                 logger.exception("Two-step verification setup failed")
                 reason = _("An unexpected error occurred.")
@@ -113,7 +132,30 @@ class SetupForm(form.SchemaForm):
 
         # TODO: Is there a nicer way of resolving the "@@setup-two-factor-authentication" URL?
 
-        self.request.response.redirect(redirect_url)
+        # RECOV-03: redirect_url is None only on the success path above,
+        # deliberately -- skipping the redirect on that one path is the
+        # entire mechanism the one-time code display depends on.
+        # plone.z3cform 0.8.1's FormWrapper.update() (site-packages/
+        # plone/z3cform/layout.py, lines 39-60 of the pinned egg) blanks
+        # the wrapped form's contents and returns early only when
+        # self.request.response.getStatus() is 302 or 303; leaving the
+        # response at its default 200 here is sufficient for render() to
+        # run normally in this same response. Do not "tidy" this back into
+        # an unconditional redirect.
+        if redirect_url is not None:
+            self.request.response.redirect(redirect_url)
+
+    def render(self):
+        """RECOV-03: the one-time display. If handleSubmit just minted a
+        fresh set of recovery codes, render those instead of the ordinary
+        setup form -- this is the only response in which they exist in
+        plaintext anywhere. Any other render() call (a fresh form, a
+        second GET) has issued_recovery_codes at its class default of
+        None, so the ordinary form renders and nothing is redisplayed.
+        """
+        if self.issued_recovery_codes:
+            return self.recovery_codes_template()
+        return super(SetupForm, self).render()
 
     def updateFields(self, *args, **kwargs):
         """
@@ -139,6 +181,7 @@ class SetupForm(form.SchemaForm):
                         u"unavailable for it.")
 
             return super(SetupForm, self).updateFields(*args, **kwargs)
+
 
 # View for the ``SetupForm``.
 SetupFormView = wrap_form(SetupForm)

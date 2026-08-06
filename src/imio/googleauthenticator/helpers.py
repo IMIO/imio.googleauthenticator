@@ -1,34 +1,35 @@
 """
 This helper module contains functions used throughout c.googleauthenticator.
 """
+from cryptography.fernet import Fernet
+from cryptography.fernet import InvalidToken
+from hashlib import pbkdf2_hmac
 from hashlib import sha1
 from hmac import compare_digest
-from urllib import unquote, quote
+from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
+from onetimepass import get_hotp
+from plone import api
+from plone.registry.interfaces import IRegistry
+from Products.statusmessages.interfaces import IStatusMessage
+from ska import sign_url
+from ska import validate_signed_request_data
+from urllib import quote
+from urllib import unquote
 from urlparse import urlparse
-import base64
-import io
-import logging
-import os
-
 from zope.component import getUtility
 from zope.globalrequest import getRequest
 from zope.i18n import translate
 from zope.i18nmessageid import MessageFactory
 
-from Products.statusmessages.interfaces import IStatusMessage
-
-from onetimepass import valid_totp
-
-from plone import api
-from plone.registry.interfaces import IRegistry
-
-from cryptography.fernet import Fernet
-from cryptography.fernet import InvalidToken
-from ska import sign_url, validate_signed_request_data
+import base64
+import binascii
+import io
 import ipaddress
+import logging
+import os
 import qrcode
+import time
 
-from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 
 _ = MessageFactory('imio.googleauthenticator')
 
@@ -40,6 +41,34 @@ ENV_VAR_NAME = 'IMIO_GOOGLEAUTHENTICATOR_SEED_KEY'
 # Literal envelope prefix on every ciphertext this module stores. '$' cannot
 # appear in URL-safe base64 (A-Za-z0-9-_=), so the split is unambiguous.
 CIPHERTEXT_VERSION_PREFIX = 'v1$'
+# RFC 6238 section 5.2's default TOTP time step, in seconds.
+TOTP_INTERVAL_SECONDS = 30
+
+# How many recovery codes a set contains (RECOV-02).
+RECOVERY_CODE_COUNT = 10
+# 80 bits of os.urandom per code -- a keyspace with no dictionary to walk,
+# which is the actual defence (the PBKDF2 iteration count below is
+# insurance on top of this, not a substitute for it).
+RECOVERY_CODE_ENTROPY_BYTES = 10
+# base32(10 bytes) is exactly 16 characters with no '=' padding, since 80
+# bits is an exact multiple of base32's 5-bit block.
+RECOVERY_CODE_LENGTH = 16
+# 128 bits of os.urandom for the one per-user salt.
+RECOVERY_CODE_SALT_BYTES = 16
+# RFC 4648 base32 alphabet, uppercase only -- normalization uppercases
+# first, so a lowercase paste is accepted and a digit 0/1/8/9 (not in this
+# alphabet) is refused.
+RECOVERY_CODE_ALPHABET = frozenset('ABCDEFGHIJKLMNOPQRSTUVWXYZ234567')
+# Measured on this buildout's Python 2.7.18 interpreter this session:
+# 100,000 iterations = 0.117s. Scales linearly on a slower host. Insurance
+# on top of the 80-bit entropy above, not the primary defence -- Task 1's
+# checkpoint:decision selected option-a over the pre-agreed 20k-200k
+# envelope (STATE.md records the decision and its rationale).
+RECOVERY_CODE_PBKDF2_ITERATIONS = 100000
+# RECOV-07's warning threshold: a consumption that leaves this many or
+# fewer codes remaining queues one warning. Comparison is inclusive --
+# three warns, four does not.
+RECOVERY_CODE_LOW_WATERMARK = 3
 
 
 def get_encryption_key():
@@ -319,15 +348,93 @@ def get_token_description(user=None, overwrite_secret=False):
     )
 
 
+def _is_six_digit_token(token):
+    """
+    Tells whether ``token`` is a candidate TOTP code: exactly six ASCII
+    digits, nothing else. The pinned ``onetimepass==0.2.2``'s own
+    ``_is_possible_token`` accepts any numeric string of length 1 to 6,
+    through a private function that is not exported and cannot be
+    overridden -- so this gate lives here instead.
+
+    Membership is tested against the literal ASCII digit string rather
+    than ``isdigit()`` alone: in Python 2 ``unicode.isdigit()`` is True
+    for characters like a superscript two, which then raise ``ValueError``
+    out of ``int()`` -- a 500 on a form registered
+    ``permission="zope2.View"`` (decision P5-10).
+
+    :param string token:
+    :return bool:
+    """
+    token = token if isinstance(token, basestring) else str(token)
+    return len(token) == 6 and all(c in '0123456789' for c in token)
+
+
+def _find_accepted_interval(token, secret):
+    """
+    Pure drift-tolerance check: returns the interval number that produced
+    ``token`` for ``secret``, or ``None`` if neither the current interval
+    nor the immediately preceding one matches.
+
+    RFC 6238 drift tolerance is backward-looking only: the candidate tuple
+    is exactly ``(current, current - 1)``, never ``current + 1``. Widening
+    forward would accept a code before the user's device has shown it and
+    double the guessing surface (T-05-13).
+
+    ``onetimepass.valid_hotp`` cannot be reused here: its ``last``/
+    ``trials`` parameters search forward from ``last + 1``, the opposite
+    direction from the tolerance this function needs.
+
+    Does no ZODB access and no logging -- the replay comparison, the log
+    line and the write all belong to ``validate_token`` (decision P5-08).
+
+    :param string token:
+    :param string secret:
+    :return int or None:
+    """
+    current_interval = int(time.time()) // TOTP_INTERVAL_SECONDS
+    for interval in (current_interval, current_interval - 1):
+        if get_hotp(secret, intervals_no=interval) == int(token):
+            return interval
+    return None
+
+
 def validate_token(token, user=None):
     """
-    Validates the given token.
+    Validates the given token, accepting one step of RFC 6238 clock drift
+    and refusing a code whose interval has already been accepted once
+    (replay).
+
+    Order of checks, each a fail-closed gate before the next:
+
+    1. ``token`` must be exactly six ASCII digits (``_is_six_digit_token``),
+       checked before the seed is fetched so garbage input never triggers
+       a decrypt.
+    2. The user must have a decryptable stored seed.
+    3. The token must match the current or immediately preceding interval
+       (``_find_accepted_interval``).
+    4. The matched interval must be strictly greater than
+       ``two_factor_authentication_last_interval`` -- otherwise it has
+       already been accepted once and is refused as a replay (MFA-06). The
+       rejection is logged at INFO with no operand at all: no username, no
+       user id, no token, no secret, no interval number, following
+       ``validate_bar_code_reset_token``'s "do not log either operand"
+       convention (decision P5-11).
+
+    On success, ``two_factor_authentication_last_interval`` is written with
+    the matched interval, so a later submission of the same or an earlier
+    code is refused. This write happens only here, inside
+    ``validate_token``, which is reached only from the three form views
+    (``token.py``, ``reset_bar_code.py``, ``user_setup.py``) and never from
+    ``pas_plugin.py`` or a challenge plugin (MFA-12).
 
     :param string token:
     :return bool:
     """
     if user is None:
         user = api.user.get_current()
+
+    if not _is_six_digit_token(token):
+        return False
 
     secret = get_secret(user)
 
@@ -353,9 +460,288 @@ def validate_token(token, user=None):
         # would downgrade a broken-key refusal into a wrong-token message.
         return False
 
-    validation_result = valid_totp(token=token, secret=secret)
+    last_accepted_interval = int(
+        user.getProperty('two_factor_authentication_last_interval') or 0)
 
-    return validation_result
+    matched = _find_accepted_interval(token, secret)
+    if matched is None:
+        return False
+
+    if matched <= last_accepted_interval:
+        logger.info('TOTP replay rejected')
+        return False
+
+    user.setMemberProperties(
+        mapping={'two_factor_authentication_last_interval': int(matched)})
+    return True
+
+
+def is_account_locked(user):
+    """
+    Tells whether the user's second factor is currently locked out, per
+    ``two_factor_authentication_locked_until``. Equality means NOT locked --
+    the lock releases at the exact epoch it names.
+
+    ``getProperty(...)`` returns ``''`` rather than ``0`` for a Zope-root
+    account (no property sheet), which would raise ``TypeError`` against
+    ``int(time.time())`` without the ``or 0`` coercion.
+
+    :param Products.PlonePAS.tools.memberdata user:
+    :return bool:
+    """
+    locked_until = int(
+        user.getProperty('two_factor_authentication_locked_until') or 0)
+    return locked_until > int(time.time())
+
+
+def register_failed_second_factor(user):
+    """
+    Records one failed second-factor submission for ``user``. If the new
+    count reaches ``max_failed_attempts``, locks the account for
+    ``lockout_duration`` seconds and resets the counter to 0 in the same
+    write -- so both the counter and the lock land together, or neither
+    does.
+
+    No ``try``/``except`` here: a ``PropertyValueError`` from a
+    mis-declared property must reach the developer as a 500, not be
+    downgraded into a lockout that silently never locks.
+
+    :param Products.PlonePAS.tools.memberdata user:
+    """
+    failed_attempts = int(
+        user.getProperty('two_factor_authentication_failed_attempts') or 0)
+    failed_attempts += 1
+
+    settings = get_app_settings()
+    max_failed_attempts = int(settings.max_failed_attempts)
+    lockout_duration = int(settings.lockout_duration)
+
+    if failed_attempts >= max_failed_attempts:
+        user.setMemberProperties(mapping={
+            'two_factor_authentication_failed_attempts': 0,
+            'two_factor_authentication_locked_until':
+                int(time.time()) + lockout_duration,
+        })
+    else:
+        user.setMemberProperties(mapping={
+            'two_factor_authentication_failed_attempts': failed_attempts,
+        })
+
+
+def reset_failed_second_factor(user):
+    """
+    Clears the failed-attempts counter and any active lock for ``user`` in
+    a single write, following a successful second factor.
+
+    :param Products.PlonePAS.tools.memberdata user:
+    """
+    user.setMemberProperties(mapping={
+        'two_factor_authentication_failed_attempts': 0,
+        'two_factor_authentication_locked_until': 0,
+    })
+
+
+def _normalize_recovery_code_input(token):
+    """
+    Coerces a submitted recovery-code candidate to the canonical form the
+    stored hash was computed over: strip ``-`` and space (presentation-only,
+    RESEARCH Pitfall 2 -- they never enter a hash), uppercase, then
+    ASCII-encode to ``str``. z3c.form hands ``handleSubmit`` a ``unicode``
+    value, so this is where the Python 2 type problem is solved once.
+
+    :param token: A ``str`` or ``unicode`` submitted value.
+    :return str: ``''`` on a non-ASCII ``unicode`` value, so the shape gate
+        downstream refuses rather than letting ``UnicodeEncodeError``
+        escape -- the same fail-closed reasoning
+        ``validate_bar_code_reset_token`` already records for its own
+        ``except UnicodeEncodeError: return False``.
+    """
+    token = (token or '').replace('-', '').replace(' ', '').upper()
+    try:
+        if isinstance(token, unicode):
+            token = token.encode('ascii')
+    except UnicodeEncodeError:
+        return ''
+    return token
+
+
+def _is_recovery_code_shape(token):
+    """
+    The RECOV-01 input-validation gate: ``token`` must be exactly
+    ``RECOVERY_CODE_LENGTH`` characters, every one of them in
+    ``RECOVERY_CODE_ALPHABET``. Mirrors ``_is_six_digit_token``'s existing
+    precedent -- run before the KDF is ever reached, so garbage input costs
+    no PBKDF2 work.
+
+    :param str token: Already normalized (see ``_normalize_recovery_code_input``).
+    :return bool:
+    """
+    return (
+        len(token) == RECOVERY_CODE_LENGTH and
+        all(c in RECOVERY_CODE_ALPHABET for c in token))
+
+
+def _hash_recovery_code(code, salt):
+    """
+    Hashes one recovery code under one salt with PBKDF2-HMAC-SHA256. Both
+    operands are ASCII-encoded to ``str`` first if they arrive as
+    ``unicode``, since ``getProperty`` may hand either back.
+
+    :param code: The plaintext recovery code.
+    :param salt: The per-user salt.
+    :return str: 64 ASCII hex characters (``binascii.hexlify`` of the
+        32-byte SHA-256 digest).
+    """
+    if isinstance(code, unicode):
+        code = code.encode('ascii')
+    if isinstance(salt, unicode):
+        salt = salt.encode('ascii')
+    digest = pbkdf2_hmac(
+        'sha256', code, salt, RECOVERY_CODE_PBKDF2_ITERATIONS)
+    return binascii.hexlify(digest)
+
+
+def generate_recovery_codes(user):
+    """
+    Mints a fresh set of ``RECOVERY_CODE_COUNT`` recovery codes for
+    ``user``, under one newly-minted per-user salt, and stores only the
+    salt and the hashes -- never the plaintext. The plaintext is returned
+    for the one response that displays it and is never logged (following
+    ``generate_secret``'s discipline: its commented-out ``logger.debug``
+    marker is not replicated here, and no equivalent line is added for a
+    code, a salt or a hash at any level).
+
+    The salt and hash tuple are written in one ``setMemberProperties``
+    call, so a regeneration can never leave a new salt paired with an old
+    hash list (T-06-03 adjacent: half-written state would corrupt every
+    code in the set, not just one).
+
+    :param Products.PlonePAS.tools.memberdata user:
+    :return list: The ``RECOVERY_CODE_COUNT`` plaintext codes.
+    """
+    salt = binascii.hexlify(os.urandom(RECOVERY_CODE_SALT_BYTES))
+    codes = [
+        base64.b32encode(os.urandom(RECOVERY_CODE_ENTROPY_BYTES))
+        for _i in range(RECOVERY_CODE_COUNT)
+    ]
+    hashes = tuple(_hash_recovery_code(code, salt) for code in codes)
+    user.setMemberProperties(mapping={
+        'two_factor_authentication_recovery_codes_salt': salt,
+        'two_factor_authentication_recovery_codes_hashes': hashes,
+    })
+    return codes
+
+
+def validate_recovery_code(token, user=None):
+    """
+    Validates a submitted recovery code and, on a match, consumes it --
+    removing exactly the matched entry from the stored hash list, by its
+    index, in the same call that returns ``True``.
+
+    Order of checks, each a fail-closed gate before the next: normalize;
+    refuse on shape (before any ZODB read or KDF call); read the stored
+    salt and hash tuple with an ``or ''`` / ``or ()`` coercion, since
+    ``getProperty`` returns ``''`` for a Zope-root account with no property
+    sheet; refuse if either is empty. Hash the submitted code exactly once
+    -- one salt per user means one ``pbkdf2_hmac`` call per attempt
+    regardless of how many hashes are stored (T-06-06). Walk the stored
+    tuple with ``enumerate``, comparing via ``compare_digest`` with both
+    operands coerced to ``str``.
+
+    Removing the match by index rather than by filtering the tuple on
+    inequality is load-bearing: an equality filter would delete *every*
+    byte-identical entry, so a birthday collision inside one ten-code set
+    would silently burn two codes on one use (T-06-03).
+
+    Logs nothing at all, on either the success or the failure path -- the
+    remaining-code count is a state-of-a-security-control disclosure and
+    must never reach a log line, following
+    ``validate_bar_code_reset_token``'s "do not log either operand"
+    convention.
+
+    :param token: The submitted candidate, ``str`` or ``unicode``.
+    :param Products.PlonePAS.tools.memberdata user: Defaults to
+        ``plone.api.user.get_current()``.
+    :return bool:
+    """
+    if user is None:
+        user = api.user.get_current()
+
+    token = _normalize_recovery_code_input(token)
+    if not _is_recovery_code_shape(token):
+        return False
+
+    salt = user.getProperty(
+        'two_factor_authentication_recovery_codes_salt') or ''
+    stored = user.getProperty(
+        'two_factor_authentication_recovery_codes_hashes') or ()
+    if not salt or not stored:
+        return False
+
+    candidate_hash = _hash_recovery_code(token, salt)
+
+    for i, stored_hash in enumerate(stored):
+        if isinstance(stored_hash, unicode):
+            stored_hash = stored_hash.encode('ascii')
+        if compare_digest(candidate_hash, stored_hash):
+            remaining = stored[:i] + stored[i + 1:]
+            user.setMemberProperties(mapping={
+                'two_factor_authentication_recovery_codes_hashes': remaining,
+            })
+
+            # RECOV-07: warn only here, inside the accept branch, after the
+            # consume write and before return True -- unreachable from a
+            # failed or anonymous attempt by construction, not by a
+            # conditional a later edit could invert (T-06-04). The count
+            # is state of a security control, so it must never reach an
+            # unauthenticated or failed caller.
+            if len(remaining) <= RECOVERY_CODE_LOW_WATERMARK:
+                # A missing current request must degrade to silence, not
+                # to a refusal (T-06-13): the security outcome (the code
+                # was valid and is consumed) is already decided and
+                # written above; only this courtesy notice is at stake.
+                # Deliberately not a blanket try/except around the whole
+                # accept branch -- a PropertyValueError from the write
+                # above must still surface as a 500.
+                request = getRequest()
+                if request is not None:
+                    IStatusMessage(request).addStatusMessage(
+                        _(u"Recovery codes remaining: ${remaining}. "
+                          u"Generate a new set from your personal "
+                          u"information page.",
+                          mapping={'remaining': len(remaining)}),
+                        'warning')
+
+            return True
+
+    return False
+
+
+def validate_second_factor(token, user=None):
+    """
+    The promoted second-factor dispatcher (this plan's
+    ``<assumption_delta_decision>``): the only second-factor validator
+    ``browser/forms/token.py`` calls. Dispatches by shape, never by trying
+    both -- a six-ASCII-digit candidate goes to ``validate_token`` (the TOTP
+    variant handler, byte-identical and untouched); a 16-character base32
+    candidate goes to ``validate_recovery_code`` (the recovery-code variant
+    handler); anything else is refused with no ZODB access at all.
+
+    :param token: The submitted candidate, ``str`` or ``unicode``.
+    :param Products.PlonePAS.tools.memberdata user: Defaults to
+        ``plone.api.user.get_current()``.
+    :return bool:
+    """
+    if user is None:
+        user = api.user.get_current()
+
+    if _is_six_digit_token(token):
+        return validate_token(token, user=user)
+
+    if _is_recovery_code_shape(_normalize_recovery_code_input(token)):
+        return validate_recovery_code(token, user=user)
+
+    return False
 
 
 def get_browser_hash(request=None):
@@ -525,12 +911,11 @@ def extract_request_data(request):
 
 def extract_next_url_from_referer(request, quote_url=False):
     """
-    Since we override the default Plone functionality (take out the `came_from`
-    from the login form for a very strong reason), we want to make sure that
-    for users, the "came from" functionality stays intact.
-    That why, we check the referer for the `came_from` attributes and if
-    present, redirect to that after successful two-factor authentication token
-    validation.
+    Reads the `came_from` value out of the referer's query string -- not out of
+    `request.form` -- so the "came from" functionality stays intact independently of
+    whatever hidden inputs the login form itself renders. We check the referer for the
+    `came_from` attribute and if present, redirect to that after successful two-factor
+    authentication token validation.
 
     :param request ZPublisher.HTTPRequest:
     :return string: Extracted `came_from` URL.
@@ -713,7 +1098,7 @@ def extract_ip_address_from_request(request=None):
             ip = proxies[0]
 
     if not ip:
-        # No REMOTE_ADDR (seen with the IntegrationTesting test browser, and
+        # No REMOTE_ADDR (seen with the functional-testing test browser, and
         # possibly with a misconfigured front end): there is no client IP to
         # check against the whitelist. `ipaddress.ip_address('')` raises
         # ValueError, which -- now that RENAME-11 stops that being swallowed --

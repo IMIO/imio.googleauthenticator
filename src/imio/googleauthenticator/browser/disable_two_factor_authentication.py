@@ -1,11 +1,11 @@
-from zope.i18nmessageid import MessageFactory
-
 from plone import api
-
 from Products.Five import BrowserView
 from Products.statusmessages.interfaces import IStatusMessage
+from zope.i18nmessageid import MessageFactory
+
 
 _ = MessageFactory('imio.googleauthenticator')
+
 
 class DisableTwoFactorAuthentication(BrowserView):
     """
@@ -25,7 +25,7 @@ class DisableTwoFactorAuthentication(BrowserView):
 
         user = api.user.get_current()
         user.setMemberProperties(
-            mapping = {
+            mapping={
                 'enable_two_factor_authentication': False,
                 'two_factor_authentication_secret': '',
                 'bar_code_reset_token': ''

@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!-- This file holds the setup configuration for the portal_css tool. -->
+
+<object name="portal_css">
+    <!-- Mirrors profiles/default/cssregistry.xml: must list exactly the ids
+         that file registers, and no others. Unregistering a resource this
+         package does not own is the site-wide breakage COEX-03 exists to
+         remove. -->
+
+    <stylesheet id="++resource++imio.googleauthenticator/main.css" remove="True"/>
+
+</object>

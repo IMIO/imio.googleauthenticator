@@ -73,85 +73,141 @@ A second factor that actually holds for in-site users, and that can be deployed 
       component tuples that collide under bare concatenation now derive to different keys.
       Asserted with an exact-string check on a provably-colliding fixture — BUG-04
 
+**Secret handling** — *Validated in Phase 3: Encrypted Seeds and Local QR (2026-07-30)*
+
+- ✓ TOTP seeds are Fernet-encrypted at rest; the key is read per-call from the process
+      environment and never reaches the ZODB, a memberdata property, a log line or an
+      exception message — SEC-01, SEC-02
+- ✓ Enrollment and validation both fail closed when the key is missing or invalid: login is
+      refused, never downgraded to plaintext or to password-only — SEC-03
+- ✓ Ciphertext carries a `v1$` version prefix — SEC-04
+- ✓ The enrollment QR code is rendered in-process by `qrcode == 6.1`; the seed reaches no
+      external service and appears in no subprocess argv — SEC-05
+- ✓ New seeds are 160 bits of `os.urandom`, satisfying RFC 4226 §4 R6's 128-bit minimum — SEC-06
+- ✓ The required environment variable is documented in all four places it must exist
+      (`[instance]`, `[testenv]`, the CI workflow, and the out-of-repo Puppet fragment), and a
+      missing key logs CRITICAL at process start rather than raising from import or ZCML —
+      SEC-07, SEC-08, DOC-03
+- ✓ `redirect_url` is bound on every code path through `user_setup.py`; the bar-code reset
+      token comparison is constant-time with both operands encoded first — BUG-02, BUG-03
+- ✓ `py2-ipaddress` replaced by `ipaddress == 1.0.23` with `unicode` coercion at both call
+      sites, so adding `cryptography` cannot break every login through module shadowing — BUG-05
+
+**Second-factor integrity** — *Validated in Phase 4: PAS Boundary (2026-07-31)*
+
+- ✓ The `credentials_basic_auth` bypass is closed for in-site users. The deny mechanism is
+      wiping the shared credentials dict, not `return None` — PAS accumulates every
+      authenticator's result and returns the first success. One veto test per extractor
+      (form POST and `Authorization: Basic`), each with a disabled-2FA control, each proven
+      load-bearing by removing the wipe and watching it fail — MFA-01, MFA-04
+- ✓ The refusal no longer relies on `response.redirect(lock=1)`, which sets a status and header
+      but neither clears the body nor stops publishing. `send_2fa_redirect` sets
+      `response.body = ''` plus `content-length: 0` and locks the body — `setBody('')` alone is
+      a no-op — MFA-02
+- ✓ Plugin ordering is explicit (`movePluginsTop`) and re-asserted on every profile
+      application, so re-applying the profile is a real recovery if a third-party add-on
+      displaces the plugin. `test_plugin_is_first_authenticator` is the security control — MFA-03
+- ✓ The challenge fires on both paths: `IChallengePlugin.challenge` for requests ending in
+      `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which
+      returns HTTP 200 and never raises. Each has its own test — COEX-08
+- ✓ The Zope-root boundary and the HTTP Basic Auth consequence are documented in `README.rst`,
+      each pinned by an identifier-based test so a routine rewrite cannot silently drop them —
+      DOC-01, DOC-02
+
+**Drift, replay and lockout** — *Validated in Phase 5: Drift, Replay and Lockout (2026-08-03)*
+
+- ✓ A code from the immediately preceding time step is accepted and a code already consumed is
+      refused on reuse, in one commit. The accepted interval is stored in
+      `two_factor_authentication_last_interval` and any newly matched interval `<=` it is
+      rejected; the candidate tuple is exactly `(current, current - 1)`, so there is no
+      forward-looking window to double the guessing surface. The replay rejection is logged with
+      no operand at all — no username, user id, token, secret or interval number. Confirmed
+      against a real mobile authenticator app, which no in-process test can do, because the
+      in-process test generates its code with the same library and clock as the code under test —
+      MFA-05, MFA-06, MFA-07
+- ✓ Five consecutive failures lock the account for the configured duration, the lock is evaluated
+      before the token is ever evaluated, and it expires on its own with no admin action. A
+      successful second factor clears the counter. Both anonymously reachable endpoints are
+      metered, not just the login form: `@@reset-bar-code` takes its target account from an
+      attacker-supplied query parameter and would otherwise be an unmetered guessing oracle —
+      MFA-08, MFA-09, MFA-11
+- ✓ The attempt ceiling and lock duration are editable in the control panel, defaulting to 5 and
+      900 seconds, and the edited values survive a page reload in a live instance — MFA-10
+- ✓ No second-factor state is written from the PAS plugin or a challenge plugin. Every write
+      originates in `browser/forms/token.py` or `browser/forms/reset_bar_code.py`, both of which
+      return 200 or 302 and therefore commit. This matters because `ZPublisher` aborts the
+      transaction on any request ending in an exception and `Unauthorized` is such an exception,
+      so a counter written in the plugin would be a lockout that silently never locks. Confirmed
+      across four ZEO clients sharing one database: the counter is cumulative, not per-instance —
+      MFA-12
+- ✓ Every new memberdata property has a `memberdata_properties.xml` entry and a set/get
+      round-trip test, because `MutablePropertySheet.setProperties` silently pops an undeclared
+      key with no error. The three counters are deliberately memberdata only and are **not**
+      declared on `IEnhancedUserDataSchema`: as schema fields they crashed the administrator's
+      view of another user's profile and were form-writable — MFA-13
+- ✓ Ten single-use recovery codes are issued when a user enrolls, each 80 random bits shown as
+      16 base32 characters. They are displayed once, in the same response that creates them, and
+      never again. Only a hash reaches storage, under one random salt per user, through
+      PBKDF2-HMAC-SHA256 at 100,000 iterations. A code is accepted wherever the authenticator
+      app's code is accepted at the login form, is removed from storage in the same call that
+      accepts it, and fails on a second use — RECOV-01, RECOV-02, RECOV-03, RECOV-04
+- ✓ A wrong recovery code increments the same failure counter a wrong authenticator code does,
+      through the same single call site, so recovery codes are not a separate unmetered way in.
+      A mixed run of five wrong codes of either kind locks the account — RECOV-05
+- ✓ A user can replace the whole set from their profile, and every code from the previous set
+      stops working. Replacement runs through the setup form, which requires a current code from
+      the authenticator app, so one recovery code cannot produce a fresh set — RECOV-06
+- ✓ The user is told how many codes remain once three or fewer are left. The message is produced
+      only after the submitted code has already been accepted, so a failed or anonymous attempt
+      learns nothing about the count — RECOV-07
+- ✓ `next_url` is validated against the portal URL before redirect; an off-site value is
+      refused, closing the open redirect at `token.py:112-113` — BUG-01, Phase 7
+- ✓ `TokenForm` carries `id = 'login_form'` so Plone's own overlay finds it. The
+      `login_form.cpt` override, the vendored `popupforms.js` copy, its `jsregistry.xml`
+      entries and the `remove="True"` line that unregistered a resource this package does not
+      own are all deleted — COEX-01..COEX-07, COEX-09, Phase 7
+- ✓ `control_panel_extra.html` and `request_bar_code_reset_email.pt` kept and converted to
+      `ViewPageTemplateFile` in the same commit that removed the skin layer, since both are
+      reached by `restrictedTraverse` rather than by an override — Phase 7
+- ✓ A real `profiles/uninstall/` ships, so uninstalling no longer leaves the site without
+      `popupforms.js` — Phase 7
+- ✓ The coverage instrument measures package code actually exercised: `.coveragerc` declares
+      `[run] source`, `omit = */tests/*` and `branch = True`, the `[coverage]`/`[test-coverage]`
+      buildout parts are enabled with `coverage == 5.5` pinned, `createcoverage` is gone, and
+      `set -e` in the script template makes a failing test exit non-zero before any coverage
+      total prints. Proven by a real red build, not by inspection — QUAL-01, QUAL-02, QUAL-03,
+      Phase 8
+- ✓ Branch coverage is 90% against the corrected instrument, and CI enforces it: the
+      `package-test.yml` workflow runs `bin/test-coverage -t !robot`, which exits non-zero
+      below the threshold — QUAL-04, Phase 8
+- ✓ Every test class runs on a ZSERVER-free `FunctionalTesting` layer whose per-test
+      `DemoStorage` discards committed writes. The profile installs in `setUpPloneSite`
+      instead of through a Browser-driven `portal_quickinstaller` round trip, and
+      installedness is asserted through plugin registration, registry records and the browser
+      layer — QUAL-05, QUAL-07, Phase 8
+- ✓ `bin/code-analysis` exits 0, so the buildout's pre-commit hook passes and contributors no
+      longer need `--no-verify`. The real baseline was 500 findings, not the 318 recorded
+      earlier here and not the ~40 recorded before that — the count grew as phases 2 through 7
+      added test code — QUAL-06, Phase 8
+
 ### Active
 
 **Correctness**
 
-- [ ] `bin/code-analysis` exits 0. The corrected baseline is **318 pre-existing findings**, not
-      the ~40 previously recorded here — measured in plan 01-03 (RESEARCH C-6). 184 of the 318
-      (58%) are `isort` findings, and the rename actively perturbs first-party import ordering,
-      so QUAL-06 must be planned against 318. The buildout installs a pre-commit hook that fails
-      every commit until this is clean (`--no-verify` in the meantime)
-- [ ] Fix open redirect: `next_url` accepted unvalidated at `token.py:112-113`
-- [ ] Fix `UnboundLocalError` on `redirect_url` at `user_setup.py:96`
-- [ ] Use a constant-time comparison for the reset token at `reset_bar_code.py:104` — encoding
-      both sides first, because `hmac.compare_digest` raises `TypeError` across `str`/`unicode`
-      and the stored and submitted values differ in type
-- [ ] Swap `py2-ipaddress` for `ipaddress == 1.0.23` with `unicode` coercion at `helpers.py:459`
-      and `:496`. Forced by adding `cryptography`, which pulls the `ipaddress` backport — both
-      distributions install a top-level module of the same name, and the backport raises
-      `AddressValueError` on the `str` that `helpers.py:459` passes. Net one fewer dependency
-
-**Secret handling**
-
-- [ ] Encrypt TOTP seeds at rest with Fernet, key held outside the ZODB, read per-call via
-      `os.getenv()` and injected by Puppet through `port.cfg` → buildout `environment-vars`
-- [ ] Fail closed when the key is missing or invalid, at both enrollment and validation. Never
-      a plaintext fallback
-- [ ] Version the ciphertext (`v1$<token>`) — three bytes now, impossible to retrofit once the
-      first key is gone
-- [ ] Generate the enrollment QR code in-process with `qrcode == 6.1` instead of sending the
-      seed to `chart.googleapis.com`
-- [ ] Raise the seed to 160 bits (`b32encode(os.urandom(20))`). Current
-      `b32encode(str(uuid4()))` is ~122 bits, marginally under RFC 4226 §4 R6's 128-bit MUST,
-      and free to fix because enrollment is being rewritten anyway
-
-**Second-factor integrity**
-
-- [ ] Close the `credentials_basic_auth` bypass for in-site users. The deny mechanism is wiping
-      the shared credentials dict, not `return None` — PAS accumulates every authenticator's
-      result and returns the first success, so returning `None` vetoes nothing
-- [ ] Stop relying on `response.redirect(lock=1)` as a refusal: it sets a status and header but
-      neither clears the body nor stops publishing, so a request without `-L` currently reads
-      the protected page out of the 302
-- [ ] Enforce plugin ordering explicitly (`movePluginsTop` plus an assertion). The entire second
-      factor currently rests on `movePluginsDown(iface, listPlugins(iface)[:-1])` incidentally
-      bubbling the plugin to position 0. The test is the security control
-- [ ] Accept one step of clock drift **and** reject a TOTP code already consumed in its window.
-      Same six lines, one commit — split, they produce drift-accepted-but-replay-undetected,
-      which is strictly worse than today
-- [ ] Lock an account after N consecutive failed second-factor attempts, checked *before* the
-      token is evaluated so a locked account is not still an oracle
-- [ ] N and the lock duration are editable in the control panel (defaults N=5, 900s), following
-      `imio.dms.mail`'s `RegistryEditForm` + `layout.wrap_form(..., ControlPanelFormWrapper)`
-      pattern
-- [ ] Single-use recovery codes issued at enrollment, stored hashed with a per-user salt, for
-      self-service recovery. They share the lockout counter, or they are the unthrottled path
-- [ ] All second-factor state writes happen in the token form view. Never in the PAS plugin or
-      a challenge plugin — those paths are aborted
-
-**Coexistence with imio.dms.mail**
-
-- [ ] Give `TokenForm` `id = 'login_form'` so Plone's existing overlay finds it, then delete the
-      `login_form.cpt` override and the vendored `popupforms.js` copy, its `jsregistry.xml`
-      entries, and the `remove="True"` line that permanently unregisters a resource we do not own
-- [ ] Keep `control_panel_extra.html` and `request_bar_code_reset_email.pt` — they are reached
-      by `restrictedTraverse`, not overrides. Convert both to `ViewPageTemplateFile` in the same
-      commit that removes the skin layer
-- [ ] Ship a real `profiles/uninstall/` so uninstalling does not leave the site without
-      `popupforms.js`
-- [ ] Split the challenge across `IChallengePlugin` (paths ending in `Unauthorized`) and an
-      `IPubBeforeCommit` subscriber (the login-form POST, which returns HTTP 200 and never
-      raises). One hook does not cover both
-
-**Quality**
-
-- [ ] Fix the coverage instrumentation before writing any new test: `.coveragerc` needs
-      `[run] source`, `omit = */tests/*` and `branch = True`, and the `bin/test-coverage`
-      template needs `set -e` — without it, failing tests plus ≥90% coverage is a green build
-- [ ] Test coverage above 90%, enforced in CI, measured against the corrected instrument
-- [ ] Move the browser tests onto a ZSERVER-free `FunctionalTesting` layer so they stop breaking
-      Plone test isolation
+- [ ] **MFA-14**: Turning on `globally_enabled` must cover accounts that already exist when
+      this add-on is installed, not only accounts created afterwards. Today enrolment of
+      existing users happens only when an administrator saves the settings control panel form
+      (`browser/controlpanel.py:125-132`); `setuphandlers.setupVarious` enrols nobody, and the
+      login gate consults each user's own `enable_two_factor_authentication` flag, never the
+      global setting. Found 2026-08-05 during Phase 7 plan 07-04 verification: installing
+      `imio.dms.mail` first left an existing Member unenrolled, the reverse order enrolled
+      them. **Not yet assigned to a phase.**
+- [ ] A rejected recipient address in the bar-code reset email produces an unhandled error
+      instead of the in-page failure message. `request_bar_code_reset.py:112-113` catches
+      `SMTPRecipientsRefused` and re-raises the same exception type, which the enclosing
+      `except ValueError` cannot catch. Predates the fork's arrival in this repository; found
+      by the Phase 8 code review (finding CR-01 in `08-REVIEW.md`) and left unfixed because it
+      is outside a coverage phase's scope. **Not yet assigned to a phase.**
 
 ### Out of Scope
 
@@ -273,8 +329,8 @@ enumerates the bugs, security gaps, and test-coverage holes referenced above.
 | Key injected as an env var via Puppet `port.cfg` → `environment-vars` | Reuses the exact mechanism `SSO_APPS_CLIENT_SECRET` already uses; keeps the key out of the ZODB | — Pending |
 | Replay and lockout state in memberdata properties, written only in the token form view | Consistent across ZEO clients; the view is the only path in the request lifecycle that actually commits | — Pending |
 | Drop the two overrides via `id = 'login_form'` on `TokenForm` | The overrides exist solely to defeat the AJAX login overlay, and they collide with `imio.dms.mail`'s `jsregistry.xml`. One class attribute makes Plone's own overlay find the token form, replacing 507 vendored lines | — Pending |
-| Challenge split across `IChallengePlugin` + an `IPubBeforeCommit` subscriber | Plone 4.3's login POST returns HTTP 200 and never raises `Unauthorized`, so `challenge()` alone never fires on the normal login path | — Pending |
-| Zope root admins accepted as out of reach | An in-site PAS plugin never runs for the root `acl_users`; MFA is scoped to users and site admins inside the Plone site | — Pending |
+| Challenge split across `IChallengePlugin` + an `IPubBeforeCommit` subscriber | Plone 4.3's login POST returns HTTP 200 and never raises `Unauthorized`, so `challenge()` alone never fires on the normal login path | ✓ Shipped Phase 4 |
+| Zope root admins accepted as out of reach | An in-site PAS plugin never runs for the root `acl_users`; MFA is scoped to users and site admins inside the Plone site | ✓ Shipped Phase 4 — documented in `README.rst`, pinned by `test_readme_documents_zope_root_limitation` |
 | Local QR via `qrcode == 6.1`, not `imio.helpers` + zint | Reversed after research: zint takes the seed in argv, readable via `ps` by any local user, which defeats the purpose of encrypting it. One pure-Python egg avoids the subprocess entirely | — Pending |
 | Lockout N and duration as control-panel settings | Tunable on a live site without a release, following `imio.dms.mail`'s `RegistryEditForm` pattern | — Pending |
 | Recovery codes instead of WebAuthn/SMS | Covers the lost-device case at a fraction of the cost, for a package with a 2-year life | — Pending |
@@ -284,6 +340,22 @@ enumerates the bugs, security gaps, and test-coverage holes referenced above.
 | Seed `ska_secret_key` at install time in `setuphandlers._setup_secret_key()`, **not** lazily on first read | Reverses the 02-01 plan's D-04/D-05 lazy-mint design (CR-02). A mint inside `get_ska_secret_key()` is reachable from `authenticateCredentials()`, a path that ends in `transaction.abort()` on `Unauthorized` — it would discard the key *after* a signed URL using it was already handed to the browser. `get_ska_secret_key()` is now a pure read that raises `ValueError` on an empty key | ✓ Shipped Phase 2 |
 | Derive the `ska` key with a length-prefixed netstring join, not bare concatenation | Bare concatenation of `(user_secret, browser_hash, ska_secret_key)` is collidable: a component-boundary shift yields the same key, so a signature minted in one context validates in another. Asserted with an exact-string check on a fixture that provably collides under the old scheme, so it cannot regress into a cosmetic reformat | ✓ Shipped Phase 2 |
 | Assert the `<depends>` *declaration*, not just the resulting sorted order | The first ordering test was tautological — it stayed green with `<depends name="plone.app.registry"/>` deleted, purely by CPython 2.7 string-hash coincidence. `test_import_step_declares_registry_dependency` asserts the pre-sort `getImportStepMetadata(...)['dependencies']` instead, and was reproduced failing on deletion. The outcome test is kept, with a docstring admitting it proves nothing alone | ✓ Shipped Phase 2 |
+| Keep Plone's `credentials_basic_auth` extractor active rather than deactivating it site-wide | Operator decision at a blocking checkpoint, 2026-07-31. Deactivating it would break WebDAV, FTP and XML-RPC password login for every user whether or not they use 2FA, on the strength of a search across only three iMio repositories that the research recorded as non-exhaustive. It also mutates a plugin this package does not own, which the project constraints forbid. The Basic Auth path is vetoed instead, proven by `test_basic_auth_veto`. Accepted cost: correctness stays order-dependent, enforced by CI rather than at request time. Operator confirmed on 2026-07-31 that no external consumer depends on it | ✓ Shipped Phase 4 |
+| `authenticateCredentials` decides only; the redirect moved to an `IPubBeforeCommit` subscriber | The PAS method runs inside a request that may be aborted, and the login-form POST never raises, so a redirect issued there could not both cover the HTTP-200 path and survive. The plugin now sets a pending flag in `request.other` and the subscriber issues the redirect. Keeps the plugin write-free, which Phase 5's lockout state depends on | ✓ Shipped Phase 4 |
+| Clear the refusal body with `response.body = ''` plus a lock, not `setBody('')` | `setBody('')` is a no-op in `ZPublisher.HTTPResponse`, so the protected page was still readable out of the 302 by any client that did not follow redirects. The lock (`setBody('', lock=1)`) also stops a later subscriber such as `plone.transformchain` from refilling it | ✓ Shipped Phase 4 |
+| Set plugin order with `movePluginsTop`, re-asserted on every profile application | The previous `movePluginsDown(iface, listPlugins(iface)[:-1])` reached position 0 only while this plugin happened to be the most recently activated entry — an accident, not a statement. Re-asserting on every profile application also makes re-applying the profile a real recovery when a third-party add-on displaces the plugin | ✓ Shipped Phase 4 |
+| Meter `@@reset-bar-code` with the same counter and lock as the login form | Operator decision at plan time, 2026-07-31 (P5-12). Registered `permission="zope2.View"`, it takes its target account from an attacker-supplied `auth_user` parameter and called `validate_token` before checking the reset signature. Left unmetered it was an anonymous TOTP guessing oracle, which would have made the phase goal untrue while appearing met. `user_setup.py` stays deliberately excluded: it validates the enrolling user's own in-progress secret, so a counter there would let a user lock themselves out mid-enrolment | ✓ Shipped Phase 5 |
+| Accept that an anonymous party can lock a named account | Operator decision P5-13. Bounded to the configured duration by self-expiry. Both alternatives are worse: leaving the reset path unmetered restores the guessing oracle, and admin-unlock-only lockout is ruled out in `REQUIREMENTS.md` as a denial-of-service primitive | ✓ Shipped Phase 5 — logged as accepted risk R-05-A |
+| Close only the lock-state oracle at `@@reset-bar-code`, not username existence | Operator decision P5-17, 2026-08-01. The user-not-found and non-site-local branches keep their distinct messages. Username existence is a pre-existing disclosure this Plone site already makes through standard member lookups, it is not the state of a security control, and collapsing those messages would also remove the assurance a legitimate administrator needs that a Zope-root account cannot be gated by this plugin. Fixing it later is strictly additive to the same two branches | ✓ Shipped Phase 5 — logged as accepted risk R-05-B |
+| Keep the replay and lockout counters off `IEnhancedUserDataSchema` | Found in real-deployment testing, 2026-08-03. As schema fields they crashed `plone.app.users`' `@@user-information`, the form an administrator uses to edit another user's profile, because `adapter.py` supplies no accessor for them and `zope.formlib` does a plain `getattr` per rendered field. The `omit()` call that hid them covers `personal-information` only. What makes them persist is their `memberdata_properties.xml` entry, which a schema field neither provides nor replaces, so removing them costs nothing and also removes the write path by which a user could have zeroed their own lock deadline | ✓ Shipped Phase 5 |
+| Pin every `jsregistry.xml` registration to an explicit position | Found in real-deployment testing, 2026-08-03. `BaseRegistry.storeResource` appends, so an unpositioned entry's load order depends on when the profile's import step runs. Installing onto an existing site works; on a fresh site this package's two scripts landed above jQuery, and because cooking merges adjacent resources into one bundle, the `$ is not defined` thrown at the top of `main.js` aborted the bundle before jQuery loaded — every jQuery-dependent script on the site died. Phase 7 supersedes this by deleting both registrations outright | ✓ Shipped Phase 5 (stop-gap; Phase 7 owns the removal) |
+| Repair the coverage instrument in its own commit, before writing any new test | A coverage percentage produced by a misconfigured instrument is indistinguishable from a real one. `[report] include` had test modules inside the denominator, and without `set -e` the script reported a green build for a run whose tests failed. Fixing the instrument first means the 90% target is measured against something trustworthy, and the drop that follows is the truth rather than a regression | ✓ Shipped Phase 8 |
+| Prove the build can go red by mutating a test, not by reading the config | The failure mode being fixed is a script that cannot report failure. Inspection cannot distinguish a working `set -e` from a broken one, so a deliberately failing test was run and the absence of any coverage total in the output recorded. Reproduced independently twice, by the plan executor and again by the phase verifier | ✓ Shipped Phase 8 |
+| Install the profile in the test layer's `setUpPloneSite`, not through a Browser-driven `portal_quickinstaller` call inside each test class | The per-test-class install committed inside the layer, leaking state forward. A guard that passes only because a previous test's committed state satisfied it is test-time false confidence, which is worse than no test in an authentication package | ✓ Shipped Phase 8 |
+| Assert installedness through plugin registration, registry records and browser layer rather than `portal_quickinstaller` | `applyProfile` does not call `installProduct`, so a quickinstaller-based assertion can fail on an otherwise-correct change. Each replacement assertion was given a non-vacuity control — broken one at a time, confirmed red, restored | ✓ Shipped Phase 8 |
+| Gate the coverage number on its inputs, not on the percentage | A suppressed measurement and real coverage are indistinguishable in the final figure. The gates therefore check that no coverage-exclusion pragma exists anywhere in the package, that `--fail-under=90` is intact, that `.coveragerc` is unchanged, and that no production code was deleted | ✓ Shipped Phase 8 |
+| Clear all 500 lint findings rather than widening `flake8-ignore` or excluding the test tree | Both shortcuts were rejected: suppressing keyword spacing hides genuine house-style violations permanently, and excluding the test tree guts the gate exactly where new code lands. `base.cfg [code-analysis]` is byte-identical to its pre-phase values, so the gate was cleared by fixing findings, not by narrowing what is checked. The count had grown from 318 to 500 as phases 2 through 7 added test code | ✓ Shipped Phase 8 |
+| Accept three trailing-whitespace fixes inside a docstring, despite the threat model forbidding edits inside quoted strings | Operator decision 2026-08-06 (T-08-19, accepted risk R-08-01). The prohibition guards against a whitespace change inside a translated message or template string silently altering behaviour. No doctests are collected anywhere in the package, buildout or `setup.py`, so those `>>>` lines never execute. Reverting them would reintroduce three `W291` findings and break the phase's own goal | ✓ Shipped Phase 8 — logged as accepted risk R-08-01 |
 
 ## Evolution
 
@@ -303,4 +375,45 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-29 — Phase 2 complete (registry seeding + import-step ordering); registry-seeding and BUG-04 requirements moved to Validated, three Phase 2 decisions logged, the stale `~40 code-analysis findings` figure corrected to 318*
+*Last updated: 2026-08-06 — Phase 8 complete (coverage instrument and test layers), and with it
+the last phase of milestone v1.0. Phase 8's seven requirements (QUAL-01 to QUAL-07) moved to
+Validated, along with four items that Phase 7 had already delivered but that were still sitting in
+Active because this document was last evolved after Phase 6 — the open-redirect fix (BUG-01) and
+the three coexistence items covering the login-form overlay, the two `restrictedTraverse`
+templates, and the uninstall profile (COEX-01..07, COEX-09). Seven Phase 8 decisions logged.*
+
+*Two items remain Active and neither is assigned to a phase. First, MFA-14: turning on
+`globally_enabled` does not enrol accounts that already existed when the add-on was installed,
+found during Phase 7 plan 07-04 verification. Second, a rejected recipient address in the
+bar-code reset email raises an unhandled error instead of showing the in-page failure message
+(`request_bar_code_reset.py:112-113` re-raises `SMTPRecipientsRefused`, which the enclosing
+`except ValueError` cannot catch). The second predates the fork and was found by the Phase 8 code
+review, recorded as CR-01 in `08-REVIEW.md`; it was left unfixed because it is outside a coverage
+phase's scope. One Phase 8 risk was accepted by the operator rather than fixed: three
+trailing-whitespace fixes landed inside a docstring that the threat model had put off limits,
+accepted because no doctests are collected anywhere so the lines never execute. Recorded in
+`08-SECURITY.md` as accepted risk R-08-01.*
+
+*Last updated: 2026-08-04 — Phase 6 complete (recovery codes). All seven Phase 6 requirements
+(RECOV-01 to RECOV-07) moved to Validated, and the single Active "Second-factor integrity" bullet
+they satisfied was removed along with its now-empty heading. One risk was accepted by the operator
+rather than fixed: the setup form at `browser/forms/user_setup.py` checks the authenticator code
+with no rate limiting, unlike the login form and the seed-reset form, and that same form is where
+the "Regenerate recovery codes" menu item leads. It was accepted because the form already shows
+the account's own QR code, which contains the secret, to any logged-in user who opens it, so
+repeated guessing gains nothing. Recorded in `.planning/phases/06-recovery-codes/06-SECURITY.md`
+as accepted risk R-06-01 and in `06-UAT.md` test 1. Closing it stays a candidate for a later
+phase.*
+
+*Last updated: 2026-08-03 — Phase 5 complete (drift, replay and lockout). Phase 5's requirements
+(MFA-05 to MFA-13) moved to Validated, and the four Active "Second-factor integrity" bullets they
+satisfied were removed, leaving only recovery codes, which is Phase 6. Five Phase 5 decisions
+logged: two operator decisions taken at plan time (meter `@@reset-bar-code`, accept that an
+anonymous party can lock a named account), one taken during the phase (close only the lock-state
+oracle, not username existence), and two forced by defects that only real-deployment testing
+found — keeping the counters off the user-profile schema, and pinning every `jsregistry.xml`
+registration to an explicit position. The recovery-codes bullet now carries the note that Phase 6
+adds new writers of Phase 5's counter and must extend the source-level guard that keeps those
+writes off aborted request paths.*
+
+*Last updated: 2026-07-31 — Phase 4 complete (PAS boundary). Phase 4's requirements (MFA-01..04, COEX-08, DOC-01, DOC-02) moved to Validated and four Phase 4 decisions logged, including the operator decision to keep `credentials_basic_auth` active. Phase 3's requirements (SEC-01..08, BUG-02, BUG-03, BUG-05, DOC-03) were also moved to Validated — they had been left in Active because this document was last evolved after Phase 2.*

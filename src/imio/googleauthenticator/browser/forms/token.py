@@ -2,23 +2,25 @@
 Token validation.
 """
 
-import logging
-
-from zope.i18nmessageid import MessageFactory
-from zope.schema import TextLine
-
-from z3c.form import button, field
-
+from imio.googleauthenticator.helpers import drop_login_failed_msg
+from imio.googleauthenticator.helpers import extract_request_data
+from imio.googleauthenticator.helpers import is_account_locked
+from imio.googleauthenticator.helpers import register_failed_second_factor
+from imio.googleauthenticator.helpers import reset_failed_second_factor
+from imio.googleauthenticator.helpers import validate_second_factor
+from imio.googleauthenticator.helpers import validate_user_data
 from plone import api
 from plone.directives import form
 from plone.z3cform.layout import wrap_form
-
+from Products.CMFCore.utils import getToolByName
 from Products.statusmessages.interfaces import IStatusMessage
+from z3c.form import button
+from z3c.form import field
+from zope.i18nmessageid import MessageFactory
+from zope.schema import TextLine
 
-from imio.googleauthenticator.helpers import drop_login_failed_msg
-from imio.googleauthenticator.helpers import extract_request_data
-from imio.googleauthenticator.helpers import validate_token
-from imio.googleauthenticator.helpers import validate_user_data
+import logging
+
 
 logger = logging.getLogger('imio.googleauthenticator')
 
@@ -58,6 +60,32 @@ class TokenForm(form.SchemaForm):
             self.request.get('QUERY_STRING', '')
         )
 
+    def render(self):
+        """
+        Inserts ``id="login_form"`` on the outer ``<form>`` tag of the
+        rendered markup.
+
+        ``plone.z3cform`` 0.8.1's ``titlelessform`` macro -- used by both
+        the wrapped render path (``FormWrapper.update()``'s
+        ``self.contents = self.form_instance.render()``) and the standalone
+        one -- emits no ``id`` attribute on the ``<form>`` tag at all.
+        Plone's own untouched overlay script (the stock
+        ``plone_ecmascript/popupforms.js`` shipped by ``Products.CMFPlone``,
+        no longer vendored by this package) binds its ajax overlay on a
+        ``form#login_form`` selector. The form that selector must match is
+        this **second**, ajax-loaded fragment -- not the stock login form
+        Plone already renders correctly, which already carries that id on
+        its own markup. Forking the macro to add the attribute there
+        instead would re-vendor exactly the client-side code this phase
+        removes, so the attribute is added here, as a post-processing step
+        on the already-rendered string, and nowhere else.
+
+        :return string: The rendered form markup, with ``id="login_form"``
+            inserted on the outer ``<form>`` tag.
+        """
+        rendered = super(TokenForm, self).render()
+        return rendered.replace('<form ', '<form id="login_form" ', 1)
+
     @button.buttonAndHandler(_('Verify'))
     def handleSubmit(self, action):
         """
@@ -93,12 +121,29 @@ class TokenForm(form.SchemaForm):
                         user_data_validation_result.reason))), 'error')
                 return
 
-        valid_token = validate_token(token, user=user)
+            # The lock gate runs only after validate_user_data has already
+            # succeeded, so an unsigned/unauthenticated caller -- one who
+            # supplies nothing but a username, no password, no signature --
+            # learns nothing about account lock state from this branch
+            # (MFA-08's "not an oracle" half). It still runs strictly before
+            # validate_token, so a locked account never reaches TOTP
+            # arithmetic (MFA-08's "the lock is checked before the token is
+            # evaluated" half). Do not move this gate to either side of that
+            # window.
+            if user is not None and is_account_locked(user):
+                msg = _("Invalid token or token expired.")
+                IStatusMessage(self.request).addStatusMessage(msg, 'error')
+                return
+
+        valid_token = validate_second_factor(token, user=user)
 
         # self.context.plone_log(valid_token)
         # self.context.plone_log(token)
 
         if valid_token:
+            if user is not None:
+                reset_failed_second_factor(user)
+
             # We should login the user here. `username` is typically unicode
             # (from self.request.get('auth_user', '')); str(username) would
             # implicitly encode as ASCII in Python 2 and raise
@@ -114,8 +159,21 @@ class TokenForm(form.SchemaForm):
             request_data = extract_request_data(self.request)
             context_url = self.context.absolute_url()
             redirect_url = request_data.get('next_url', context_url)
+
+            # BUG-01: refuse an off-site redirect target rather than warn
+            # and continue, or rewrite it. Plone's own stock login form
+            # guards its `came_from`/`next` the exact same way -- see
+            # plone_login/login_form.cpt's `isURLInPortal(...)` calls --
+            # so this reuses that existing idiom rather than hand-rolling
+            # a urlparse host comparison.
+            portal_url_tool = getToolByName(self.context, 'portal_url')
+            if not portal_url_tool.isURLInPortal(redirect_url):
+                redirect_url = context_url
+
             self.request.response.redirect(redirect_url)
         else:
+            if user is not None:
+                register_failed_second_factor(user)
             msg = _("Invalid token or token expired.")
             IStatusMessage(self.request).addStatusMessage(msg, 'error')
 

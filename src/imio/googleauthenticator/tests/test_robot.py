@@ -1,5 +1,6 @@
-from  imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_ROBOT_TESTING
+from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_ROBOT_TESTING
 from plone.testing import layered
+
 import robotsuite
 import unittest
 

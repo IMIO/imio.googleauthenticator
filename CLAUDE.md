@@ -29,7 +29,7 @@ make buildout          # bin/buildout -c test-4.3.cfg
 make test              # bin/test -t '!robot'
 make test opt='-t "helpers"'   # single test / pattern
 bin/test -t test_product_is_installed
-bin/code-analysis      # flake8 + isort; currently FAILS on pre-existing style debt
+bin/code-analysis      # flake8 + isort; exits 0 (QUAL-06, cleared in Phase 8 plan 08-05)
 bin/instance fg        # run Plone
 make vcn               # report newer available eggs -> checkversion-n-4.3.html
 ```
@@ -37,12 +37,15 @@ make vcn               # report newer available eggs -> checkversion-n-4.3.html
 `make setup` records the version in `.plone-version`; later `make` calls read it, so the
 `plone=` argument is only needed for `setup`. Never edit `bin/*` — buildout regenerates it.
 
-Buildout installs a **git pre-commit hook** that runs `bin/code-analysis`. The existing
-`src/` has 318 unfixed findings (`I001` 126, `E251` 78, `I004` 45, `I003` 13, `E302` 13,
-`F401` 12, plus smaller ones; 184 of the 318 are isort findings, and the rename actively
-perturbs their alphabetical ordering), so commits need `--no-verify` until that debt is
-cleaned up in Phase 8 (QUAL-06), which must be planned against 318, not the ~40 this file
-previously claimed. CI does not run code-analysis, so this does not turn the build red.
+Buildout installs a **git pre-commit hook** that runs `bin/code-analysis`, and it works:
+`bin/code-analysis` exits 0 and a normal `git commit` (no `--no-verify`) passes. This was
+not always true — every commit in phases 1 through 7 needed `--no-verify` because the
+findings count grew from 318 (measured in plan 01-03, against a ~40 pre-rename estimate
+this file used to state) to 500 (re-measured 2026-08-05 after Phase 7, once phases 2-7's
+test code landed) before Phase 8 plan 08-05 cleared all of them: a mechanical `bin/isort
+-rc -y src/` sweep for the three import-ordering codes, then hand fixes for keyword
+spacing, unused imports/locals, and whitespace. CI still does not run code-analysis, so a
+regression here would not turn the build red on its own — only the local hook catches it.
 
 `test_robot.py` needs a real browser and is excluded everywhere (`make test` and the CI
 `test_command` both pass `-t !robot`).

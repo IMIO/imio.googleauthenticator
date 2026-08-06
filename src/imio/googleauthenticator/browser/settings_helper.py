@@ -1,14 +1,12 @@
+from imio.googleauthenticator.helpers import has_enabled_two_factor_authentication
+from imio.googleauthenticator.helpers import is_two_factor_authentication_globally_enabled
+from plone import api
+from Products.Five import BrowserView
 from zope.i18nmessageid import MessageFactory
 
-from plone import api
-
-from Products.Five import BrowserView
-
-from imio.googleauthenticator.helpers import (
-    is_two_factor_authentication_globally_enabled, has_enabled_two_factor_authentication
-    )
 
 _ = MessageFactory('imio.googleauthenticator')
+
 
 class SettingsHelper(BrowserView):
     """

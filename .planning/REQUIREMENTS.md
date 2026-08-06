@@ -45,65 +45,67 @@ ASVS V2, and to APIs executed against this repo's own Python 2.7.18 interpreter.
 
 ### Second-factor integrity (MFA)
 
-- [ ] **MFA-01**: A user with 2FA enabled cannot authenticate via `Authorization: Basic` without the second factor
-- [ ] **MFA-02**: Refusal does not leak the protected resource — no response body is served alongside the redirect
-- [ ] **MFA-03**: Plugin ordering is set explicitly with `movePluginsTop`, and a test asserts this package's plugin is first among `IAuthenticationPlugin`
-- [ ] **MFA-04**: One veto test per credentials extractor — form POST and HTTP Basic — each asserting no session is granted
-- [ ] **MFA-05**: A TOTP code from the immediately preceding time step is accepted (one step of drift, RFC 6238 §6)
-- [ ] **MFA-06**: A TOTP code already consumed is rejected on reuse (RFC 6238 §5.2 MUST NOT), and the rejection is logged without the username in plaintext
-- [ ] **MFA-07**: Only exactly-6-digit input is treated as a candidate token
-- [ ] **MFA-08**: After N consecutive failed second-factor attempts the account is locked for the configured duration, and the lock is checked before the token is evaluated so a locked account is not an oracle
-- [ ] **MFA-09**: The lock expires on its own; no admin action is required
-- [ ] **MFA-10**: N and the lock duration are editable in the control panel, defaulting to 5 and 900 seconds
-- [ ] **MFA-11**: A successful second factor resets the failure counter
-- [ ] **MFA-12**: No second-factor state is written from the PAS plugin or a challenge plugin; all writes happen in the token form view, which is the only path that commits
-- [ ] **MFA-13**: Every new memberdata property has a `memberdata_properties.xml` entry and a set/get round-trip test, since undeclared properties are silently discarded
+- [x] **MFA-01**: A user with 2FA enabled cannot authenticate via `Authorization: Basic` without the second factor
+- [x] **MFA-02**: Refusal does not leak the protected resource — no response body is served alongside the redirect
+- [x] **MFA-03**: Plugin ordering is set explicitly with `movePluginsTop`, and a test asserts this package's plugin is first among `IAuthenticationPlugin`
+- [x] **MFA-04**: One veto test per credentials extractor — form POST and HTTP Basic — each asserting no session is granted
+- [x] **MFA-05**: A TOTP code from the immediately preceding time step is accepted (one step of drift, RFC 6238 §6)
+- [x] **MFA-06**: A TOTP code already consumed is rejected on reuse (RFC 6238 §5.2 MUST NOT), and the rejection is logged without the username in plaintext
+- [x] **MFA-07**: Only exactly-6-digit input is treated as a candidate token
+- [x] **MFA-08**: After N consecutive failed second-factor attempts the account is locked for the configured duration, and the lock is checked before the token is evaluated so a locked account is not an oracle
+- [x] **MFA-09**: The lock expires on its own; no admin action is required
+- [x] **MFA-10**: N and the lock duration are editable in the control panel, defaulting to 5 and 900 seconds
+- [x] **MFA-11**: A successful second factor resets the failure counter
+- [x] **MFA-12**: No second-factor state is written from the PAS plugin or a challenge plugin; all writes happen in the token form view, which is the only path that commits
+- [x] **MFA-13**: Every new memberdata property has a `memberdata_properties.xml` entry and a set/get round-trip test, since undeclared properties are silently discarded
+- [ ] **MFA-14**: Turning on `globally_enabled` covers accounts that already exist when this add-on is installed, not only accounts created afterwards. Installing into a site that already has users must not leave those users without a second factor. Today enrolment of existing users happens only when an administrator saves the settings control panel form (`browser/controlpanel.py:125-132`); `setuphandlers.setupVarious` enrols nobody, and the login gate (`helpers.py:1021`, `helpers.py:1044`) consults only each user's own `enable_two_factor_authentication` flag, never the global setting. Found 2026-08-05 in Phase 7 plan 07-04 verification: installing `imio.dms.mail` first left an existing Member unenrolled, the reverse order enrolled them
 
 ### Recovery codes (RECOV)
 
-- [ ] **RECOV-01**: Enrollment issues 10 single-use recovery codes of 80 bits each (16 base32 characters from `os.urandom(10)`)
-- [ ] **RECOV-02**: Codes are stored hashed with one salt per user; the plaintext codes are never stored
-- [ ] **RECOV-03**: Codes are displayed exactly once, at enrollment, and never redisplayed
-- [ ] **RECOV-04**: A recovery code is accepted in place of a TOTP token, and is consumed on use
-- [ ] **RECOV-05**: Recovery-code attempts increment the same failure counter as TOTP attempts, so they are not an unthrottled path
-- [ ] **RECOV-06**: The user can regenerate the whole set, invalidating all previous codes
-- [ ] **RECOV-07**: The user is warned when 3 or fewer codes remain
+- [x] **RECOV-01**: Enrollment issues 10 single-use recovery codes of 80 bits each (16 base32 characters from `os.urandom(10)`)
+- [x] **RECOV-02**: Codes are stored hashed with one salt per user; the plaintext codes are never stored
+- [x] **RECOV-03**: Codes are displayed exactly once, at enrollment, and never redisplayed
+- [x] **RECOV-04**: A recovery code is accepted in place of a TOTP token, and is consumed on use
+- [x] **RECOV-05**: Recovery-code attempts increment the same failure counter as TOTP attempts, so they are not an unthrottled path
+- [x] **RECOV-06**: The user can regenerate the whole set, invalidating all previous codes
+- [x] **RECOV-07**: The user is warned when 3 or fewer codes remain
 
 ### Coexistence with imio.dms.mail (COEX)
 
-- [ ] **COEX-01**: `TokenForm` carries `id = 'login_form'` so Plone's stock overlay finds it with no vendored JavaScript
-- [ ] **COEX-02**: The `login_form.cpt` override and its `.metadata` are deleted
-- [ ] **COEX-03**: The vendored `popupforms.js` copy, its `jsregistry.xml` entries, and the `remove="True"` line that permanently unregisters Plone's own resource are all deleted
-- [ ] **COEX-04**: `control_panel_extra.html` and `request_bar_code_reset_email.pt` still work, converted to `ViewPageTemplateFile` — they are reached by `restrictedTraverse` and are not overrides
-- [ ] **COEX-05**: The skin layer, `skins.xml`, `registerDirectory` and the `skins/` directory are gone
-- [ ] **COEX-06**: A real `profiles/uninstall/` restores anything the install profile changed
-- [ ] **COEX-07**: Installing this package alongside `imio.dms.mail` leaves both working regardless of install order, verified with both orders
-- [ ] **COEX-08**: The challenge fires on both paths — `IChallengePlugin` for requests ending in `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which returns HTTP 200
-- [ ] **COEX-09**: Login through the header "Log in" link (not a direct POST) reaches the token form and completes
+- [x] **COEX-01**: `TokenForm` carries `id = 'login_form'` so Plone's stock overlay finds it with no vendored JavaScript
+- [x] **COEX-02**: The `login_form.cpt` override and its `.metadata` are deleted
+- [x] **COEX-03**: The vendored `popupforms.js` copy, its `jsregistry.xml` entries, and the `remove="True"` line that permanently unregisters Plone's own resource are all deleted
+- [x] **COEX-04**: `control_panel_extra.html` and `request_bar_code_reset_email.pt` still work, converted to `ViewPageTemplateFile` — they are reached by `restrictedTraverse` and are not overrides
+- [x] **COEX-05**: The skin layer, `skins.xml`, `registerDirectory` and the `skins/` directory are gone
+- [x] **COEX-06**: A real `profiles/uninstall/` restores anything the install profile changed
+- [x] **COEX-07**: Installing this package alongside `imio.dms.mail` leaves both working regardless of install order, verified with both orders
+- [x] **COEX-08**: The challenge fires on both paths — `IChallengePlugin` for requests ending in `Unauthorized`, and an `IPubBeforeCommit` subscriber for the login-form POST, which returns HTTP 200
+- [x] **COEX-09**: Login through the header "Log in" link (not a direct POST) reaches the token form and completes
+- [x] **COEX-10**: No subscriber this package registers instance-wide in ZCML raises in a Plone site that has not installed its GenericSetup profile. Creating a site from another add-on's profile that adds users must succeed with this egg's ZCML loaded (`userdataschema.py` `userCreatedHandler`; found 2026-08-05 when `imio.dms.mail:examples` site creation aborted with `KeyError` on the absent `ska_secret_key` record)
 
 ### Known bug fixes (BUG)
 
-- [ ] **BUG-01**: `next_url` is validated against the portal URL before redirect; an off-site value is refused (`token.py:112-113`)
+- [x] **BUG-01**: `next_url` is validated against the portal URL before redirect; an off-site value is refused (`token.py:112-113`)
 - [x] **BUG-02**: `redirect_url` is always bound on every code path through `user_setup.py`
 - [x] **BUG-03**: The bar-code reset token comparison is constant-time, with both operands encoded first to avoid `TypeError` across `str`/`unicode`
 - [x] **BUG-04**: The derived `ska` key separates its components rather than concatenating them bare
 - [x] **BUG-05**: `py2-ipaddress` is replaced by `ipaddress == 1.0.23`, with `unicode` coercion at the two call sites, so adding `cryptography` cannot break every login through module shadowing
-- [ ] **BUG-06**: Query-string values are URL-encoded on the way in, resolving the `+`-escaping FIXME
+- [x] **BUG-06**: Query-string values are URL-encoded on the way in, resolving the `+`-escaping FIXME
 
 ### Quality (QUAL)
 
-- [ ] **QUAL-01**: `.coveragerc` declares `[run] source`, `omit = */tests/*` and `branch = True`, so the figure reflects package code actually exercised
-- [ ] **QUAL-02**: `bin/test-coverage` fails the build when tests fail — proven with a deliberately failing test, not by inspection
-- [ ] **QUAL-03**: The `[coverage]` and `[test-coverage]` buildout parts are enabled, `coverage == 5.5` pinned, and the redundant `createcoverage` removed
-- [ ] **QUAL-04**: Branch coverage is above 90% against the corrected instrument, enforced in CI
-- [ ] **QUAL-05**: Browser tests run on a ZSERVER-free `FunctionalTesting` layer, with the in-layer quickinstaller workaround replaced by `applyProfile` in `setUpPloneSite`
-- [ ] **QUAL-06**: `bin/code-analysis` exits 0, so the buildout's pre-commit hook stops training contributors to use `--no-verify`
-- [ ] **QUAL-07**: Installedness is asserted through things the package controls (plugin registered, registry records present, browser layer active) rather than through `portal_quickinstaller`
+- [x] **QUAL-01**: `.coveragerc` declares `[run] source`, `omit = */tests/*` and `branch = True`, so the figure reflects package code actually exercised
+- [x] **QUAL-02**: `bin/test-coverage` fails the build when tests fail — proven with a deliberately failing test, not by inspection
+- [x] **QUAL-03**: The `[coverage]` and `[test-coverage]` buildout parts are enabled, `coverage == 5.5` pinned, and the redundant `createcoverage` removed
+- [x] **QUAL-04**: Branch coverage is above 90% against the corrected instrument, enforced in CI
+- [x] **QUAL-05**: Browser tests run on a ZSERVER-free `FunctionalTesting` layer, with the in-layer quickinstaller workaround replaced by `applyProfile` in `setUpPloneSite` (08-02: `setUpPloneSite`/ZSERVER-free layer; 08-03: every test file migrated onto it, integration layer retired)
+- [x] **QUAL-06**: `bin/code-analysis` exits 0, so the buildout's pre-commit hook stops training contributors to use `--no-verify`
+- [x] **QUAL-07**: Installedness is asserted through things the package controls (plugin registered, registry records present, browser layer active) rather than through `portal_quickinstaller`
 
 ### Documentation (DOC)
 
-- [ ] **DOC-01**: The Zope-root limitation is documented — MFA covers users and site admins inside the Plone site; root `acl_users` admins are architecturally out of reach for an in-site PAS plugin
-- [ ] **DOC-02**: The basic-auth consequence is documented, naming the supported alternative for scripts and API consumers
+- [x] **DOC-01**: The Zope-root limitation is documented — MFA covers users and site admins inside the Plone site; root `acl_users` admins are architecturally out of reach for an in-site PAS plugin
+- [x] **DOC-02**: The basic-auth consequence is documented, naming the supported alternative for scripts and API consumers
 - [x] **DOC-03**: The required encryption-key environment variable is documented for deployment, including the failure mode when a single ZEO client has a stale value
 - [x] **DOC-04**: `CHANGES.txt` records the rename and that existing databases are discarded rather than migrated
 
@@ -184,50 +186,52 @@ lists above is mechanical. Phase names are in `.planning/ROADMAP.md`.
 | SEC-06 | Phase 3 | Complete |
 | SEC-07 | Phase 3 | Complete |
 | SEC-08 | Phase 3 | Complete |
-| MFA-01 | Phase 4 | Pending |
-| MFA-02 | Phase 4 | Pending |
-| MFA-03 | Phase 4 | Pending |
-| MFA-04 | Phase 4 | Pending |
-| MFA-05 | Phase 5 | Pending |
-| MFA-06 | Phase 5 | Pending |
-| MFA-07 | Phase 5 | Pending |
-| MFA-08 | Phase 5 | Pending |
-| MFA-09 | Phase 5 | Pending |
-| MFA-10 | Phase 5 | Pending |
-| MFA-11 | Phase 5 | Pending |
-| MFA-12 | Phase 5 | Pending |
-| MFA-13 | Phase 5 | Pending |
-| RECOV-01 | Phase 6 | Pending |
-| RECOV-02 | Phase 6 | Pending |
-| RECOV-03 | Phase 6 | Pending |
-| RECOV-04 | Phase 6 | Pending |
-| RECOV-05 | Phase 6 | Pending |
-| RECOV-06 | Phase 6 | Pending |
-| RECOV-07 | Phase 6 | Pending |
-| COEX-01 | Phase 7 | Pending |
-| COEX-02 | Phase 7 | Pending |
-| COEX-03 | Phase 7 | Pending |
-| COEX-04 | Phase 7 | Pending |
-| COEX-05 | Phase 7 | Pending |
-| COEX-06 | Phase 7 | Pending |
-| COEX-07 | Phase 7 | Pending |
-| COEX-08 | Phase 4 | Pending |
-| COEX-09 | Phase 7 | Pending |
-| BUG-01 | Phase 7 | Pending |
+| MFA-01 | Phase 4 | Complete |
+| MFA-02 | Phase 4 | Complete |
+| MFA-03 | Phase 4 | Complete |
+| MFA-04 | Phase 4 | Complete |
+| MFA-05 | Phase 5 | Complete |
+| MFA-06 | Phase 5 | Complete |
+| MFA-07 | Phase 5 | Complete |
+| MFA-08 | Phase 5 | Complete |
+| MFA-09 | Phase 5 | Complete |
+| MFA-10 | Phase 5 | Complete |
+| MFA-11 | Phase 5 | Complete |
+| MFA-12 | Phase 5 | Complete |
+| MFA-13 | Phase 5 | Complete |
+| MFA-14 | Unassigned | Open — found in Phase 7 07-04 verification, needs a phase |
+| RECOV-01 | Phase 6 | Complete |
+| RECOV-02 | Phase 6 | Complete |
+| RECOV-03 | Phase 6 | Complete |
+| RECOV-04 | Phase 6 | Complete |
+| RECOV-05 | Phase 6 | Complete |
+| RECOV-06 | Phase 6 | Complete |
+| RECOV-07 | Phase 6 | Complete |
+| COEX-01 | Phase 7 | Complete |
+| COEX-02 | Phase 7 | Complete |
+| COEX-03 | Phase 7 | Complete |
+| COEX-04 | Phase 7 | Complete |
+| COEX-05 | Phase 7 | Complete |
+| COEX-06 | Phase 7 | Complete |
+| COEX-07 | Phase 7 | Complete |
+| COEX-08 | Phase 4 | Complete |
+| COEX-09 | Phase 7 | Complete |
+| COEX-10 | Quick task 260805-f5m | Complete |
+| BUG-01 | Phase 7 | Complete |
 | BUG-02 | Phase 3 | Complete |
 | BUG-03 | Phase 3 | Complete |
 | BUG-04 | Phase 2 | Complete |
 | BUG-05 | Phase 3 | Complete |
-| BUG-06 | Phase 7 | Pending |
-| QUAL-01 | Phase 8 | Pending |
-| QUAL-02 | Phase 8 | Pending |
-| QUAL-03 | Phase 8 | Pending |
-| QUAL-04 | Phase 8 | Pending |
-| QUAL-05 | Phase 8 | Pending |
-| QUAL-06 | Phase 8 | Pending |
-| QUAL-07 | Phase 8 | Pending |
-| DOC-01 | Phase 4 | Pending |
-| DOC-02 | Phase 4 | Pending |
+| BUG-06 | Phase 7 | Complete |
+| QUAL-01 | Phase 8 | Complete |
+| QUAL-02 | Phase 8 | Complete |
+| QUAL-03 | Phase 8 | Complete |
+| QUAL-04 | Phase 8 | Complete |
+| QUAL-05 | Phase 8 | Complete |
+| QUAL-06 | Phase 8 | Complete |
+| QUAL-07 | Phase 8 | Complete |
+| DOC-01 | Phase 4 | Complete |
+| DOC-02 | Phase 4 | Complete |
 | DOC-03 | Phase 3 | Complete |
 | DOC-04 | Phase 1 | Complete |
 
