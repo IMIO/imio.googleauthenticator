@@ -1,9 +1,11 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
+milestone_name: Hardened MFA
+milestone_status: shipped
+milestone_closeout: override_closeout
 status: Awaiting next milestone
-stopped_at: Phase 8 complete and verified — milestone v1.0 ready to close (all 8 phases done)
+stopped_at: Milestone v1.0 shipped, archived and tagged; next milestone not yet planned
 last_updated: "2026-08-06T10:36:45.755Z"
 last_activity: 2026-08-06
 last_activity_desc: Milestone v1.0 completed and archived
