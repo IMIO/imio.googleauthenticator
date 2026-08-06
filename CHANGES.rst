@@ -250,6 +250,18 @@ Changelog
   six-digit codes without limit and, on a hit, replace a user's stored
   recovery-code hashes with a freshly minted set (CR-01).
   [chris-adam]
+- Uninstalling now removes the ``google_auth`` PAS plugin, so two-step
+  verification stops being enforced at login and no broken object survives
+  in ``acl_users`` if the egg is later removed. It also removes the local
+  user-data-schema utility, the three user menu actions, the browser layer,
+  the control-panel configlet and the settings records -- including
+  ``ska_secret_key``, so signed token URLs still in flight stop validating
+  and a reinstall mints a fresh key. Enrolled users' memberdata is
+  deliberately kept: the property declarations, the encrypted seeds and the
+  recovery-code hashes all survive, so a reinstall restores working
+  two-step verification instead of stranding everyone who had enrolled
+  (COEX-06 widening, v1.0-MILESTONE-AUDIT.md Gap 2).
+  [chris-adam]
 
 0.3.0 (unreleased)
 ------------------
