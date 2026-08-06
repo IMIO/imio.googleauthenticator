@@ -136,7 +136,28 @@ every account it catches is walked through enrollment instead of being locked ou
 
   5. Whatever the global setting says, an installed site always has a reachable enrollment path —
      no combination of settings leaves a user unable to enroll.
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 10-01-PLAN.md — tracer: install enrols a pre-existing account and that account is walked
+      through enrollment at login, end to end (MFA-15 + MFA-19 as one deliverable)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 10-02-PLAN.md — the install-time enrollment matrix: idempotency, zero users, the setting off,
+      no encryption key, and a partial failure that reports itself (MFA-15, D-04, D-13)
+- [ ] 10-03-PLAN.md — both disable views refuse while global enforcement is on (MFA-16, D-08, D-18)
+- [ ] 10-04-PLAN.md — the three link conditions corrected, the regenerate action rewired, and
+      tests/test_settings_helper.py created from scratch (MFA-17, MFA-18, D-10, D-11, D-15)
+- [ ] 10-05-PLAN.md — MFA-19 hardening: the PAS-plugin state-write guard extended, a clean refusal
+      on a missing seed key (D-07), and the new property proven memberdata-only (D-17)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 10-06-PLAN.md — phase gate: full suite, branch coverage, lint, changelog, the 18-decision
+      ledger, and the two manual verifications
 
 **Notes**:
 
