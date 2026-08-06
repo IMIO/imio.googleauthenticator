@@ -4,15 +4,15 @@ milestone: v1.1
 milestone_name: Enrollment Control and Account Safety
 current_phase: 10
 current_phase_name: Global Enforcement and Enrollment
-status: planning
+status: executing
 stopped_at: Completed 09-04-PLAN.md
-last_updated: "2026-08-06T14:11:05.593Z"
+last_updated: "2026-08-06T15:21:59.817Z"
 last_activity: 2026-08-06
 last_activity_desc: Phase 09 complete, transitioned to Phase 10
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 4
+  total_plans: 10
   completed_plans: 4
   percent: 20
 ---
@@ -24,16 +24,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-06)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 09 — Mail Path and Profile-Page Correctness
+**Current focus:** Phase 10 — Global Enforcement and Enrollment. Phase 9 is complete and
+human-validated. Phase 10 is planned (6 plans, 3 waves) and ready to execute.
 
 ## Current Position
 
 Phase: 10 — Global Enforcement and Enrollment
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-08-06 — Phase 09 complete, transitioned to Phase 10
+Plan: Not started (6 plans planned, 3 waves)
+Status: Ready to execute
+Last activity: 2026-08-06 — Phase 09 complete and human-validated; Phase 10 discussed and planned
 
-Progress: [██████████] 100% of v1.1
+Progress: [██░░░░░░░░] 20% of v1.1 (1 of 5 phases complete)
 
 ## Performance Metrics
 
@@ -118,10 +119,30 @@ build on the decision rather than merely know it happened.
   vary per viewer without real machinery (D-14). The shortened description orphans the old msgid
   in the `.po`/`.pot` catalogues, accepted as a Phase 13 (I18N-02) input, not fixed here (D-16).
 
-- [Phase ?]: UX-01: resolved the home-page URL through context/@@plone/navigationRootUrl inside recovery_codes.pt, not the globals_view/navigationRootUrl idiom actions.xml uses -- globals_view is bound only by main_template's global_defines / the CMF action-expression context, and this template renders standalone with no metal:use-macro, so that name would raise a TAL NameError. @@plone is the same view, verified by re-running form.render() and confirming no TAL error plus the correct resolved href.
-- [Phase ?]: UX-02: get_token_description() now calls get_or_create_secret exactly once and reuses the value for both the QR and the appended <code> text -- confirmed by source inspection, satisfying D-08 and mitigating T-09-05 (minting/rotating a seed as a display side effect).
-- [Phase ?]: [Phase 9 → Phase 13] D-16 restated in CHANGES.rst: the orphaned French translation of the retired enable_two_factor_authentication description is a known, accepted Phase 13 input.
-- [Phase ?]: [Phase 9 → operator] The manual TOTP-client verification (Phase 9 success criterion 4, second half) is recorded as blocked, not passed -- no human operator and no IMIO_GOOGLEAUTHENTICATOR_SEED_KEY set in this environment; a human must run the 5-step script in 09-VALIDATION.md before this half of criterion 4 is closed.
+- **[Phase 9 → all]** UX-01: resolved the home-page URL through `context/@@plone/navigationRootUrl`
+  inside `recovery_codes.pt`, NOT the `globals_view/navigationRootUrl` idiom `actions.xml` uses.
+  `globals_view` is bound only by `main_template`'s `global_defines` and the CMF
+  action-expression context, and `recovery_codes.pt` renders standalone with no
+  `metal:use-macro`, so that name raises a TAL `NameError` there. `@@plone` is the same view.
+  Verified by running `form.render()` and confirming no TAL error plus the correct resolved href.
+  **Anything else in this package that renders standalone has the same constraint.**
+
+- **[Phase 9 → all]** UX-02: `get_token_description()` calls `get_or_create_secret` exactly once
+  and reuses the value for both the QR image and the appended `<code>` text (D-08), so displaying
+  the secret cannot mint or rotate a seed as a side effect. Both interpolated values are
+  HTML-escaped, because the z3c.form field description renders with
+  `tal:content="structure description"` — unescaped (Phase 9 code review, finding WR-02).
+
+- **[Phase 9 → Phase 13]** D-16: the orphaned French translation of the retired
+  `enable_two_factor_authentication` description is a known, accepted Phase 13 input, restated in
+  `CHANGES.rst`. The field description reads in English for a French user until Phase 13 rebuilds
+  the catalogue.
+
+- **[Phase 9 → operator] CLOSED 2026-08-06.** The manual TOTP-client verification (Phase 9 success
+  criterion 4, second half) was run by the operator on a live instance and passed: enrolment by
+  copying the base32 setup key as text into a TOTP application, and the site accepted the codes it
+  produced. The operator also confirmed the recovery-codes page's home-page link and the absence of
+  the wrong-account links on `@@user-information`.
 
 ### Pending Todos
 
