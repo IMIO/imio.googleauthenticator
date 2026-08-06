@@ -379,6 +379,34 @@ class TestPas(unittest.TestCase, BaseTest):
         enrollment status to decide where to route the user), so adding
         it would make this test fail against a correct design. Only the
         write side belongs in the guard.
+
+        Extended a third time (plan 10-05) in two directions the previous
+        extension did not cover, per the roadmap's "extended, not worked
+        around" rule:
+
+        1. A **positive presence** assertion -- every other assertion in
+           this method proves an absence. A future edit that deleted the
+           routing decision (``has_completed_enrollment`` in
+           ``authenticateCredentials``) outright would leave every
+           assertion above still passing while MFA-19 silently stopped
+           working: every enrolled-by-install user would go straight back
+           to the code-entry page. ``has_completed_enrollment`` is
+           deliberately excluded from ``helper_function_names`` above
+           because the guard's subject is writes, not reads -- this
+           assertion is the read side's own positive control, checked
+           separately rather than folded into that tuple's loop.
+        2. A generalised absence assertion for the member-data write API
+           itself (``setMemberProperties``), banning it from both files
+           outright rather than naming only the specific properties this
+           package happens to have today. This does NOT cover every write
+           this module can transitively cause: ``send_2fa_redirect``
+           reaches ``sign_user_data`` and thence ``get_or_create_secret``,
+           which writes a seed for a 2FA-enabled user who has none. That is
+           pre-existing behaviour, documented in ``subscribers.py``'s own
+           docstring, and it is a transitive write through two module
+           boundaries a per-file source grep cannot and should not try to
+           see -- recorded here so a later reader does not mistake this
+           assertion for a stronger claim than it makes.
         """
         package_dir = os.path.dirname(imio.googleauthenticator.__file__)
 
@@ -460,6 +488,39 @@ class TestPas(unittest.TestCase, BaseTest):
                 name, source,
                 'non-vacuity control: {0!r} must be present in '
                 '{1}'.format(name, label))
+
+        # Positive presence (plan 10-05, point 1 above): the routing read
+        # itself must still be there. Every assertion above this line
+        # proves an absence; this is the one assertion in this method that
+        # would catch the routing decision being deleted outright. Checked
+        # with the trailing '(' deliberately: 'has_completed_enrollment'
+        # alone (no parenthesis) also matches this file's own import
+        # statement, which survives even if the *call* is deleted -- a
+        # non-vacuity check against that shallower substring passed
+        # vacuously when the call site was removed but the now-unused
+        # import was left behind, so the call's opening parenthesis is
+        # part of what this assertion checks for.
+        self.assertIn(
+            'has_completed_enrollment(', pas_plugin_source,
+            'MFA-19/D-06: has_completed_enrollment(...) must still be '
+            'called in pas_plugin.py -- if this fails, the login-path '
+            'routing decision has been deleted and MFA-19 has silently '
+            'stopped working: every install-enrolled user would be routed '
+            'back to the code-entry page.')
+
+        # Generalised write-API absence (plan 10-05, point 2 above): no
+        # member-data write of any kind, not just the specific properties
+        # named above.
+        self.assertNotIn(
+            'setMemberProperties', pas_plugin_source,
+            'MFA-12: the member-data write API must not appear in '
+            'pas_plugin.py at all -- see this method\'s docstring for what '
+            'this generalised check does not cover.')
+        self.assertNotIn(
+            'setMemberProperties', subscribers_source,
+            'MFA-12: the member-data write API must not appear in '
+            'subscribers.py at all -- see this method\'s docstring for '
+            'what this generalised check does not cover.')
 
     def test_exception_path_still_wipes_credentials(self):
         """ROADMAP success criterion 5: an exception raised after the 2FA
