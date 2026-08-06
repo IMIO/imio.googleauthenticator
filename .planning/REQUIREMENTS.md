@@ -153,35 +153,47 @@ answered here.
 
 ## Traceability
 
-Populated during roadmap creation.
+Populated during roadmap creation, 2026-08-06. Phase numbering continues from v1.0, which
+ended at Phase 8.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MFA-15 | — | Unmapped |
-| MFA-16 | — | Unmapped |
-| MFA-17 | — | Unmapped |
-| MFA-18 | — | Unmapped |
-| MFA-19 | — | Unmapped |
-| SEC-09 | — | Unmapped |
-| SEC-10 | — | Unmapped |
-| SEC-11 | — | Unmapped |
-| SEC-12 | — | Unmapped |
-| NOTF-04 | — | Unmapped |
-| NOTF-05 | — | Unmapped |
-| NOTF-06 | — | Unmapped |
-| NOTF-07 | — | Unmapped |
-| BUG-07 | — | Unmapped |
-| BUG-08 | — | Unmapped |
-| UX-01 | — | Unmapped |
-| UX-02 | — | Unmapped |
-| I18N-01 | — | Unmapped |
-| I18N-02 | — | Unmapped |
+| MFA-15 | Phase 10 | Pending |
+| MFA-16 | Phase 10 | Pending |
+| MFA-17 | Phase 10 | Pending |
+| MFA-18 | Phase 10 | Pending |
+| MFA-19 | Phase 10 | Pending |
+| SEC-09 | Phase 11 | Pending |
+| SEC-10 | Phase 11 | Pending |
+| SEC-11 | Phase 11 | Pending |
+| SEC-12 | Phase 11 | Pending |
+| NOTF-04 | Phase 12 | Pending |
+| NOTF-05 | Phase 12 | Pending |
+| NOTF-06 | Phase 12 | Pending |
+| NOTF-07 | Phase 12 | Pending |
+| BUG-07 | Phase 9 | Pending |
+| BUG-08 | Phase 9 | Pending |
+| UX-01 | Phase 9 | Pending |
+| UX-02 | Phase 9 | Pending |
+| I18N-01 | Phase 13 | Pending |
+| I18N-02 | Phase 13 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 19 total
-- Mapped to phases: 0
-- Unmapped: 19 ⚠️
+- Mapped to phases: 19
+- Unmapped: 0 ✓
+
+Each requirement is mapped to exactly one phase. By phase: Phase 9 — 4, Phase 10 — 5,
+Phase 11 — 4, Phase 12 — 4, Phase 13 — 2.
+
+Two mappings are forced rather than chosen, and are recorded in `ROADMAP.md` phase notes:
+MFA-19 is in the same phase as MFA-15 because shipping MFA-15 alone is a site-wide lockout on
+the first install onto a populated site, and BUG-07 precedes NOTF-04..07 because those three new
+senders would otherwise land on a mail path with an unhandled `SMTPRecipientsRefused`.
+
+One mapping may move at `/gsd-discuss-phase` time, driven by open question 4: if showing the
+secret as text needs the re-authentication gate, UX-02 moves from Phase 9 to Phase 11.
 
 ---
 *Requirements defined: 2026-08-06*
-*Last updated: 2026-08-06 at milestone v1.1 start*
+*Last updated: 2026-08-06 — traceability populated at roadmap creation (Phases 9-13)*
