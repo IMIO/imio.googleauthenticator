@@ -3,54 +3,72 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 08
-current_phase_name: coverage-instrument-and-test-layers
-status: verifying
+status: completed
 stopped_at: Completed 08-05-PLAN.md
-last_updated: "2026-08-05T13:32:37.199Z"
-last_activity: 2026-08-05
-last_activity_desc: Phase 08 execution started
+last_updated: "2026-08-06T07:53:10.675Z"
+last_activity: 2026-08-06
+last_activity_desc: Phase 08 complete
 progress:
   total_phases: 8
   completed_phases: 8
   total_plans: 30
   completed_plans: 30
+current_phase_name: coverage-instrument-and-test-layers
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-31)
+See: .planning/PROJECT.md (updated 2026-08-06)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 08 — coverage-instrument-and-test-layers
+**Current focus:** Milestone v1.0 ready to close — all 8 roadmap phases complete
 
 ## Current Position
 
-Phase: 08 (coverage-instrument-and-test-layers) — EXECUTING
-Plan: 5 of 5
-Status: Phase complete — ready for verification
-Last activity: 2026-08-05 — Phase 08 execution started
+Phase: 08 — complete
+Plan: Not started
+Status: All phases complete — milestone v1.0 ready to close
+Last activity: 2026-08-06 — Phase 08 complete
 
-Progress: 25/25 plans executed · **7 of 8 roadmap phases complete ([██████████] 100%)**
+Progress: [████████████████████] 30/30 plans (100%) · **8 of 8 roadmap phases complete**
 
-Phase 8 has no plans yet, so no Phase 8 plans are counted in the 25 above.
+Phase 8 closed on 2026-08-06: all five plans executed, verification passed (14/14
+observable truths), the one human verification item passed in `08-UAT.md`, and the
+security review closed all 22 threats with `threats_open: 0` in `08-SECURITY.md`.
 
-Phase 7 closed on 2026-08-05: all four plans executed, verification passed (5/5 ROADMAP
-success criteria, 10/10 requirement IDs), and both verifications the test suite cannot
-perform were carried out by the operator on a real two-egg environment with a fresh site
-per install order, recorded in `07-UAT.md`. Suite at 111 tests, 0 failures, 0 errors.
+State of the build after Phase 8:
 
-Two items came out of Phase 7 that are NOT Phase 7 work:
+- `bin/test-coverage -t '!robot'` exits 0 — 128 tests, 0 failures, 0 errors, 90% branch
+  coverage (1070 statements, 72 missed, 286 branches, 53 partial)
+- `bin/code-analysis` exits 0, so the buildout's pre-commit hook passes. Commits from
+  `a3f6643` onward no longer need `--no-verify`
+- CI runs `bin/test-coverage -t !robot`, so a drop below 90% turns the job red
+- Weakest remaining modules: `pas_plugin.py` 80%, `request_bar_code_reset.py` 83%,
+  `helpers.py` 85%
+
+Open items that are not Phase 8 work:
+
+- **MFA-14, open and unassigned to a phase**: enabling the "Globally enabled" setting does
+  not enrol accounts that already exist when the add-on is installed. Found 2026-08-05
+  during Phase 7 plan 07-04 verification. Details and three candidate remedies are in the
+  Gaps section of `07-UAT.md`.
+
+- **A bar-code reset email to a rejected recipient raises an unhandled error**, instead of
+  showing the in-page failure message. `request_bar_code_reset.py:112-113` catches
+  `SMTPRecipientsRefused` and re-raises the same exception type, which the enclosing
+  `except ValueError` cannot catch. Predates the fork; found by the Phase 8 code review,
+  recorded as CR-01 in `08-REVIEW.md`. Unassigned to a phase.
+
+- **Nine other Phase 8 code-review findings** (five warnings, four informational) in
+  `08-REVIEW.md`, including a bulk enable/disable path in `helpers.py` that swallows
+  per-user failures at debug level, and `userdataschema.py:137-138` debug-logging the
+  stored seed property on every user creation.
 
 - **COEX-10, fixed** in quick task `260805-f5m` (commit `184f053`): this package's
   instance-wide user-created subscriber aborted Plone site creation in any site that had
   not installed its profile. Found while setting up 07-04's verification.
-
-- **MFA-14, open and unassigned to a phase**: enabling the "Globally enabled" setting does
-  not enrol accounts that already exist when the add-on is installed. The operator decided
-  it does not block Phase 7. Details and three candidate remedies are in the Gaps section
-  of `07-UAT.md`.
 
 Two non-blocking code-review warnings from Phase 4 remain open, recorded as WR-01 and
 WR-02 in `04-REVIEW.md`.
@@ -59,7 +77,7 @@ WR-02 in `04-REVIEW.md`.
 
 **Velocity:**
 
-- Total plans completed: 25
+- Total plans completed: 30
 - Average duration: —
 - Total execution time: 0.0 hours
 
@@ -74,6 +92,7 @@ WR-02 in `04-REVIEW.md`.
 | 5 | 5 | - | - |
 | 06 | 3 | - | - |
 | 07 | 4 | - | - |
+| 08 | 5 | - | - |
 
 **Recent Trend:**
 
@@ -202,10 +221,9 @@ None yet.
 - **Phase 3 (from 02-SECURITY.md R-02-01):** `browser/controlpanel.py` renders `ska_secret_key` into a form field. Pre-existing and untouched by Phase 2; it is the recorded Phase 3 secret-hygiene deferred idea.
 - **Phase 5 (from 04-SECURITY.md R-04-C):** do NOT attach lockout or replay state to the `send_2fa_redirect` call chain. `challenge()` and the `IPubBeforeCommit` subscriber are write-free in their own bodies, but `send_2fa_redirect` reaches `sign_user_data` → `get_or_create_secret`, which writes a memberdata seed for a 2FA-enabled user who has none. That mint is fail-closed and not attacker-reachable, so it does not reopen T-04-05 or T-04-24 — but the write-free guarantee MFA-12 inherits covers the handler bodies, not everything reachable from them. No test currently pins that branch in either direction.
 - **Phase 5 (from 04-REVIEW.md WR-01/WR-02):** for a user with 2FA enabled but no stored seed, a broken or missing `IMIO_GOOGLEAUTHENTICATOR_SEED_KEY` does not raise synchronously in `authenticateCredentials` — it raises later inside `send_2fa_redirect`, giving an uncontrolled error page instead of a clean refusal. Still fail-closed, no bypass. The fix is an unconditional `check_encryption_key_is_usable()` call plus a test for the never-enrolled state.
-- **Phases 1–7:** `bin/code-analysis` is not clean until Phase 8, so the buildout's pre-commit hook fails until then. Accepted; commits pass with `--no-verify`.
-- **Phase 8:** expect pre-existing test failures to surface when the test-layer isolation is fixed (`plone.testing 4.1.3` has no isolation guard; some tests currently pass *because* of a state leak). Real bugs revealed, not caused.
-- **Phase 8:** the post-fix coverage baseline is genuinely unknown and cannot be estimated before `[run] source` lands. The figure is expected to drop sharply; the drop is the truth.
-- **Phase 8:** the corrected `bin/code-analysis` baseline was **318 findings** (not the ~40 the pre-rename `CLAUDE.md` claimed), measured in plan 01-03 (RESEARCH C-6 / Open Question 4). 184 of the 318 (58%) were `isort` findings, and the rename actively perturbs first-party import ordering. **Re-measured 2026-08-05 after Phase 7: now 500 findings**, grown by the test code phases 2–7 added. QUAL-06 must be planned against 500, not 318. Note also that `flake8-isort` 4.0.0 reports isort findings from a diff, so the count for a file with an already-misordered import block shifts when *any* line changes — adding one no-op body line to `userdataschema.py` adds one finding by itself. Per-file before/after counts are not a reliable "did this commit add findings" signal; check the error codes instead.
+- **Resolved in Phase 8** (kept for one cycle as a record): `bin/code-analysis` now exits 0, so the pre-commit hook passes and `--no-verify` is no longer needed. The test-layer isolation fix revealed **zero** pre-existing failures, contrary to the expectation recorded here. The post-fix coverage figure did not drop — it measured 84% before the new tests and 90% after. The lint baseline that had to be cleared was 500 findings, not the ~40 originally recorded nor the 318 measured in plan 01-03; it grew as phases 2 through 7 added test code.
+- **Still true for any future lint work:** `flake8-isort` 4.0.0 reports isort findings from a diff, so the count for a file with an already-misordered import block shifts when *any* line changes — adding one no-op body line to `userdataschema.py` adds one finding by itself. Per-file before/after counts are not a reliable "did this commit add findings" signal; check the error codes instead.
+- **Open, no phase assigned — a rejected recipient address crashes the bar-code reset email path.** `browser/forms/request_bar_code_reset.py:112-113` catches `SMTPRecipientsRefused` and re-raises the same exception type; the only enclosing handler catches `ValueError`, which that exception is not. The caller gets an unhandled error instead of the in-page failure message every other path in that method uses. It predates the fork (first appears in the phase 1 rename commit) and has never had a test — those lines still show as uncovered. Found by the Phase 8 code review, recorded as CR-01 in `08-REVIEW.md`.
 - **Unresolved, found 2026-08-05 during Phase 7 plan 07-04 verification:** turning on the "Globally enabled" setting does not enrol users who already exist when this add-on is installed. `is_two_factor_authentication_globally_enabled` is consulted only by `userdataschema.userCreatedHandler` and by `browser/settings_helper.py` (which menu links to show); the login gate at `helpers.py:1021` and `1044` checks only each user's own `enable_two_factor_authentication` memberdata flag; and existing users are enrolled only when an administrator saves the settings control panel form (`browser/controlpanel.py` lines 125-132), never by `setuphandlers.setupVarious`. Consequence: installing this add-on into an existing `imio.dms.mail` site — the real deployment direction — leaves every existing account without a second factor, while the setting's own description says it "globally enables the two-step verification for all users" and defaults to True. Confirmed by the operator on a real two-egg environment: install order dms.mail-then-this-package left a Member unenrolled; the reverse order enrolled them. Needs a decision: enrol at install time, consult the global setting at login, or document an explicit post-install operator step.
 
 ### Quick Tasks Completed
@@ -224,6 +242,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-05T13:32:37.185Z
-Stopped at: Completed 08-05-PLAN.md
+Last session: 2026-08-06T07:24:20Z
+Stopped at: Phase 8 complete and verified — milestone v1.0 ready to close (all 8 phases done)
 Resume file: None

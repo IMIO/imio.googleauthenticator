@@ -160,37 +160,54 @@ A second factor that actually holds for in-site users, and that can be deployed 
 - ✓ The user is told how many codes remain once three or fewer are left. The message is produced
       only after the submitted code has already been accepted, so a failed or anonymous attempt
       learns nothing about the count — RECOV-07
+- ✓ `next_url` is validated against the portal URL before redirect; an off-site value is
+      refused, closing the open redirect at `token.py:112-113` — BUG-01, Phase 7
+- ✓ `TokenForm` carries `id = 'login_form'` so Plone's own overlay finds it. The
+      `login_form.cpt` override, the vendored `popupforms.js` copy, its `jsregistry.xml`
+      entries and the `remove="True"` line that unregistered a resource this package does not
+      own are all deleted — COEX-01..COEX-07, COEX-09, Phase 7
+- ✓ `control_panel_extra.html` and `request_bar_code_reset_email.pt` kept and converted to
+      `ViewPageTemplateFile` in the same commit that removed the skin layer, since both are
+      reached by `restrictedTraverse` rather than by an override — Phase 7
+- ✓ A real `profiles/uninstall/` ships, so uninstalling no longer leaves the site without
+      `popupforms.js` — Phase 7
+- ✓ The coverage instrument measures package code actually exercised: `.coveragerc` declares
+      `[run] source`, `omit = */tests/*` and `branch = True`, the `[coverage]`/`[test-coverage]`
+      buildout parts are enabled with `coverage == 5.5` pinned, `createcoverage` is gone, and
+      `set -e` in the script template makes a failing test exit non-zero before any coverage
+      total prints. Proven by a real red build, not by inspection — QUAL-01, QUAL-02, QUAL-03,
+      Phase 8
+- ✓ Branch coverage is 90% against the corrected instrument, and CI enforces it: the
+      `package-test.yml` workflow runs `bin/test-coverage -t !robot`, which exits non-zero
+      below the threshold — QUAL-04, Phase 8
+- ✓ Every test class runs on a ZSERVER-free `FunctionalTesting` layer whose per-test
+      `DemoStorage` discards committed writes. The profile installs in `setUpPloneSite`
+      instead of through a Browser-driven `portal_quickinstaller` round trip, and
+      installedness is asserted through plugin registration, registry records and the browser
+      layer — QUAL-05, QUAL-07, Phase 8
+- ✓ `bin/code-analysis` exits 0, so the buildout's pre-commit hook passes and contributors no
+      longer need `--no-verify`. The real baseline was 500 findings, not the 318 recorded
+      earlier here and not the ~40 recorded before that — the count grew as phases 2 through 7
+      added test code — QUAL-06, Phase 8
 
 ### Active
 
 **Correctness**
 
-- [ ] `bin/code-analysis` exits 0. The corrected baseline is **318 pre-existing findings**, not
-      the ~40 previously recorded here — measured in plan 01-03 (RESEARCH C-6). 184 of the 318
-      (58%) are `isort` findings, and the rename actively perturbs first-party import ordering,
-      so QUAL-06 must be planned against 318. The buildout installs a pre-commit hook that fails
-      every commit until this is clean (`--no-verify` in the meantime)
-- [ ] Fix open redirect: `next_url` accepted unvalidated at `token.py:112-113`
-
-**Coexistence with imio.dms.mail**
-
-- [ ] Give `TokenForm` `id = 'login_form'` so Plone's existing overlay finds it, then delete the
-      `login_form.cpt` override and the vendored `popupforms.js` copy, its `jsregistry.xml`
-      entries, and the `remove="True"` line that permanently unregisters a resource we do not own
-- [ ] Keep `control_panel_extra.html` and `request_bar_code_reset_email.pt` — they are reached
-      by `restrictedTraverse`, not overrides. Convert both to `ViewPageTemplateFile` in the same
-      commit that removes the skin layer
-- [ ] Ship a real `profiles/uninstall/` so uninstalling does not leave the site without
-      `popupforms.js`
-
-**Quality**
-
-- [ ] Fix the coverage instrumentation before writing any new test: `.coveragerc` needs
-      `[run] source`, `omit = */tests/*` and `branch = True`, and the `bin/test-coverage`
-      template needs `set -e` — without it, failing tests plus ≥90% coverage is a green build
-- [ ] Test coverage above 90%, enforced in CI, measured against the corrected instrument
-- [ ] Move the browser tests onto a ZSERVER-free `FunctionalTesting` layer so they stop breaking
-      Plone test isolation
+- [ ] **MFA-14**: Turning on `globally_enabled` must cover accounts that already exist when
+      this add-on is installed, not only accounts created afterwards. Today enrolment of
+      existing users happens only when an administrator saves the settings control panel form
+      (`browser/controlpanel.py:125-132`); `setuphandlers.setupVarious` enrols nobody, and the
+      login gate consults each user's own `enable_two_factor_authentication` flag, never the
+      global setting. Found 2026-08-05 during Phase 7 plan 07-04 verification: installing
+      `imio.dms.mail` first left an existing Member unenrolled, the reverse order enrolled
+      them. **Not yet assigned to a phase.**
+- [ ] A rejected recipient address in the bar-code reset email produces an unhandled error
+      instead of the in-page failure message. `request_bar_code_reset.py:112-113` catches
+      `SMTPRecipientsRefused` and re-raises the same exception type, which the enclosing
+      `except ValueError` cannot catch. Predates the fork's arrival in this repository; found
+      by the Phase 8 code review (finding CR-01 in `08-REVIEW.md`) and left unfixed because it
+      is outside a coverage phase's scope. **Not yet assigned to a phase.**
 
 ### Out of Scope
 
@@ -332,6 +349,13 @@ enumerates the bugs, security gaps, and test-coverage holes referenced above.
 | Close only the lock-state oracle at `@@reset-bar-code`, not username existence | Operator decision P5-17, 2026-08-01. The user-not-found and non-site-local branches keep their distinct messages. Username existence is a pre-existing disclosure this Plone site already makes through standard member lookups, it is not the state of a security control, and collapsing those messages would also remove the assurance a legitimate administrator needs that a Zope-root account cannot be gated by this plugin. Fixing it later is strictly additive to the same two branches | ✓ Shipped Phase 5 — logged as accepted risk R-05-B |
 | Keep the replay and lockout counters off `IEnhancedUserDataSchema` | Found in real-deployment testing, 2026-08-03. As schema fields they crashed `plone.app.users`' `@@user-information`, the form an administrator uses to edit another user's profile, because `adapter.py` supplies no accessor for them and `zope.formlib` does a plain `getattr` per rendered field. The `omit()` call that hid them covers `personal-information` only. What makes them persist is their `memberdata_properties.xml` entry, which a schema field neither provides nor replaces, so removing them costs nothing and also removes the write path by which a user could have zeroed their own lock deadline | ✓ Shipped Phase 5 |
 | Pin every `jsregistry.xml` registration to an explicit position | Found in real-deployment testing, 2026-08-03. `BaseRegistry.storeResource` appends, so an unpositioned entry's load order depends on when the profile's import step runs. Installing onto an existing site works; on a fresh site this package's two scripts landed above jQuery, and because cooking merges adjacent resources into one bundle, the `$ is not defined` thrown at the top of `main.js` aborted the bundle before jQuery loaded — every jQuery-dependent script on the site died. Phase 7 supersedes this by deleting both registrations outright | ✓ Shipped Phase 5 (stop-gap; Phase 7 owns the removal) |
+| Repair the coverage instrument in its own commit, before writing any new test | A coverage percentage produced by a misconfigured instrument is indistinguishable from a real one. `[report] include` had test modules inside the denominator, and without `set -e` the script reported a green build for a run whose tests failed. Fixing the instrument first means the 90% target is measured against something trustworthy, and the drop that follows is the truth rather than a regression | ✓ Shipped Phase 8 |
+| Prove the build can go red by mutating a test, not by reading the config | The failure mode being fixed is a script that cannot report failure. Inspection cannot distinguish a working `set -e` from a broken one, so a deliberately failing test was run and the absence of any coverage total in the output recorded. Reproduced independently twice, by the plan executor and again by the phase verifier | ✓ Shipped Phase 8 |
+| Install the profile in the test layer's `setUpPloneSite`, not through a Browser-driven `portal_quickinstaller` call inside each test class | The per-test-class install committed inside the layer, leaking state forward. A guard that passes only because a previous test's committed state satisfied it is test-time false confidence, which is worse than no test in an authentication package | ✓ Shipped Phase 8 |
+| Assert installedness through plugin registration, registry records and browser layer rather than `portal_quickinstaller` | `applyProfile` does not call `installProduct`, so a quickinstaller-based assertion can fail on an otherwise-correct change. Each replacement assertion was given a non-vacuity control — broken one at a time, confirmed red, restored | ✓ Shipped Phase 8 |
+| Gate the coverage number on its inputs, not on the percentage | A suppressed measurement and real coverage are indistinguishable in the final figure. The gates therefore check that no coverage-exclusion pragma exists anywhere in the package, that `--fail-under=90` is intact, that `.coveragerc` is unchanged, and that no production code was deleted | ✓ Shipped Phase 8 |
+| Clear all 500 lint findings rather than widening `flake8-ignore` or excluding the test tree | Both shortcuts were rejected: suppressing keyword spacing hides genuine house-style violations permanently, and excluding the test tree guts the gate exactly where new code lands. `base.cfg [code-analysis]` is byte-identical to its pre-phase values, so the gate was cleared by fixing findings, not by narrowing what is checked. The count had grown from 318 to 500 as phases 2 through 7 added test code | ✓ Shipped Phase 8 |
+| Accept three trailing-whitespace fixes inside a docstring, despite the threat model forbidding edits inside quoted strings | Operator decision 2026-08-06 (T-08-19, accepted risk R-08-01). The prohibition guards against a whitespace change inside a translated message or template string silently altering behaviour. No doctests are collected anywhere in the package, buildout or `setup.py`, so those `>>>` lines never execute. Reverting them would reintroduce three `W291` findings and break the phase's own goal | ✓ Shipped Phase 8 — logged as accepted risk R-08-01 |
 
 ## Evolution
 
@@ -351,6 +375,25 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
+*Last updated: 2026-08-06 — Phase 8 complete (coverage instrument and test layers), and with it
+the last phase of milestone v1.0. Phase 8's seven requirements (QUAL-01 to QUAL-07) moved to
+Validated, along with four items that Phase 7 had already delivered but that were still sitting in
+Active because this document was last evolved after Phase 6 — the open-redirect fix (BUG-01) and
+the three coexistence items covering the login-form overlay, the two `restrictedTraverse`
+templates, and the uninstall profile (COEX-01..07, COEX-09). Seven Phase 8 decisions logged.*
+
+*Two items remain Active and neither is assigned to a phase. First, MFA-14: turning on
+`globally_enabled` does not enrol accounts that already existed when the add-on was installed,
+found during Phase 7 plan 07-04 verification. Second, a rejected recipient address in the
+bar-code reset email raises an unhandled error instead of showing the in-page failure message
+(`request_bar_code_reset.py:112-113` re-raises `SMTPRecipientsRefused`, which the enclosing
+`except ValueError` cannot catch). The second predates the fork and was found by the Phase 8 code
+review, recorded as CR-01 in `08-REVIEW.md`; it was left unfixed because it is outside a coverage
+phase's scope. One Phase 8 risk was accepted by the operator rather than fixed: three
+trailing-whitespace fixes landed inside a docstring that the threat model had put off limits,
+accepted because no doctests are collected anywhere so the lines never execute. Recorded in
+`08-SECURITY.md` as accepted risk R-08-01.*
+
 *Last updated: 2026-08-04 — Phase 6 complete (recovery codes). All seven Phase 6 requirements
 (RECOV-01 to RECOV-07) moved to Validated, and the single Active "Second-factor integrity" bullet
 they satisfied was removed along with its now-empty heading. One risk was accepted by the operator
