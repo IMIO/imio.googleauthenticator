@@ -4,17 +4,17 @@ milestone: v1.1
 milestone_name: Enrollment Control and Account Safety
 current_phase: 09
 current_phase_name: Mail Path and Profile-Page Correctness
-status: executing
-stopped_at: Completed 09-03-PLAN.md
-last_updated: "2026-08-06T12:50:11.425Z"
+status: verifying
+stopped_at: Completed 09-04-PLAN.md
+last_updated: "2026-08-06T13:00:39.257Z"
 last_activity: 2026-08-06
 last_activity_desc: Phase 09 execution started
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
-  percent: 0
+  completed_plans: 4
+  percent: 20
 ---
 
 # Project State
@@ -30,10 +30,10 @@ See: .planning/PROJECT.md (updated 2026-08-06)
 
 Phase: 09 (Mail Path and Profile-Page Correctness) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-06 — Phase 09 execution started
 
-Progress: [████████░░] 75% of v1.1
+Progress: [██████████] 100% of v1.1
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ this file stays a digest.*
 | Phase 09 P01 | 25min | 2 tasks | 2 files |
 | Phase 09 P02 | 20min | 1 tasks | 2 files |
 | Phase 09 P03 | 25min | 2 tasks | 3 files |
+| Phase 09 P04 | ~20min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,8 @@ build on the decision rather than merely know it happened.
 
 - [Phase ?]: UX-01: resolved the home-page URL through context/@@plone/navigationRootUrl inside recovery_codes.pt, not the globals_view/navigationRootUrl idiom actions.xml uses -- globals_view is bound only by main_template's global_defines / the CMF action-expression context, and this template renders standalone with no metal:use-macro, so that name would raise a TAL NameError. @@plone is the same view, verified by re-running form.render() and confirming no TAL error plus the correct resolved href.
 - [Phase ?]: UX-02: get_token_description() now calls get_or_create_secret exactly once and reuses the value for both the QR and the appended <code> text -- confirmed by source inspection, satisfying D-08 and mitigating T-09-05 (minting/rotating a seed as a display side effect).
+- [Phase ?]: [Phase 9 → Phase 13] D-16 restated in CHANGES.rst: the orphaned French translation of the retired enable_two_factor_authentication description is a known, accepted Phase 13 input.
+- [Phase ?]: [Phase 9 → operator] The manual TOTP-client verification (Phase 9 success criterion 4, second half) is recorded as blocked, not passed -- no human operator and no IMIO_GOOGLEAUTHENTICATOR_SEED_KEY set in this environment; a human must run the 5-step script in 09-VALIDATION.md before this half of criterion 4 is closed.
 
 ### Pending Todos
 
@@ -190,8 +193,8 @@ that v1.1 picks up are now mapped to phases and repeated under Blockers above.
 
 ## Session Continuity
 
-Last session: 2026-08-06T12:50:11.413Z
-Stopped at: Completed 09-03-PLAN.md
+Last session: 2026-08-06T13:00:28.192Z
+Stopped at: Completed 09-04-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
