@@ -136,7 +136,7 @@ every account it catches is walked through enrollment instead of being locked ou
 
   5. Whatever the global setting says, an installed site always has a reachable enrollment path —
      no combination of settings leaves a user unable to enroll.
-**Plans**: 5/6 plans executed
+**Plans**: 6/6 plans executed
 
 Plans:
 **Wave 1**
@@ -158,7 +158,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 10-06-PLAN.md — phase gate: full suite, branch coverage, lint, changelog, the 18-decision
+- [x] 10-06-PLAN.md — phase gate: full suite, branch coverage, lint, changelog, the 18-decision
       ledger, and the two manual verifications
 
 **Notes**:
@@ -331,7 +331,7 @@ Phases execute in numeric order: 9 → 10 → 11 → 12 → 13
 | 7. Coexistence with imio.dms.mail | v1.0 | 4/4 | Complete | 2026-08-05 |
 | 8. Coverage Instrument and Test Layers | v1.0 | 5/5 | Complete | 2026-08-06 |
 | 9. Mail Path and Profile-Page Correctness | v1.1 | 4/4 | Complete    | 2026-08-06 |
-| 10. Global Enforcement and Enrollment | v1.1 | 5/6 | In Progress|  |
+| 10. Global Enforcement and Enrollment | v1.1 | 6/6 | In Progress|  |
 | 11. Re-authentication Before MFA Changes | v1.1 | 0/TBD | Not started | - |
 | 12. MFA Change Notifications | v1.1 | 0/TBD | Not started | - |
 | 13. French Translations | v1.1 | 0/TBD | Not started | - |
