@@ -5,15 +5,15 @@ milestone_name: Enrollment Control and Account Safety
 current_phase: 10
 current_phase_name: Global Enforcement and Enrollment
 status: executing
-stopped_at: Completed 10-04-PLAN.md
-last_updated: "2026-08-06T17:21:56.958Z"
+stopped_at: Completed 10-05-PLAN.md
+last_updated: "2026-08-06T17:58:33.299Z"
 last_activity: 2026-08-06
 last_activity_desc: Phase 10 execution started
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 9
   percent: 20
 ---
 
@@ -30,11 +30,11 @@ human-validated. Phase 10 is planned as 6 plans in 3 waves and is now executing.
 ## Current Position
 
 Phase: 10 (Global Enforcement and Enrollment) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-08-06 — Phase 10 execution started
 
-Progress: [████████░░] 80% of v1.1 (1 of 5 phases complete)
+Progress: [█████████░] 90% of v1.1 (1 of 5 phases complete)
 
 ## Performance Metrics
 
@@ -78,6 +78,7 @@ this file stays a digest.*
 | Phase 10 P02 | ~1h | 2 tasks | 1 files |
 | Phase 10 P03 | ~25min | 2 tasks | 3 files |
 | Phase 10 P04 | ~1h | 3 tasks | 5 files |
+| Phase 10 P05 | ~2h | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -155,6 +156,8 @@ build on the decision rather than merely know it happened.
 - [Phase ?]: 10-03: the empty-user-list probe's off-branch does not assert zero mutation for real accounts -- helpers.disable_two_factor_authentication_for_users(users) falls back to api.user.get_users() when passed an empty list, so an empty list and 'no argument' are indistinguishable to that pre-existing function; this plan's guard is orthogonal to it
 - [Phase ?]: D-10 override followed: enable link keyed on has_completed_enrollment, not has_enabled_two_factor_authentication, per plan's deliberate deviation from RESEARCH.md
 - [Phase ?]: Fixture writes in tests must go through api.user.get_current(), not a separately fetched api.user.get(username=...) object -- the two are different MemberData wrappers within one request
+- [Phase ?]: 10-05: extended the state-write guard with a positive-presence check (has_completed_enrollment call, not just import) and a generalised setMemberProperties absence check, so deleting the MFA-19 routing decision now turns the guard red.
+- [Phase ?]: 10-05: D-07 refusal (is_seed_encryption_available) gated on enrollment_needed only, placed right after the existing SEC-03 get_secret(user) check, since that check is a no-op for a seedless account.
 
 ### Pending Todos
 
@@ -231,8 +234,8 @@ that v1.1 picks up are now mapped to phases and repeated under Blockers above.
 
 ## Session Continuity
 
-Last session: 2026-08-06T17:21:56.948Z
-Stopped at: Completed 10-04-PLAN.md
+Last session: 2026-08-06T17:58:33.287Z
+Stopped at: Completed 10-05-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
