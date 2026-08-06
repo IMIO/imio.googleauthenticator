@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!-- purge="False" mirrors profiles/default/controlpanel.xml: all three
+     importers this uninstall directory relies on (this one, actions.xml,
+     componentregistry.xml) purge only under environ.shouldPurge()
+     (CMFPlone/exportimport/controlpanel.py:59), and this profile is
+     registered EXTENSION with applyProfile passing purge_old=False, so
+     shouldPurge() is False here regardless; purge="False" simply states
+     that explicitly rather than relying on it. -->
+<object
+    name="portal_controlpanel"
+    xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+    i18n:domain="imio.googleauthenticator"
+    purge="False">
+
+    <!-- unregisterConfiglet builds an empty selection
+         (PloneControlPanel.py:143-147) rather than raising when the
+         configlet is already gone, so a second application is a no-op. -->
+    <configlet
+        action_id="google_authenticator_settings"
+        remove="True"
+        />
+
+</object>

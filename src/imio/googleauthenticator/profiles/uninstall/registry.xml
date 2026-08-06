@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!-- No child nodes: handler.py:322-325 raises ValueError on a removal
+     node carrying <value> children, and importRecord logs only a warning
+     (handler.py:150-156) for a record that is already gone, making a
+     second application a no-op rather than a failure.
+
+     Operator consequence: this discards ska_secret_key, so any signed
+     token URL still in flight stops validating and a reinstall mints a
+     fresh key. Enrolled users still log in; the seed-encryption key is
+     the IMIO_GOOGLEAUTHENTICATOR_SEED_KEY environment variable, not this
+     registry record. -->
+<registry>
+    <records interface="imio.googleauthenticator.browser.controlpanel.IGoogleAuthenticatorSettings" remove="true"/>
+</registry>

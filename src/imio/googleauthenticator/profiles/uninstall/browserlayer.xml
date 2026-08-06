@@ -1,0 +1,11 @@
+<layers>
+    <!-- No interface attribute is read on the remove path
+         (plone/browserlayer/exportimport.py:60-68); the name alone
+         identifies the layer to unregister_layer, whose KeyError on a
+         layer that is already gone is caught and logged, making a
+         second application a no-op rather than a failure. -->
+    <layer
+        name="imio.googleauthenticator"
+        remove="True"
+         />
+</layers>

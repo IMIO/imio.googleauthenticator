@@ -1,6 +1,7 @@
 from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 from imio.googleauthenticator.helpers import get_app_settings
 from imio.googleauthenticator.helpers import get_ska_secret_key
+from imio.googleauthenticator.interfaces import IGoogleAuthenticatorLayer
 from imio.googleauthenticator.setuphandlers import PAS_ID
 from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
@@ -8,6 +9,8 @@ from plone import api
 from plone.app.testing import applyProfile
 from plone.app.testing import setRoles
 from plone.app.testing import TEST_USER_ID
+from plone.app.users.userdataschema import IUserDataSchemaProvider
+from plone.browserlayer.utils import registered_layers
 from plone.registry import Record
 from plone.registry.interfaces import IRegistry
 from Products.CMFCore.utils import getToolByName
@@ -691,6 +694,233 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         # recreated the plugin instead of removing it. Both directions are
         # already exercised by the sequence above; (d) and (b) are the
         # assertions that would go red if either gate were wrong.
+
+    def _local_userdataschema_utility_registrations(self):
+        """Local-only ``IUserDataSchemaProvider`` utility registrations on
+        this site's site manager.
+
+        Deliberately not ``getUtility()``/``queryUtility()``:
+        ``plone.app.users`` registers its own global default
+        ``IUserDataSchemaProvider`` utility, so either lookup falls back to
+        it and would report "present" even after our local registration in
+        ``componentregistry.xml`` is gone -- the silent-no-op trap this
+        quick task's PLAN.md names explicitly. Filtering
+        ``registeredUtilities()`` by ``provided`` iterates local
+        registrations only.
+        """
+        return [
+            registration
+            for registration in self.portal.getSiteManager().registeredUtilities()
+            if registration.provided is IUserDataSchemaProvider
+            ]
+
+    def test_uninstall_reverses_the_profile_registrations(self):
+        """COEX-06 widening (quick task 260806-gfr, Task 2): applying
+        ``imio.googleauthenticator:uninstall`` removes the five artifacts
+        ``profiles/default/`` registers -- the local
+        ``IUserDataSchemaProvider`` utility, the three
+        ``portal_actions/user`` entries, the browser layer, the
+        ``google_authenticator_settings`` configlet and the
+        ``IGoogleAuthenticatorSettings`` registry records -- idempotently
+        and reversibly.
+
+        Five groups, per WR-03, each present-before (non-vacuity) /
+        absent-after / still-absent-after-a-second-apply (idempotency) /
+        present-again-after-reinstall (reversibility).
+
+        Note: ``IGoogleAuthenticatorSettings`` now declares five fields
+        (``max_failed_attempts`` and ``lockout_duration`` were added in
+        Phase 5, after this plan's own truths table was written naming
+        "three" records) -- this asserts every field the interface
+        actually declares, read live via ``.names()``, not a stale
+        hardcoded count.
+        """
+        portal_actions = getToolByName(self.portal, 'portal_actions')
+        portal_controlpanel = getToolByName(self.portal, 'portal_controlpanel')
+        registry = getUtility(IRegistry)
+        action_ids = (
+            'enable_two_factor_authentication',
+            'disable_two_factor_authentication',
+            'regenerate_recovery_codes',
+            )
+        record_names = [
+            '{0}.{1}'.format(IGoogleAuthenticatorSettings.__identifier__, name)
+            for name in IGoogleAuthenticatorSettings.names()
+            ]
+
+        def _configlet_ids():
+            return [action.id for action in portal_controlpanel.listActions()]
+
+        def _user_action_ids():
+            return portal_actions.user.objectIds()
+
+        # (a) non-vacuity: all five artifacts are present before the
+        # uninstall, or their absence below proves nothing.
+        self.assertTrue(
+            self._local_userdataschema_utility_registrations(),
+            'Non-vacuity control: the local IUserDataSchemaProvider '
+            'utility must be registered before the uninstall.')
+        for action_id in action_ids:
+            self.assertIn(
+                action_id, _user_action_ids(),
+                'Non-vacuity control: {0!r} must exist under '
+                'portal_actions/user before the uninstall.'.format(action_id))
+        self.assertIn(
+            IGoogleAuthenticatorLayer, registered_layers(),
+            'Non-vacuity control: the browser layer must be registered '
+            'before the uninstall.')
+        self.assertIn(
+            'google_authenticator_settings', _configlet_ids(),
+            'Non-vacuity control: the configlet must be registered '
+            'before the uninstall.')
+        for record_name in record_names:
+            self.assertIn(
+                record_name, registry.records,
+                'Non-vacuity control: {0!r} must exist before the '
+                'uninstall.'.format(record_name))
+
+        # (b) applying the uninstall profile removes all five.
+        applyProfile(self.portal, 'imio.googleauthenticator:uninstall')
+        self.assertFalse(
+            self._local_userdataschema_utility_registrations(),
+            'COEX-06: the local IUserDataSchemaProvider utility must be '
+            'unregistered by the uninstall profile.')
+        for action_id in action_ids:
+            self.assertNotIn(
+                action_id, _user_action_ids(),
+                'COEX-06: {0!r} must be removed from portal_actions/user '
+                'by the uninstall profile.'.format(action_id))
+        self.assertNotIn(
+            IGoogleAuthenticatorLayer, registered_layers(),
+            'COEX-06: the browser layer must be unregistered by the '
+            'uninstall profile.')
+        self.assertNotIn(
+            'google_authenticator_settings', _configlet_ids(),
+            'COEX-06: the configlet must be unregistered by the '
+            'uninstall profile.')
+        for record_name in record_names:
+            self.assertNotIn(
+                record_name, registry.records,
+                'COEX-06: {0!r} must be removed by the uninstall '
+                'profile.'.format(record_name))
+
+        # (c) idempotency: applying the uninstall profile a second time
+        # must not raise, and must leave the same absence.
+        applyProfile(self.portal, 'imio.googleauthenticator:uninstall')
+        self.assertFalse(
+            self._local_userdataschema_utility_registrations(),
+            'COEX-06: applying the uninstall profile twice must not '
+            'resurrect the local utility.')
+        for action_id in action_ids:
+            self.assertNotIn(
+                action_id, _user_action_ids(),
+                'COEX-06: applying the uninstall profile twice must not '
+                'resurrect {0!r}.'.format(action_id))
+        self.assertNotIn(
+            IGoogleAuthenticatorLayer, registered_layers(),
+            'COEX-06: applying the uninstall profile twice must not '
+            'resurrect the browser layer.')
+        self.assertNotIn(
+            'google_authenticator_settings', _configlet_ids(),
+            'COEX-06: applying the uninstall profile twice must not '
+            'resurrect the configlet.')
+        for record_name in record_names:
+            self.assertNotIn(
+                record_name, registry.records,
+                'COEX-06: applying the uninstall profile twice must not '
+                'resurrect {0!r}.'.format(record_name))
+
+        # (d) reversibility: re-applying the default profile restores all
+        # five -- an uninstall followed by a reinstall is a working site,
+        # not a half-registered one. This also restores the installed
+        # state this layer's other tests expect.
+        applyProfile(self.portal, 'imio.googleauthenticator:default')
+        self.assertTrue(
+            self._local_userdataschema_utility_registrations(),
+            'COEX-06: re-applying the default profile must restore the '
+            'local IUserDataSchemaProvider utility.')
+        for action_id in action_ids:
+            self.assertIn(
+                action_id, _user_action_ids(),
+                'COEX-06: re-applying the default profile must restore '
+                '{0!r}.'.format(action_id))
+        self.assertIn(
+            IGoogleAuthenticatorLayer, registered_layers(),
+            'COEX-06: re-applying the default profile must restore the '
+            'browser layer.')
+        self.assertIn(
+            'google_authenticator_settings', _configlet_ids(),
+            'COEX-06: re-applying the default profile must restore the '
+            'configlet.')
+        for record_name in record_names:
+            self.assertIn(
+                record_name, registry.records,
+                'COEX-06: re-applying the default profile must restore '
+                '{0!r}.'.format(record_name))
+
+    def test_uninstall_keeps_enrolled_user_data(self):
+        """T-gfr-04 (deliberate exclusion, pinned): the uninstall profile
+        must NOT touch ``portal_memberdata``'s property declarations or an
+        enrolled user's stored seed. ``memberdata_properties.xml`` stays
+        out of ``profiles/uninstall/`` on purpose -- removing those eight
+        declarations would destroy every enrolled user's encrypted seed
+        and recovery-code hashes with no recovery path, and an uninstall
+        is often temporary. A future edit that starts deleting user data
+        must turn this test red.
+        """
+        portal_memberdata = getToolByName(self.portal, 'portal_memberdata')
+        expected_properties = (
+            'enable_two_factor_authentication',
+            'two_factor_authentication_secret',
+            'bar_code_reset_token',
+            'two_factor_authentication_failed_attempts',
+            'two_factor_authentication_locked_until',
+            'two_factor_authentication_last_interval',
+            'two_factor_authentication_recovery_codes_salt',
+            'two_factor_authentication_recovery_codes_hashes',
+            )
+
+        # Non-vacuity: all eight are declared before the uninstall, or
+        # their survival below proves nothing.
+        for name in expected_properties:
+            self.assertIn(
+                name, portal_memberdata.propertyIds(),
+                'Non-vacuity control: {0!r} must be declared on '
+                'portal_memberdata before the uninstall.'.format(name))
+
+        setRoles(self.portal, TEST_USER_ID, ['Manager'])
+        user = api.user.get(username=TEST_USER_ID)
+        known_seed = u'v1$known-test-seed-for-260806-gfr'
+        user.setMemberProperties(mapping={
+            'enable_two_factor_authentication': True,
+            'two_factor_authentication_secret': known_seed,
+            })
+        # .claude/CLAUDE.md: undeclared memberdata properties are
+        # silently popped with no error by MutablePropertySheet.
+        # setProperties -- assert the read-back rather than trusting the
+        # write.
+        self.assertEqual(
+            known_seed,
+            user.getProperty('two_factor_authentication_secret'),
+            'Non-vacuity control: the seed written above must actually '
+            'be readable before the uninstall, or its survival below '
+            'proves nothing.')
+
+        applyProfile(self.portal, 'imio.googleauthenticator:uninstall')
+
+        for name in expected_properties:
+            self.assertIn(
+                name, portal_memberdata.propertyIds(),
+                'T-gfr-04: {0!r} must survive the uninstall untouched -- '
+                'removing it would destroy enrolled users\' data.'.format(
+                    name))
+        self.assertEqual(
+            known_seed,
+            user.getProperty('two_factor_authentication_secret'),
+            'T-gfr-04: an enrolled user\'s stored seed must survive the '
+            'uninstall byte-identical.')
+
+        applyProfile(self.portal, 'imio.googleauthenticator:default')
 
     def _replay_dms_mail_reposition(self, registry):
         """Replay ``imio.dms.mail``'s own reposition entry for the stock

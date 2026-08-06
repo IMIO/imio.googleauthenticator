@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<componentregistry>
+  <utilities>
+    <!-- Highest-value entry in this directory: an uninstalled add-on
+         whose egg is later removed leaves this registration unpickling
+         as OFS.Uninstalled.Broken (COEX-06 widening / v1.0-MILESTONE-
+         AUDIT.md Gap 2). No factory attribute: GenericSetup's remove
+         branch (Products/GenericSetup/components.py:305-312) reads only
+         interface and name on this path, and _ofs_id
+         (components.py:361-371) derives the OFS id from interface
+         alone; a factory attribute here would be ignored, and a wrong
+         or extra attribute would make the removal a silent no-op. -->
+    <utility
+      interface="plone.app.users.userdataschema.IUserDataSchemaProvider"
+      remove="True"
+    />
+  </utilities>
+</componentregistry>

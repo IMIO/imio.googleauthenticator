@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!-- Mirrors profiles/default/actions.xml's nesting exactly: the "user"
+     category itself belongs to Plone, not to this package, so it carries
+     no remove attribute; only its three children, which this package
+     added, are ours to remove. The recursion into the category is real:
+     ActionCategoryNodeAdapter mixes in ObjectManagerHelpers
+     (Products/CMFCore/exportimport/actions.py:33-34), and
+     GenericSetup.utils._initObjects recurses via importer.node = child
+     (utils.py:599-602). Leaving these behind renders menu entries
+     pointing at views that no longer resolve once the profile that
+     provided them is uninstalled. -->
+<object name="portal_actions" meta_type="Plone Actions Tool"
+   xmlns:i18n="http://xml.zope.org/namespaces/i18n">
+
+ <object name="user" meta_type="CMF Action Category">
+
+  <object name="enable_two_factor_authentication" remove="True"/>
+  <object name="disable_two_factor_authentication" remove="True"/>
+  <object name="regenerate_recovery_codes" remove="True"/>
+
+ </object>
+</object>
