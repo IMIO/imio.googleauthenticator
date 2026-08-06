@@ -4,7 +4,10 @@ User setup.
 
 from imio.googleauthenticator.helpers import generate_recovery_codes
 from imio.googleauthenticator.helpers import get_token_description
+from imio.googleauthenticator.helpers import is_account_locked
 from imio.googleauthenticator.helpers import is_site_local_user
+from imio.googleauthenticator.helpers import register_failed_second_factor
+from imio.googleauthenticator.helpers import reset_failed_second_factor
 from imio.googleauthenticator.helpers import validate_token
 from plone import api
 from plone.directives import form
@@ -92,16 +95,41 @@ class SetupForm(form.SchemaForm):
 
         token = data.get('token', '')
 
-        valid_token = validate_token(token)
+        # Hoisted here -- rather than fetched inside the success branch, or
+        # left to validate_token's internal api.user.get_current() fallback
+        # -- so one user object serves the lock check, the validation call
+        # and both counter calls below.
+        user = api.user.get_current()
 
-        # self.context.plone_log(valid_token)
-        # self.context.plone_log(token)
-
+        # CR-01/MFA-08/MFA-11: the third of this package's three
+        # validate_token callers to share the lockout counter -- see
+        # reset_bar_code.py::handleSubmit for the same is_account_locked /
+        # register_failed_second_factor / reset_failed_second_factor
+        # pattern. DELIBERATE DEVIATION from reset_bar_code.py's locked
+        # arm: there, the locked arm adds its message and returns
+        # immediately, which is equivalent to falling through because that
+        # handler's failure tail is message-only. Here the wrong-code arm
+        # also binds redirect_url and redirects to this same setup form, so
+        # an early return in the locked arm would leave the locked response
+        # at 200-with-no-Location while a wrong code gets a 302 --
+        # reinstating exactly the message-plus-response oracle 05-05
+        # closed on the reset form. The locked arm must therefore reach the
+        # shared "if reason is not None:" tail below and produce the same
+        # message and the same redirect target as a wrong code. This arm
+        # and the wrong-code arm below must be changed together, or the
+        # lock becomes readable from the response alone (MFA-08).
         reason = None
-        if valid_token:
+        if is_account_locked(user):
+            reason = _("Invalid token or token expired.")
+        elif validate_token(token, user=user):
+            # The second factor succeeded, so the counter/lock reset
+            # happens here -- before the try: block -- rather than inside
+            # it (P5-14): a PropertyValueError from a mis-declared property
+            # must surface as a 500, not be caught by the except Exception
+            # below and reported as an unexpected error.
+            reset_failed_second_factor(user)
             try:
                 # Set the ``enable_two_factor_authentication`` to True
-                user = api.user.get_current()
                 user.setMemberProperties(mapping={'enable_two_factor_authentication': True})
 
                 IStatusMessage(self.request).addStatusMessage(
@@ -124,6 +152,7 @@ class SetupForm(form.SchemaForm):
                 logger.exception("Two-step verification setup failed")
                 reason = _("An unexpected error occurred.")
         else:
+            register_failed_second_factor(user)
             reason = _("Invalid token or token expired.")
 
         if reason is not None:
