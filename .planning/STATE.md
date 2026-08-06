@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 08
-status: completed
-stopped_at: Completed 08-05-PLAN.md
-last_updated: "2026-08-06T07:53:10.675Z"
+status: Awaiting next milestone
+stopped_at: Phase 8 complete and verified — milestone v1.0 ready to close (all 8 phases done)
+last_updated: "2026-08-06T10:36:45.755Z"
 last_activity: 2026-08-06
-last_activity_desc: Phase 08 complete
+last_activity_desc: Milestone v1.0 completed and archived
 progress:
   total_phases: 8
   completed_phases: 8
   total_plans: 30
   completed_plans: 30
+current_phase: 08
 current_phase_name: coverage-instrument-and-test-layers
 ---
 
@@ -23,55 +23,21 @@ current_phase_name: coverage-instrument-and-test-layers
 See: .planning/PROJECT.md (updated 2026-08-06)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Milestone v1.0 ready to close — all 8 roadmap phases complete
+**Current focus:** Planning the next milestone. v1.0 is shipped, archived and tagged; v1.1 scope is captured in `.planning/MILESTONE-CONTEXT.md` but has no requirements or roadmap yet.
 
 ## Current Position
 
-Phase: 08 — complete
-Plan: Not started
-Status: All phases complete — milestone v1.0 ready to close
-Last activity: 2026-08-06 — Completed quick tasks 260806-fsp and 260806-gfr, closing both gaps the v1.0 milestone audit found
+Phase: Milestone v1.0 shipped and archived — tagged `v1.0`
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-08-06 — Milestone v1.0 closed as override_closeout (one requirement, MFA-14, shipped unsatisfied by operator decision)
 
-Progress: [████████████████████] 30/30 plans (100%) · **8 of 8 roadmap phases complete**
+**Verified at close:** `bin/test -t '!robot'` — 135 tests, 0 failures, 0 errors, exit 0.
 
-Phase 8 closed on 2026-08-06: all five plans executed, verification passed (14/14
-observable truths), the one human verification item passed in `08-UAT.md`, and the
-security review closed all 22 threats with `threats_open: 0` in `08-SECURITY.md`.
-
-State of the build after Phase 8:
-
-- `bin/test-coverage -t '!robot'` exits 0 — 128 tests, 0 failures, 0 errors, 90% branch
-  coverage (1070 statements, 72 missed, 286 branches, 53 partial)
-- `bin/code-analysis` exits 0, so the buildout's pre-commit hook passes. Commits from
-  `a3f6643` onward no longer need `--no-verify`
-- CI runs `bin/test-coverage -t !robot`, so a drop below 90% turns the job red
-- Weakest remaining modules: `pas_plugin.py` 80%, `request_bar_code_reset.py` 83%,
-  `helpers.py` 85%
-
-Open items that are not Phase 8 work:
-
-- **MFA-14, open and unassigned to a phase**: enabling the "Globally enabled" setting does
-  not enrol accounts that already exist when the add-on is installed. Found 2026-08-05
-  during Phase 7 plan 07-04 verification. Details and three candidate remedies are in the
-  Gaps section of `07-UAT.md`.
-
-- **A bar-code reset email to a rejected recipient raises an unhandled error**, instead of
-  showing the in-page failure message. `request_bar_code_reset.py:112-113` catches
-  `SMTPRecipientsRefused` and re-raises the same exception type, which the enclosing
-  `except ValueError` cannot catch. Predates the fork; found by the Phase 8 code review,
-  recorded as CR-01 in `08-REVIEW.md`. Unassigned to a phase.
-
-- **Nine other Phase 8 code-review findings** (five warnings, four informational) in
-  `08-REVIEW.md`, including a bulk enable/disable path in `helpers.py` that swallows
-  per-user failures at debug level, and `userdataschema.py:137-138` debug-logging the
-  stored seed property on every user creation.
-
-- **COEX-10, fixed** in quick task `260805-f5m` (commit `184f053`): this package's
-  instance-wide user-created subscriber aborted Plone site creation in any site that had
-  not installed its profile. Found while setting up 07-04's verification.
-
-Two non-blocking code-review warnings from Phase 4 remain open, recorded as WR-01 and
-WR-02 in `04-REVIEW.md`.
+**Blocking anything real:** the Puppet `concat::fragment` supplying
+`IMIO_GOOGLEAUTHENTICATOR_SEED_KEY` lives in the separate `industrialisation` repository and has
+not shipped. `base.cfg:54` sets the variable for `[testenv]` only, so `bin/instance` has no key
+and a production instance cannot decrypt or mint seeds.
 
 ## Performance Metrics
 
@@ -236,14 +202,35 @@ None yet.
 
 ## Deferred Items
 
-Items acknowledged and carried forward from previous milestone close:
+The pre-close artifact audit was clear — no open debug sessions, quick tasks or UAT items. The
+items below were deferred by explicit decision at the v1.0 close on 2026-08-06, not by the
+artifact audit. Full detail is in `.planning/MILESTONES.md` and
+`.planning/milestones/v1.0-MILESTONE-AUDIT.md`.
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
+| requirement | MFA-14 — `globally_enabled` does not enroll pre-existing accounts | Open, carried into v1.1 as operator items 2 and 3 | 2026-08-06 |
+| bug | Rejected recipient address crashes the bar-code reset email path (`request_bar_code_reset.py:112-113`) | Open, carried into v1.1 | 2026-08-06 |
+| missing artifact | No `07-SECURITY.md` for Phase 7 | Accepted | 2026-08-06 |
+| verification | Six Phase 5 claims marked "backstop" — real ZEO multi-client counters, live control-panel round trip, real mobile clock drift, proxy byte-equality at two endpoints | Unprovable in-process; accepted | 2026-08-06 |
+| verification | Nyquist validation records phases 5 through 8 as not-validated | Accepted | 2026-08-06 |
+| deployment | Puppet `concat::fragment` for the seed key not shipped (`industrialisation` repo) | Blocking real deployment | 2026-08-06 |
+| tech debt | Bulk enrollment mints seeds but shows nobody a QR code | Open | 2026-08-06 |
+| tech debt | Turning `globally_enabled` off enrolls nobody out (disable call commented out) | Open, overlaps v1.1 item 2 | 2026-08-06 |
+| tech debt | Username-enumeration oracle at `request_bar_code_reset.py` | Accepted low severity (T-03-26) | 2026-08-06 |
+| tech debt | No operations owner has confirmed nothing uses HTTP Basic Auth against this site's `acl_users` | Open; `README.rst` asks the deploying operator to check | 2026-08-06 |
+| docs | `CLAUDE.md` states profile version `0301` / package `0.3.0`; actual values are `1000` and `1.0.0.dev0` | Open | 2026-08-06 |
 
 ## Session Continuity
 
-Last session: 2026-08-06T07:24:20Z
-Stopped at: Phase 8 complete and verified — milestone v1.0 ready to close (all 8 phases done)
+Last session: 2026-08-06
+Stopped at: Milestone v1.0 closed, archived and tagged
 Resume file: None
+
+## Operator Next Steps
+
+- Start the next milestone with `/gsd-new-milestone`. It will read
+  `.planning/MILESTONE-CONTEXT.md`, which already holds the eight requested v1.1 items verbatim,
+  the two carried-over open items, and the open questions that must be settled before planning.
+- Outside this repository: get the `IMIO_GOOGLEAUTHENTICATOR_SEED_KEY` `concat::fragment` shipped
+  in `industrialisation`. Nothing here can be deployed until it is.

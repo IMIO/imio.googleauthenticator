@@ -4,8 +4,11 @@
 
 A Plone 4.3 / Python 2.7 PAS plugin providing TOTP two-factor authentication (Google
 Authenticator app) for users and site admins **inside** a Plone site. Forked from
-[collective.googleauthenticator](https://github.com/collective/collective.googleauthenticator)
-and being renamed, hardened, and made deployable alongside `imio.dms.mail`.
+[collective.googleauthenticator](https://github.com/collective/collective.googleauthenticator),
+renamed to `imio.googleauthenticator`, hardened, and made deployable alongside `imio.dms.mail`.
+Seeds are encrypted at rest, the second factor cannot be bypassed through a credentials
+extractor, brute force stops at a configurable lockout, and recovery codes cover the lost-phone
+case.
 
 Deliberately temporary. It exists because iMio's main projects are still on Plone 4 and need
 MFA now. When those projects reach Plone 6 (~1–2 years), this package is dropped and MFA moves
@@ -15,6 +18,59 @@ to Keycloak.
 
 A second factor that actually holds for in-site users, and that can be deployed alongside
 `imio.dms.mail` without colliding with it.
+
+Still the right priority after v1.0. Every phase in the milestone served one of its two halves,
+and nothing shipped that suggested a different centre of gravity.
+
+## Current State
+
+**Shipped:** v1.0 Hardened MFA, 2026-08-06, tagged `v1.0`. Eight phases, 30 plans, 3 quick
+tasks. See [`MILESTONES.md`](MILESTONES.md).
+
+| Measure | Value |
+|---|---|
+| Package version | `1.0.0.dev0` (`setup.py`); GenericSetup profile `1000` |
+| Tests | 135, 0 failures, 0 errors (`bin/test -t '!robot'`) |
+| Branch coverage | 90%, gated in CI by `bin/test-coverage -t '!robot'` |
+| Lint | `bin/code-analysis` exits 0; the buildout pre-commit hook passes without `--no-verify` |
+| Python in `src/` | 9,760 lines |
+| Requirements satisfied | 72 of 73 |
+
+**Code-complete but not deployable.** The Puppet `concat::fragment` that supplies
+`IMIO_GOOGLEAUTHENTICATOR_SEED_KEY` to each ZEO client lives in the separate
+`industrialisation` repository and has not shipped. `base.cfg:54` sets the variable in the
+`[testenv]` section only, so `bin/test` and `bin/test-coverage` have it and `bin/instance` does
+not. Without it a production instance cannot decrypt or mint seeds. This is the single item
+standing between the current state and a real deployment.
+
+**Enrolled users: none, anywhere.** That is why no upgrade steps, in-place re-encryption or
+memberdata migration were needed for the rename or the move to encrypted seeds.
+
+## Next Milestone Goals
+
+v1.1 is not yet planned. Scope is captured verbatim from the operator in
+[`MILESTONE-CONTEXT.md`](MILESTONE-CONTEXT.md): eight requested items plus two already-tracked
+open items. In short:
+
+1. Redirect to the home page after MFA setup, not the user profile.
+2. Make `globally_enabled` actually compulsory, and let users self-enroll when it is off.
+3. Enroll users who already existed when the add-on is installed — this is MFA-14, the one
+   v1.0 requirement that shipped unsatisfied. Items 2 and 3 are the same problem.
+4. Require password re-authentication before enabling, disabling, or regenerating recovery
+   codes.
+5. Show the secret in text form alongside the QR code.
+6. Email on every MFA state change, with no opt-out.
+7. Fix the missing French translations.
+8. Stop the user-profile field description from offering links that act on the administrator's
+   own account instead of the profile being viewed. Verified against the source: this is a
+   wrong-account defect, not a wording fix — an administrator clicking the disable link removes
+   their **own** second factor and is told it succeeded.
+
+Also folded in: the bar-code reset email crash on a rejected recipient address, which item 6
+makes more load-bearing.
+
+Run `/gsd-new-milestone` to turn that context into requirements and a roadmap. Phase numbering
+continues at 9.
 
 ## Requirements
 
@@ -192,7 +248,12 @@ A second factor that actually holds for in-site users, and that can be deployed 
 
 ### Active
 
-**Correctness**
+Everything here is v1.1 scope. None of it is assigned to a phase yet — run
+`/gsd-new-milestone`. The operator's verbatim wording, the open questions that must be settled
+before planning, and the source-level confirmation of the profile-links defect are all in
+[`MILESTONE-CONTEXT.md`](MILESTONE-CONTEXT.md); this list is a pointer, not a substitute.
+
+**Correctness — carried over from v1.0**
 
 - [ ] **MFA-14**: Turning on `globally_enabled` must cover accounts that already exist when
       this add-on is installed, not only accounts created afterwards. Today enrolment of
@@ -201,27 +262,79 @@ A second factor that actually holds for in-site users, and that can be deployed 
       login gate consults each user's own `enable_two_factor_authentication` flag, never the
       global setting. Found 2026-08-05 during Phase 7 plan 07-04 verification: installing
       `imio.dms.mail` first left an existing Member unenrolled, the reverse order enrolled
-      them. **Not yet assigned to a phase.**
+      them. The operator's v1.1 items 2 and 3 are this same problem.
 - [ ] A rejected recipient address in the bar-code reset email produces an unhandled error
       instead of the in-page failure message. `request_bar_code_reset.py:112-113` catches
       `SMTPRecipientsRefused` and re-raises the same exception type, which the enclosing
       `except ValueError` cannot catch. Predates the fork's arrival in this repository; found
       by the Phase 8 code review (finding CR-01 in `08-REVIEW.md`) and left unfixed because it
-      is outside a coverage phase's scope. **Not yet assigned to a phase.**
+      is outside a coverage phase's scope. Should land in the same milestone as the state-change
+      email work below, and arguably before it.
+
+**Correctness — new in v1.1**
+
+- [ ] The `enable_two_factor_authentication` field description hardcodes links to
+      `@@setup-two-factor-authentication` and `@@disable-two-factor-authentication`
+      (`userdataschema.py:76-83`). Neither view accepts a target user from the request; both act
+      on `api.user.get_current()`. An administrator viewing `/@@user-information?userid=agent`
+      who clicks the disable link clears their **own** seed, reset token and enable flag, and is
+      told it succeeded. Confirmed by source read 2026-08-06. Remove the links from the
+      other-user form at minimum; whether the views should also refuse a mismatched `userid` is
+      open.
+- [ ] Make `globally_enabled` compulsory when on, and allow self-enrollment when off.
+      Enrollment must never be blocked unless the package is uninstalled. Open question: whether
+      "never blocked" is meant to override the shipped lockout behaviour (MFA-08..MFA-13).
+
+**Security**
+
+- [ ] Require password re-authentication before enabling MFA, disabling MFA, or regenerating
+      recovery codes. Open questions: how long a successful re-auth stays valid, whether it
+      applies to an administrator acting on another account, and whether a failed re-auth feeds
+      the existing second-factor lockout counter (feeding the same counter lets a user lock
+      themselves out of the login form by mistyping a password on a settings page).
+- [ ] Email on every MFA state change — enabled, disabled, recovery codes regenerated — with no
+      opt-out. Open question: whether a failed send blocks the state change or is only logged.
+
+**Usability**
+
+- [ ] Show the TOTP secret in text form alongside the QR code, for password managers and desktop
+      TOTP clients. The QR already encodes the secret, so this adds no new secret to the page,
+      but it makes it copyable and shoulder-surfable. Confirm intent, and decide whether it needs
+      the password re-authentication gate above.
+- [ ] Redirect to the site home page after MFA setup instead of the user profile. Sits in the
+      same code area as the disable view's redirect (`disable_two_factor_authentication.py:38`).
+- [ ] Fill the missing French translations. Named examples: "These codes are shown only this one
+      time and cannot be retrieved again.", "regenerate recovery codes", and the token-form
+      instruction sentence.
 
 ### Out of Scope
 
+*Audited at the v1.0 close, 2026-08-06. Every reason below still holds; two entries were
+corrected because the work they pointed at has since shipped.*
+
 - **Python 3 migration** — Keycloak supersedes this package before the migration would pay off.
   This also parks every concern whose only real fix is Python 3: the `ska` 1.7.5 pin (already at
-  its last py2.7-compatible release) and the self-hosted py2 CI runner. **`py2-ipaddress` is not
-  one of them** — see the Active requirement above; research showed it is fixable now and must be.
+  its last py2.7-compatible release) and the self-hosted py2 CI runner. **`py2-ipaddress` was
+  never one of them** — it was fixable now, and Phase 3 swapped it for `ipaddress == 1.0.23`
+  with all three call sites coerced to unicode. No longer an open item.
 - **Plone 5 / Plone 6 support** — same reason. This package dies with Plone 4.
 - **Zope root admins** (`bin/instance` inituser, emergency user) — they live in the root
   `acl_users`, which an in-site PAS plugin never sees. Architecturally unreachable from this
   package at any effort level. MFA here is scoped to users and site admins inside the Plone site.
-  Accepted limitation, to be documented.
+  Accepted limitation, and now documented: Phase 4 added the `README.rst` section, pinned by
+  `test_readme_documents_zope_root_limitation`.
 - **WebAuthn / U2F / SMS fallback** — recovery codes cover the lost-device case at a fraction of
   the cost.
+- **Redisplaying or emailing recovery codes** — defeats the point of showing them once. This is
+  narrower than v1.1's requested "email on every MFA state change": a notification that codes
+  *were regenerated* is in scope for v1.1; putting the codes themselves in an email is not.
+- **"Remember this device"** — weakens the second factor for a convenience nobody asked for.
+- **Admin-unlock-only lockout** — a denial-of-service primitive. Five requests would permanently
+  lock a named account with no self-recovery.
+- **Progressive backoff, CAPTCHA, 8-digit OTP, adaptive or geo-based MFA** — gold-plating for a
+  package with two years left.
+- **Making HTTP Basic Auth work *with* a second factor** — not possible in a single request. The
+  Basic Auth path is vetoed instead; see the Phase 4 decision below.
 - **Async bulk operations** (task queue for enable/disable across all users) — iMio sites are
   nowhere near the ~10k user mark where the current loop times out.
 - **Performance caching** (IP-range precompilation, user-property and registry-lookup caching) —
@@ -229,7 +342,11 @@ A second factor that actually holds for in-site users, and that can be deployed 
 - **`onetimepass` → `pyotp` swap** — confirmed unnecessary: `get_hotp(secret, intervals_no=i)` is
   already public and exposes the window counter that replay detection needs.
 - **Email notification on lockout or recovery-code use** — conventional (ASVS 2.2.3) and cheap,
-  but it is a new feature on a mail path with zero test coverage. Revisit if operations asks.
+  but it is a new feature on a mail path with zero test coverage. *Revisited at the v1.0 close:
+  the operator has now asked for it. v1.1 requested item 6 covers MFA state changes (enabled,
+  disabled, codes regenerated); notification on lockout and on recovery-code **use** is still
+  not requested and stays here. Note the caveat that put this out of scope has not gone away —
+  the bar-code reset path still has an unhandled `SMTPRecipientsRefused`, listed in Active.*
 - **`MultiFernet` key rotation** — a `ponytail:` comment marking the upgrade path is enough for a
   package with two years left.
 - **Completing or removing the unused `hashed` parameter** on `get_secret` /
@@ -269,11 +386,15 @@ rejects it (Error 79), leaving only argv or a temp file. Since the entire point 
 to stop leaking the seed, we use `qrcode == 6.1` instead — one pinned pure-Python egg, rendering
 in-process, verified producing a real PNG and a Pillow-free SVG under this interpreter.
 
-**Coverage machinery exists but is switched off.** `base.cfg:82-92` defines a `[test-coverage]`
-part running `coverage report -m --fail-under=90`; `base.cfg:19-20` show `coverage` and
-`test-coverage` commented out of the parts list. The threshold is already the one we want. CI
-(`.github/workflows/package-test.yml`) calls `IMIO/gha-workflows` `package-test-legacy.yml@v1`
-with a bare `test_command: 'bin/test -t !robot'` and no coverage step.
+**Coverage machinery is now on.** *(This paragraph described the pre-Phase-8 state: a
+`[test-coverage]` part defined in `base.cfg` but commented out of the parts list, and CI calling
+`IMIO/gha-workflows` with a bare `test_command: 'bin/test -t !robot'` and no coverage step.)*
+Phase 8 corrected the `.coveragerc` scope, added the `set -e` that makes the script able to
+report failure at all, raised branch coverage from 84% to 90% with real asserting tests, and
+pointed CI's `test_command` at `bin/test-coverage -t !robot`, so `--fail-under=90` now gates
+every push. Confirmed green on `master` (workflow run 31083206842, 2026-08-06). The half of that
+claim still unobserved in real CI is that a pull request dropping below 90% turns the job red;
+the mechanism was proven locally with a deliberate red build that was then reverted.
 
 **Not deployed yet — but that is about users, not databases.** No enrolled users anywhere, so the
 rename and the move to encrypted seeds need no upgrade steps, no in-place re-encryption, and no
@@ -318,25 +439,27 @@ enumerates the bugs, security gaps, and test-coverage holes referenced above.
   the reason the Python 3 and Plone 6 migrations are out of scope
 - **Deployment dependency**: the encryption-key `concat::fragment` is a change in the separate
   `industrialisation` repo, outside this roadmap's commits. Tracked here so it does not silently
-  fall through.
+  fall through. **Status at the v1.0 close, 2026-08-06: still not shipped.** It was placed at
+  Phase 3 precisely to give it lead time, and it is now the only thing standing between
+  code-complete and deployable.
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Stay on Python 2.7 / Plone 4.3 | Package is a bridge for unmigrated projects; Keycloak replaces it before a py3 port would pay off | — Pending |
-| Fernet via `cryptography==3.3.2` for seed encryption | Last py2.7-compatible release, already proven in the iMio stack — no new dependency risk | — Pending |
-| Key injected as an env var via Puppet `port.cfg` → `environment-vars` | Reuses the exact mechanism `SSO_APPS_CLIENT_SECRET` already uses; keeps the key out of the ZODB | — Pending |
-| Replay and lockout state in memberdata properties, written only in the token form view | Consistent across ZEO clients; the view is the only path in the request lifecycle that actually commits | — Pending |
-| Drop the two overrides via `id = 'login_form'` on `TokenForm` | The overrides exist solely to defeat the AJAX login overlay, and they collide with `imio.dms.mail`'s `jsregistry.xml`. One class attribute makes Plone's own overlay find the token form, replacing 507 vendored lines | — Pending |
+| Stay on Python 2.7 / Plone 4.3 | Package is a bridge for unmigrated projects; Keycloak replaces it before a py3 port would pay off | ✓ Good — held through all 8 phases of v1.0; nothing in the milestone needed a py3-only capability |
+| Fernet via `cryptography==3.3.2` for seed encryption | Last py2.7-compatible release, already proven in the iMio stack — no new dependency risk | ✓ Shipped Phase 3 |
+| Key injected as an env var via Puppet `port.cfg` → `environment-vars` | Reuses the exact mechanism `SSO_APPS_CLIENT_SECRET` already uses; keeps the key out of the ZODB | ⚠️ Revisit — the code side shipped in Phase 3 and the key is read from the environment as designed, but the Puppet `concat::fragment` in the `industrialisation` repo has not shipped. `base.cfg:54` sets the variable for `[testenv]` only, so `bin/instance` has no key. This is the one thing blocking deployment |
+| Replay and lockout state in memberdata properties, written only in the token form view | Consistent across ZEO clients; the view is the only path in the request lifecycle that actually commits | ✓ Shipped Phase 5 — pinned by a source-grep regression test that fails if any second-factor state write appears outside a committing view |
+| Drop the two overrides via `id = 'login_form'` on `TokenForm` | The overrides exist solely to defeat the AJAX login overlay, and they collide with `imio.dms.mail`'s `jsregistry.xml`. One class attribute makes Plone's own overlay find the token form, replacing 507 vendored lines | ✓ Shipped Phase 7 — delivered as a one-line `render()` post-process rather than a class attribute; 507 vendored lines deleted |
 | Challenge split across `IChallengePlugin` + an `IPubBeforeCommit` subscriber | Plone 4.3's login POST returns HTTP 200 and never raises `Unauthorized`, so `challenge()` alone never fires on the normal login path | ✓ Shipped Phase 4 |
 | Zope root admins accepted as out of reach | An in-site PAS plugin never runs for the root `acl_users`; MFA is scoped to users and site admins inside the Plone site | ✓ Shipped Phase 4 — documented in `README.rst`, pinned by `test_readme_documents_zope_root_limitation` |
-| Local QR via `qrcode == 6.1`, not `imio.helpers` + zint | Reversed after research: zint takes the seed in argv, readable via `ps` by any local user, which defeats the purpose of encrypting it. One pure-Python egg avoids the subprocess entirely | — Pending |
-| Lockout N and duration as control-panel settings | Tunable on a live site without a release, following `imio.dms.mail`'s `RegistryEditForm` pattern | — Pending |
-| Recovery codes instead of WebAuthn/SMS | Covers the lost-device case at a fraction of the cost, for a package with a 2-year life | — Pending |
-| Recovery codes hashed with one salt per user, not per code | A per-code salt forces N hash runs per attempt (~1.1s for 10 codes) on a login-adjacent endpoint — a DoS lever. Per-user still defeats cross-user rainbow tables, which is all a salt does here | — Pending |
-| No upgrade steps for the rename; existing dev ZODBs discarded | No enrolled users to migrate, and pickled module paths make in-place migration far more work than recreating a dev database | — Pending |
-| Don't rename `PAS_ID` (`google_auth`) | Already namespace-neutral; renaming it would create a second plugin on any existing ZODB | — Pending |
+| Local QR via `qrcode == 6.1`, not `imio.helpers` + zint | Reversed after research: zint takes the seed in argv, readable via `ps` by any local user, which defeats the purpose of encrypting it. One pure-Python egg avoids the subprocess entirely | ✓ Shipped Phase 3 |
+| Lockout N and duration as control-panel settings | Tunable on a live site without a release, following `imio.dms.mail`'s `RegistryEditForm` pattern | ✓ Shipped Phase 5 — defaults 5 attempts / 900 seconds. The live edit-and-persist round trip is a "backstop" claim no in-process test proves |
+| Recovery codes instead of WebAuthn/SMS | Covers the lost-device case at a fraction of the cost, for a package with a 2-year life | ✓ Shipped Phase 6 |
+| Recovery codes hashed with one salt per user, not per code | A per-code salt forces N hash runs per attempt (~1.1s for 10 codes) on a login-adjacent endpoint — a DoS lever. Per-user still defeats cross-user rainbow tables, which is all a salt does here | ✓ Shipped Phase 6 |
+| No upgrade steps for the rename; existing dev ZODBs discarded | No enrolled users to migrate, and pickled module paths make in-place migration far more work than recreating a dev database | ✓ Shipped Phase 1 — safe because there are still no enrolled users anywhere. This decision expires the moment the package is deployed to a real site |
+| Don't rename `PAS_ID` (`google_auth`) | Already namespace-neutral; renaming it would create a second plugin on any existing ZODB | ✓ Good — held through v1.0. Quick task `260806-gfr` later added an uninstall import step that removes the `google_auth` plugin, since a GenericSetup profile cannot remove a PAS plugin declaratively |
 | Seed `ska_secret_key` at install time in `setuphandlers._setup_secret_key()`, **not** lazily on first read | Reverses the 02-01 plan's D-04/D-05 lazy-mint design (CR-02). A mint inside `get_ska_secret_key()` is reachable from `authenticateCredentials()`, a path that ends in `transaction.abort()` on `Unauthorized` — it would discard the key *after* a signed URL using it was already handed to the browser. `get_ska_secret_key()` is now a pure read that raises `ValueError` on an empty key | ✓ Shipped Phase 2 |
 | Derive the `ska` key with a length-prefixed netstring join, not bare concatenation | Bare concatenation of `(user_secret, browser_hash, ska_secret_key)` is collidable: a component-boundary shift yields the same key, so a signature minted in one context validates in another. Asserted with an exact-string check on a fixture that provably collides under the old scheme, so it cannot regress into a cosmetic reformat | ✓ Shipped Phase 2 |
 | Assert the `<depends>` *declaration*, not just the resulting sorted order | The first ordering test was tautological — it stayed green with `<depends name="plone.app.registry"/>` deleted, purely by CPython 2.7 string-hash coincidence. `test_import_step_declares_registry_dependency` asserts the pre-sort `getImportStepMetadata(...)['dependencies']` instead, and was reproduced failing on deletion. The outcome test is kept, with a docstring admitting it proves nothing alone | ✓ Shipped Phase 2 |
@@ -375,6 +498,20 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
+*Last updated: 2026-08-06 after the v1.0 Hardened MFA milestone. Full review of every section.
+"What This Is" moved to past tense and now names what actually shipped. New "Current State"
+section records the shipped version, the measured test/coverage/lint numbers, and the one thing
+blocking deployment. New "Next Milestone Goals" section points at `MILESTONE-CONTEXT.md` rather
+than restating it. Active requirements replaced with the v1.1 scope, MFA-14 and the bar-code
+reset email crash carried over as the two items already tracked. Out of Scope audited: two
+entries corrected because the work they referenced has since shipped (the `py2-ipaddress` swap
+and the Zope-root documentation), the lockout-email entry annotated because the operator has now
+asked for a narrower version of it, and six entries lifted out of `REQUIREMENTS.md` so they are
+not silently lost when that file is archived. Eleven Key Decisions moved off "Pending" to a real
+outcome; one is marked ⚠️ Revisit — the seed key is read from the environment as designed, but
+the Puppet fragment that supplies it has not shipped. Milestone closed as override_closeout: one
+requirement (MFA-14) shipped unsatisfied, by explicit operator decision.*
+
 *Last updated: 2026-08-06 — Phase 8 complete (coverage instrument and test layers), and with it
 the last phase of milestone v1.0. Phase 8's seven requirements (QUAL-01 to QUAL-07) moved to
 Validated, along with four items that Phase 7 had already delivered but that were still sitting in
