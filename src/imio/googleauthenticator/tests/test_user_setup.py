@@ -1,11 +1,13 @@
 from cryptography.fernet import Fernet
 from imio.googleauthenticator import helpers
 from imio.googleauthenticator.browser.forms import user_setup
+from imio.googleauthenticator.browser.forms.user_setup import ISetupForm
 from imio.googleauthenticator.browser.forms.user_setup import SetupForm
 from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 from onetimepass import get_totp
 from plone import api
+from plone.app.testing import applyProfile
 from plone.app.testing import login
 from plone.app.testing import SITE_OWNER_NAME
 from plone.app.testing import TEST_USER_NAME
@@ -15,7 +17,21 @@ from zope.globalrequest import setRequest
 
 import os
 import time
+import transaction
 import unittest2 as unittest
+
+
+# ``updateFields`` rewrites ``barcode_field.field.description`` in place on
+# the schema's own ``zope.schema.Field`` object, a module-level singleton
+# shared by every ``SetupForm`` instance in the process -- there is no
+# per-request copy. Same hazard test_reset_bar_code.py's
+# ``_QR_CODE_DEFAULT_DESCRIPTION`` already documents and works around for
+# ``IResetBarCodeForm``: a QR rendered by one test leaks into a later
+# test's "no QR" assertion, since the no-user branch never restores the
+# description. Captured once at import time, before any test can have
+# mutated it, and restored in TestEnrollmentRedirect.setUp so each test
+# method starts from the real schema default regardless of run order.
+_QR_CODE_DEFAULT_DESCRIPTION = ISetupForm['qr_code'].description
 
 
 class _RaisesOnFirstCall(object):
@@ -616,3 +632,196 @@ class TestSetupForm(unittest.TestCase, BaseTest):
             current.getProperty('two_factor_authentication_locked_until'),
             int(time.time()) + lockout_duration,
             'The lock must be bounded by the configured lockout_duration.')
+
+
+class TestEnrollmentRedirect(unittest.TestCase, BaseTest):
+    """D-16/D-17/MFA-15/MFA-19: this plan's own tracer proof, plus the two
+    edge probes ROADMAP.md's success criterion 5 calls out. setUp/tearDown
+    shape copied from tests/test_token.py:46-75 (seed-key hygiene,
+    member-data reset); one class per concern, per this repo's WR-03
+    precedent -- kept apart from TestSetupForm above, which exercises only
+    the authenticated self-service path.
+    """
+
+    layer = IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
+
+    def setUp(self):
+        self.app = self.layer['app']
+        self.portal = self.layer['portal']
+        self.portal_url = api.portal.get().absolute_url()
+
+        self._previous_key = os.environ.get(helpers.ENV_VAR_NAME)
+        os.environ[helpers.ENV_VAR_NAME] = Fernet.generate_key()
+        self._previous_globally_enabled = helpers.get_app_settings().globally_enabled
+
+        # See _QR_CODE_DEFAULT_DESCRIPTION's module-level comment: this
+        # field's description is process-wide mutable state, not
+        # per-request -- reset it before every test method in this class.
+        ISetupForm['qr_code'].description = _QR_CODE_DEFAULT_DESCRIPTION
+
+        # Hygiene precondition: the ambient test user must start with no
+        # stored seed, or test_enrollment_page_refuses_an_unresolvable_
+        # or_absent_auth_user's "no seed minted as a side effect"
+        # assertion below is vacuous.
+        user = api.user.get(username=TEST_USER_NAME)
+        if user is not None:
+            user.setMemberProperties(mapping={
+                'enable_two_factor_authentication': False,
+                'two_factor_authentication_secret': '',
+                'two_factor_authentication_enrolled': False,
+            })
+
+    def tearDown(self):
+        helpers.get_app_settings().globally_enabled = \
+            self._previous_globally_enabled
+
+        user = api.user.get(username=TEST_USER_NAME)
+        if user is not None:
+            user.setMemberProperties(mapping={
+                'enable_two_factor_authentication': False,
+                'two_factor_authentication_secret': '',
+                'two_factor_authentication_enrolled': False,
+            })
+        transaction.commit()
+
+        if self._previous_key is None:
+            os.environ.pop(helpers.ENV_VAR_NAME, None)
+        else:
+            os.environ[helpers.ENV_VAR_NAME] = self._previous_key
+
+    def test_install_enrolled_user_is_walked_through_enrollment_at_login(self):
+        """The tracer's verification, and the only end-to-end assertion in
+        this plan: a pre-existing account enrolled by install logs in, is
+        shown a QR code on a cookie-cleared request, enters a code from
+        it, and ends up logged in with enrollment recorded.
+        """
+        settings = helpers.get_app_settings()
+
+        # Create the account while enforcement is OFF, so
+        # userdataschema.userCreatedHandler does not itself enrol it at
+        # creation time -- that would make the very next assertion
+        # vacuous, and would test creation-time enrolment (already
+        # existing behaviour) rather than install-time enrolment (MFA-15,
+        # what this test is actually about).
+        settings.globally_enabled = False
+        username = 'install-enrolled-tracer-user'
+        created_user = api.user.create(
+            email='install-enrolled-tracer-user@example.com',
+            username=username,
+            password='Secret0123!')
+        self.assertFalse(
+            created_user.getProperty('enable_two_factor_authentication'),
+            'precondition: the account must start unenrolled, or the '
+            'MFA-15 assertion below is vacuous')
+
+        settings.globally_enabled = True
+        applyProfile(self.portal, 'imio.googleauthenticator:default')
+
+        enrolled_user = api.user.get(username=username)
+        self.assertTrue(
+            enrolled_user.getProperty('enable_two_factor_authentication'),
+            'MFA-15: install must enrol the pre-existing account')
+        self.assertFalse(
+            enrolled_user.getProperty('two_factor_authentication_secret'),
+            'D-02: install must mint no seed')
+        self.assertFalse(
+            enrolled_user.getProperty('two_factor_authentication_enrolled'),
+            'D-06(b): the account has not completed enrollment yet')
+        transaction.commit()
+
+        browser = self._get_browser()
+        self._login_browser(browser, username, 'Secret0123!')
+
+        self.assertIn(
+            '@@setup-two-factor-authentication', browser.url,
+            'MFA-19: an unenrolled, install-enrolled account must be '
+            'routed to the enrollment page')
+        self.assertNotIn(
+            '@@google-authenticator-token', browser.url,
+            'MFA-19: a redirect to the code-entry page for an unenrolled '
+            'account is the lockout this requirement exists to prevent')
+        self.assertIn('alt="QR Code"', browser.contents)
+
+        # Re-fetch: the login above minted the seed in a transaction the
+        # Browser's own request committed, separate from the
+        # ``enrolled_user`` reference obtained earlier in this method --
+        # reusing that stale reference would read back no seed at all.
+        seeded_user = api.user.get(username=username)
+        secret = helpers.get_secret(seeded_user)
+        code = get_totp(secret, as_string=True)
+        browser.getControl(name='form.widgets.token').value = code
+        browser.getControl('Verify').click()
+
+        refetched_user = api.user.get(username=username)
+        self.assertTrue(
+            refetched_user.getProperty('two_factor_authentication_enrolled'),
+            'D-17: a successful submission must record enrollment as '
+            'complete')
+        self.assertIn(
+            'shown only this one time', browser.contents,
+            'RECOV-03: the recovery codes must render in the same '
+            'response that completed enrollment')
+
+    def test_enrollment_page_refuses_an_unresolvable_or_absent_auth_user(self):
+        """MFA-19's empty edge probe: an enrollment request whose
+        auth_user parameter is absent, empty, or names a username
+        api.user.get() cannot resolve gets no QR code and cannot submit a
+        token.
+        """
+        unknown_username = 'no-such-account-at-all'
+        self.assertIsNone(
+            api.user.get(username=unknown_username),
+            'precondition: this username must not exist')
+
+        setup_url = '{0}/@@setup-two-factor-authentication'.format(
+            self.portal_url)
+        for query_string in (
+                '', 'auth_user=', 'auth_user=' + unknown_username):
+            url = (
+                '{0}?{1}'.format(setup_url, query_string)
+                if query_string else setup_url)
+            browser = self._get_browser()
+            browser.open(url)
+            self.assertNotIn(
+                'alt="QR Code"', browser.contents,
+                'no QR code must render for query string {0!r}'.format(
+                    query_string))
+
+        self.assertIsNone(
+            api.user.get(username=unknown_username),
+            'no account must have been created as a side effect')
+        self.assertFalse(
+            api.user.get(username=TEST_USER_NAME).getProperty(
+                'two_factor_authentication_secret'),
+            'no seed should have been minted for the ambient test user '
+            'as a side effect of any of the three requests above')
+
+    def test_abandoned_enrollment_is_routed_to_the_enrollment_page_again(self):
+        """MFA-19's adjacency edge probe, and the residual hazard D-06's
+        note describes: an account holding a stored seed but with
+        two_factor_authentication_enrolled False (enrollment abandoned
+        after the login redirect minted the seed) is routed to the
+        enrollment page, not the code-entry page -- a user holding a seed
+        they never saw must not be asked for a code from it.
+        """
+        username = 'abandoned-enrollment-user'
+        user = api.user.create(
+            email='abandoned-enrollment-user@example.com',
+            username=username,
+            password='Secret0123!')
+        user.setMemberProperties(
+            mapping={'enable_two_factor_authentication': True})
+        helpers.get_or_create_secret(user, overwrite=True)
+        self.assertFalse(
+            user.getProperty('two_factor_authentication_enrolled'),
+            'precondition: enrollment must not be recorded as complete yet')
+        transaction.commit()
+
+        browser = self._get_browser()
+        self._login_browser(browser, username, 'Secret0123!')
+
+        self.assertIn(
+            '@@setup-two-factor-authentication', browser.url,
+            'a user holding a seed they never saw must be routed to the '
+            'enrollment page, not asked for a code from it')
+        self.assertNotIn('@@google-authenticator-token', browser.url)
