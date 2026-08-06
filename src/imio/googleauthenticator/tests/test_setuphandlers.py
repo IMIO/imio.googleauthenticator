@@ -1,5 +1,6 @@
 from cryptography.fernet import Fernet
 from imio.googleauthenticator import helpers
+from imio.googleauthenticator import setuphandlers
 from imio.googleauthenticator.browser.controlpanel import IGoogleAuthenticatorSettings
 from imio.googleauthenticator.helpers import get_app_settings
 from imio.googleauthenticator.helpers import get_ska_secret_key
@@ -53,6 +54,47 @@ POSITION_ATTRIBUTES = (
     'insert-top', 'position-top',
     'insert-bottom', 'position-bottom',
     )
+
+
+class _FakeApiWithOneFailingUser(object):
+    """Stand-in for ``imio.googleauthenticator.setuphandlers.api`` (the
+    module's own ``from plone import api`` name), used only by
+    ``test_install_enrollment_reports_a_failure_instead_of_partially_
+    enrolling``. ``_enroll_existing_users``'s only use of this name is
+    ``api.user.get_users()`` -- this returns a three-element list: the
+    first and last are the two real accounts the test created, and the
+    middle one is ``_FailingUser``, an object whose ``getProperty`` mimics
+    an unenrolled real account (so the per-user guard does not skip it)
+    but whose ``setMemberProperties`` raises.
+
+    Standing in for a real memberdata write failing mid-batch, following
+    ``tests/test_user_setup.py:21-39``'s ``_RaisesOnFirstCall`` precedent:
+    inject the failure through a real collaborator, not a mock framework.
+    """
+
+    class _FailingUser(object):
+        def getProperty(self, name, default=None):
+            if name == 'enable_two_factor_authentication':
+                return False
+            return default
+
+        def setMemberProperties(self, mapping):
+            raise ValueError(
+                'deliberate: injected via a real collaborator (D-04 test)')
+
+    class _UserNamespace(object):
+        def __init__(self, real_users):
+            self._users = [
+                real_users[0],
+                _FakeApiWithOneFailingUser._FailingUser(),
+                real_users[1],
+                ]
+
+        def get_users(self):
+            return self._users
+
+    def __init__(self, real_users):
+        self.user = self._UserNamespace(real_users)
 
 
 class TestSetupHandlers(unittest.TestCase, BaseTest):
@@ -461,6 +503,77 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
         finally:
             z2.logout()
             login(self.portal, TEST_USER_NAME)
+
+    def test_install_enrollment_reports_a_failure_instead_of_partially_enrolling(self):
+        """D-04, Wave 0 gap 2: settles RESEARCH.md's assumption A1. No
+        test in this suite had ever raised an exception from inside
+        ``setupVarious`` before this method, so the "let a per-user
+        failure propagate, don't swallow it" design (D-04) was
+        unverified until now.
+
+        Observed: A1 holds. ``Products.GenericSetup.tool.
+        _doRunImportStep`` calls its handler with no surrounding
+        try/except (``Products/GenericSetup/tool.py:1284``,
+        ``return handler(context)``), and ``plone.app.testing.
+        applyProfile``'s own try/finally only restores the security
+        manager, never catches. The injected ``ValueError`` propagates
+        unchanged out of ``_enroll_existing_users``, ``setupVarious``,
+        the import-step runner and ``applyProfile`` itself -- exactly
+        what ``self.assertRaises(ValueError, ...)`` below proves.
+
+        The account processed before the failing one keeps the flag that
+        was written for it (the ordering probe: a partial batch is
+        visible, not silently uniform), and re-running the install after
+        the injected failure is removed enrols every real account --
+        D-04's "either enrol everyone or report plainly that it did not"
+        is satisfied by a loud failure plus a working re-run.
+        """
+        usernames = ('install-fails-user-1', 'install-fails-user-2')
+        for username in usernames:
+            api.user.create(
+                email='{0}@example.com'.format(username),
+                username=username, password='Secret0123!')
+        real_users = [api.user.get(username=name) for name in usernames]
+        for user in real_users:
+            self.assertFalse(
+                user.getProperty('enable_two_factor_authentication'),
+                'Non-vacuity control: both real accounts must start '
+                'unset, or the assertions below prove nothing.')
+
+        # globally_enabled is turned on only now -- after account
+        # creation, not before. userdataschema.userCreatedHandler already
+        # consults this same setting on api.user.create(); flipping it on
+        # first would enrol both accounts as a side effect of creation,
+        # making the precondition assertion above vacuous.
+        get_app_settings().globally_enabled = True
+
+        real_api = setuphandlers.api
+        setuphandlers.api = _FakeApiWithOneFailingUser(real_users)
+        try:
+            self.assertRaises(
+                ValueError,
+                applyProfile, self.portal, 'imio.googleauthenticator:default')
+        finally:
+            setuphandlers.api = real_api
+
+        first_user = api.user.get(username=usernames[0])
+        self.assertTrue(
+            first_user.getProperty('enable_two_factor_authentication'),
+            'D-04 ordering probe: the account processed before the '
+            'failing one must keep the flag that was written for it -- '
+            'a partial batch is visible, not silently uniform.')
+
+        try:
+            applyProfile(self.portal, 'imio.googleauthenticator:default')
+            for user in real_users:
+                refetched = api.user.get(username=user.getUserName())
+                self.assertTrue(
+                    refetched.getProperty('enable_two_factor_authentication'),
+                    'D-04: re-running the install after the injected '
+                    'failure is removed must be a real recovery -- '
+                    'every real account enrolled.')
+        finally:
+            get_app_settings().globally_enabled = False
 
     def test_memberdata_properties_import_declares_expected_types(self):
         """MFA-13 (import half): the GenericSetup import of
