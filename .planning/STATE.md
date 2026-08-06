@@ -2,9 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Enrollment Control and Account Safety
+current_phase: 9
+current_phase_name: Mail Path and Profile-Page Correctness
 status: planning
-last_updated: "2026-08-06T00:00:00.000Z"
+stopped_at: Phase 9 context gathered
+last_updated: "2026-08-06T11:34:08.848Z"
 last_activity: 2026-08-06
+last_activity_desc: v1.1 roadmap created, Phases 9-13, 19/19 requirements mapped
 progress:
   total_phases: 5
   completed_phases: 0
@@ -71,21 +75,27 @@ build on the decision rather than merely know it happened.
 
 - **[Phase 2 → all]** `get_ska_secret_key()` is a pure read that raises `ValueError` on an empty
   key. There is no lazy mint. Anything reached from an abortable request path must not mint.
+
 - **[Phase 4 → Phase 10]** `authenticateCredentials` decides only; the redirect is issued by an
   `IPubBeforeCommit` subscriber and by `IChallengePlugin.challenge`. The login-form POST returns
   HTTP 200 and never raises, so any Phase 10 enforcement at login has to cover both paths.
+
 - **[Phase 5 → Phases 10, 11]** All second-factor state writes happen inside a committing view,
   never in the PAS plugin. Pinned by the source-grep test
   `tests/test_pas_plugin.py::test_no_second_factor_state_written_from_the_plugin`, which lists
   property names and helper function names per file — extend it, don't route around it.
+
 - **[Phase 5 → Phase 10]** The replay and lockout counters are memberdata properties with **no**
   `IEnhancedUserDataSchema` field. Declaring internal state on that schema crashes
   `@@user-information` (no accessor in `adapter.py`) and makes it form-writable.
+
 - **[Phase 6 → Phase 9 UX-01]** `user_setup.py` leaves `redirect_url = None` on the success path
   on purpose — the one-time recovery-code display depends on the response *not* being a 302.
   `plone.z3cform` 0.8.1 blanks the wrapped form only on 302/303.
+
 - **[Phase 7 → all]** No skin layer, no vendored JS, no resource this package does not own. An
   invariant test fails the day a foreign resource id appears.
+
 - **[Phase 8 → all]** `bin/code-analysis` exits 0 and the pre-commit hook passes without
   `--no-verify`. CI runs `bin/test-coverage -t '!robot'` with `--fail-under=90`.
 
@@ -103,23 +113,28 @@ None yet.
   catches `SMTPRecipientsRefused` and re-raises the same exception type, which the enclosing
   `except ValueError` cannot catch. Those two lines are uncovered. Phase 12 adds three more
   senders to this path, so it is fixed first.
+
 - **Now mapped, was open — Phase 10 (MFA-15..19, was MFA-14):** `globally_enabled` does not
   enroll accounts that existed when the add-on was installed. The login gate reads each user's
   own `enable_two_factor_authentication` flag, never the global setting;
   `setuphandlers.setupVarious` enrolls nobody; only saving the control panel form enrolls anyone.
   Confirmed on a real two-egg environment 2026-08-05. Bulk enrollment also mints a seed without
   ever showing a QR code, which is why MFA-19 ships in the same phase.
+
 - **Phase 10 / Phase 11 (from 04-SECURITY.md R-04-C):** do not attach lockout or replay state to
   the `send_2fa_redirect` call chain. It is write-free in its own body but reaches
   `sign_user_data` → `get_or_create_secret`, which writes a memberdata seed for a 2FA-enabled
   user who has none. Relevant because Phase 10 changes who reaches that path.
+
 - **Phase 10 (from 04-REVIEW.md WR-01/WR-02):** for a user with 2FA enabled but no stored seed, a
   broken or missing `IMIO_GOOGLEAUTHENTICATOR_SEED_KEY` raises inside `send_2fa_redirect` rather
   than synchronously in `authenticateCredentials`, giving an uncontrolled error page instead of a
   clean refusal. Still fail-closed, no bypass. Phase 10 creates exactly this state — enrolled by
   the global setting, no seed yet — so it is now on the critical path.
+
 - **Phase 13 (lint):** `flake8-isort` 4.0.0 reports findings from a diff, so a file's finding
   count shifts when any line in it changes. Check error codes, not per-file counts.
+
 - **External, blocks deployment not development:** the `IMIO_GOOGLEAUTHENTICATOR_SEED_KEY`
   `concat::fragment` lives in the separate `industrialisation` repo and has not shipped.
   `base.cfg:54` sets it for `[testenv]` only. Nothing in v1.1 can close this.
@@ -154,17 +169,19 @@ that v1.1 picks up are now mapped to phases and repeated under Blockers above.
 
 ## Session Continuity
 
-Last session: 2026-08-06
-Stopped at: v1.1 roadmap created — Phases 9-13, 19/19 requirements mapped, traceability populated
-Resume file: None
+Last session: 2026-08-06T11:34:08.837Z
+Stopped at: Phase 9 context gathered
+Resume file: .planning/phases/09-mail-path-and-profile-page-correctness/09-CONTEXT.md
 
 ## Operator Next Steps
 
 - `/gsd-plan-phase 9` to plan the first v1.1 phase. Phase 9 has four independent corrections
   (BUG-07, BUG-08, UX-01, UX-02) and is the cheapest phase in the milestone.
+
 - Five open questions are recorded at the end of `.planning/REQUIREMENTS.md` and are deliberately
   unanswered. Questions 4 and 5 must be settled before Phase 9 (question 4 decides whether UX-02
   stays in Phase 9 or moves to Phase 11); question 3 before Phase 10; questions 1 and 2 before
   Phase 11. `/gsd-discuss-phase` is where they get answered.
+
 - Outside this repository: get the `IMIO_GOOGLEAUTHENTICATOR_SEED_KEY` `concat::fragment` shipped
   in `industrialisation`. Nothing here can be deployed until it is, and v1.1 does not change that.
