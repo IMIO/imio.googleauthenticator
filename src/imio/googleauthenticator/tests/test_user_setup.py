@@ -412,6 +412,55 @@ class TestSetupForm(unittest.TestCase, BaseTest):
                 'RECOV-03: a fresh form instance must never redisplay a '
                 'previously issued code.')
 
+    def test_recovery_codes_page_links_to_the_home_page(self):
+        """UX-01: the recovery-codes page's only link goes to the site
+        home page, not to the user's own profile. The expected ``href`` is
+        obtained through the ``@@plone`` view's ``navigationRootUrl`` --
+        the same value production resolves -- rather than a hard-coded
+        ``self.portal_url``: a hard-coded path would pass vacuously on a
+        portal that happens to be its own navigation root and would not
+        prove the template's own expression actually resolves.
+        """
+        real_validate_token = user_setup.validate_token
+        user_setup.validate_token = lambda *args, **kwargs: True
+        try:
+            form = self._build_form('123456')
+            SetupForm.handleSubmit.func(form, None)
+        finally:
+            user_setup.validate_token = real_validate_token
+        self._clear_location()
+
+        codes = form.issued_recovery_codes
+        markup = form.render()
+
+        self.assertIn(
+            'Continue to the home page', markup,
+            'UX-01: the retargeted link text must be present.')
+        self.assertNotIn(
+            'Continue to your profile', markup,
+            'UX-01: the old link text must be gone.')
+
+        navigation_root_url = self.portal.restrictedTraverse(
+            '@@plone').navigationRootUrl()
+        self.assertIn(
+            'href="{0}"'.format(navigation_root_url), markup,
+            'The anchor must resolve to the navigation root URL returned '
+            'by the @@plone view, not a hard-coded path.')
+        self.assertNotIn(
+            '@@personal-information', markup,
+            'The retargeted link must not carry a @@personal-information '
+            'suffix -- the destination is the home page itself, not a '
+            'page under it.')
+
+        # RECOV-03 guard: a future change that reintroduces a redirect on
+        # the success path would blank the wrapped form and remove the
+        # codes from this same markup.
+        for code in codes:
+            self.assertIn(
+                code, markup,
+                'RECOV-03 guard: the ten recovery codes must still render '
+                'in the same response as the retargeted link.')
+
     def test_handleSubmit_refuses_a_locked_account_even_with_a_correct_code(self):
         """CR-01/T-fsp-01: the lock gate must run strictly before
         ``validate_token``, so a locked account cannot enrol -- and cannot
