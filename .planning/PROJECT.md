@@ -46,11 +46,14 @@ standing between the current state and a real deployment.
 **Enrolled users: none, anywhere.** That is why no upgrade steps, in-place re-encryption or
 memberdata migration were needed for the rename or the move to encrypted seeds.
 
-## Next Milestone Goals
+## Current Milestone: v1.1 Enrollment Control and Account Safety
 
-v1.1 is not yet planned. Scope is captured verbatim from the operator in
-[`MILESTONE-CONTEXT.md`](MILESTONE-CONTEXT.md): eight requested items plus two already-tracked
-open items. In short:
+**Goal:** Make enrollment do what the settings say it does, and make every change to a user's
+second factor safe, announced, and readable in French.
+
+**Target features:** the eight items requested by the operator plus two already-tracked open
+items. The operator's verbatim wording and the open questions that must be settled before
+planning are in [`MILESTONE-CONTEXT.md`](MILESTONE-CONTEXT.md). In short:
 
 1. Redirect to the home page after MFA setup, not the user profile.
 2. Make `globally_enabled` actually compulsory, and let users self-enroll when it is off.
@@ -69,8 +72,8 @@ open items. In short:
 Also folded in: the bar-code reset email crash on a rejected recipient address, which item 6
 makes more load-bearing.
 
-Run `/gsd-new-milestone` to turn that context into requirements and a roadmap. Phase numbering
-continues at 9.
+Requirements are in [`REQUIREMENTS.md`](REQUIREMENTS.md) and phases in
+[`ROADMAP.md`](ROADMAP.md). Phase numbering continues at 9.
 
 ## Requirements
 
@@ -498,6 +501,12 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
+*Last updated: 2026-08-06 when milestone v1.1 "Enrollment Control and Account Safety" started.
+The section that was called "Next Milestone Goals" is now "Current Milestone: v1.1", carrying
+the milestone goal in one sentence and the same ten-item list; it now points at `REQUIREMENTS.md`
+and `ROADMAP.md` instead of telling the reader to run `/gsd-new-milestone`. Nothing else changed
+— the Active requirements list was already written as v1.1 scope at the v1.0 close.*
+
 *Last updated: 2026-08-06 after the v1.0 Hardened MFA milestone. Full review of every section.
 "What This Is" moved to past tense and now names what actually shipped. New "Current State"
 section records the shipped version, the measured test/coverage/lint numbers, and the one thing

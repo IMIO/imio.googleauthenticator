@@ -1,21 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: Hardened MFA
-milestone_status: shipped
-milestone_closeout: override_closeout
-status: Awaiting next milestone
-stopped_at: Milestone v1.0 shipped, archived and tagged; next milestone not yet planned
-last_updated: "2026-08-06T10:36:45.755Z"
+milestone: v1.1
+milestone_name: Enrollment Control and Account Safety
+status: planning
+last_updated: "2026-08-06T10:51:06.751Z"
 last_activity: 2026-08-06
-last_activity_desc: Milestone v1.0 completed and archived
 progress:
-  total_phases: 8
-  completed_phases: 8
-  total_plans: 30
-  completed_plans: 30
-current_phase: 08
-current_phase_name: coverage-instrument-and-test-layers
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -29,17 +24,10 @@ See: .planning/PROJECT.md (updated 2026-08-06)
 
 ## Current Position
 
-Phase: Milestone v1.0 shipped and archived — tagged `v1.0`
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-08-06 — Milestone v1.0 closed as override_closeout (one requirement, MFA-14, shipped unsatisfied by operator decision)
-
-**Verified at close:** `bin/test -t '!robot'` — 135 tests, 0 failures, 0 errors, exit 0.
-
-**Blocking anything real:** the Puppet `concat::fragment` supplying
-`IMIO_GOOGLEAUTHENTICATOR_SEED_KEY` lives in the separate `industrialisation` repository and has
-not shipped. `base.cfg:54` sets the variable for `[testenv]` only, so `bin/instance` has no key
-and a production instance cannot decrypt or mint seeds.
+Status: Defining requirements
+Last activity: 2026-08-06 — Milestone v1.1 started
 
 ## Performance Metrics
 
@@ -234,5 +222,6 @@ Resume file: None
 - Start the next milestone with `/gsd-new-milestone`. It will read
   `.planning/MILESTONE-CONTEXT.md`, which already holds the eight requested v1.1 items verbatim,
   the two carried-over open items, and the open questions that must be settled before planning.
+
 - Outside this repository: get the `IMIO_GOOGLEAUTHENTICATOR_SEED_KEY` `concat::fragment` shipped
   in `industrialisation`. Nothing here can be deployed until it is.
