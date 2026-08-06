@@ -10,13 +10,14 @@ from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
 from Products.statusmessages.interfaces import IStatusMessage
 from ska import RequestHelper
 from ska import Signature
-from smtplib import SMTPRecipientsRefused
+from smtplib import SMTPException
 from z3c.form import button
 from z3c.form import field
 from zope.i18nmessageid import MessageFactory
 from zope.schema import TextLine
 
 import logging
+import socket
 
 
 logger = logging.getLogger('imio.googleauthenticator')
@@ -109,24 +110,34 @@ class RequestBarCodeResetForm(form.SchemaForm):
                         charset='utf-8',
                         msg_type='text/html'
                         )
-                except SMTPRecipientsRefused:
-                    raise SMTPRecipientsRefused('Recipient address rejected by server')
 
-                # Deliberately no redirect: the caller reaches this form from
-                # the token form, by which point the PAS plugin has cleared
-                # their ``__ac`` cookie, so they are anonymous. Redirecting to
-                # the portal root sent an anonymous visitor straight to the
-                # login form on any site whose root is not anonymously
-                # viewable -- the confirmation below was never read, and the
-                # bounce looked like the reset had failed. Returning without a
-                # redirect re-renders this form, which is registered
-                # ``permission="zope2.View"`` and so stays readable while
-                # anonymous, carrying the message. This matches what the
-                # ``reason is not None`` tail below already does on failure.
-                IStatusMessage(self.request).addStatusMessage(
-                    _("An email with instructions on resetting your bar-code is sent successfully."),
-                    'info'
-                    )
+                    # This success message lives inside this inner ``try:``
+                    # deliberately -- it and the ``host.send(...)`` call
+                    # above share the same outer ``try:``, so a send failure
+                    # below must skip this call too or the caller would be
+                    # told the send both failed and succeeded on the same
+                    # request.
+                    #
+                    # Deliberately no redirect: the caller reaches this form
+                    # from the token form, by which point the PAS plugin has
+                    # cleared their ``__ac`` cookie, so they are anonymous.
+                    # Redirecting to the portal root sent an anonymous
+                    # visitor straight to the login form on any site whose
+                    # root is not anonymously viewable -- the confirmation
+                    # below was never read, and the bounce looked like the
+                    # reset had failed. Returning without a redirect
+                    # re-renders this form, which is registered
+                    # ``permission="zope2.View"`` and so stays readable while
+                    # anonymous, carrying the message. This matches what the
+                    # ``reason is not None`` tail below already does on
+                    # failure.
+                    IStatusMessage(self.request).addStatusMessage(
+                        _("An email with instructions on resetting your bar-code is sent successfully."),
+                        'info'
+                        )
+                except (SMTPException, socket.error):
+                    logger.exception("Bar-code reset request failed to send for %r", username)
+                    reason = _("An unexpected error occurred.")
             except ValueError:
                 logger.exception("Bar-code reset request failed for %r", username)
                 reason = _("An unexpected error occurred.")
