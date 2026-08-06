@@ -203,6 +203,47 @@ class TestRequestBarCodeReset(unittest.TestCase, BaseTest):
             'bar_code_reset_token was rolled back on a send failure -- '
             'D-12 says it should not be.')
 
+    def test_a_stray_curly_brace_in_the_mail_body_reports_in_page_not_a_500(self):
+        """WR-01: ``mail_text.format(bar_code_reset_url=signed_url)`` re-runs
+        ``.format()`` on text TAL has already rendered. A well-formed-but-
+        unknown field in admin-controlled ``email_from_name`` -- e.g.
+        ``iMio {Team}`` -- makes that call raise ``KeyError``, which (unlike
+        a lone ``{``, already caught by the outer ``except ValueError:``) is
+        not an ``SMTPException``/``socket.error`` and, without this fix,
+        escapes as an unhandled exception to an anonymous caller.
+
+        Uses the plain (non-raising) harness, not the failing-send one: the
+        ``.format()`` call runs before ``host.send()`` is ever reached, so
+        the exception this test exercises does not depend on the send step
+        at all.
+        """
+        self.portal.manage_changeProperties(
+            email_from_name=u'iMio {Team}', email_from_address='noreply@imio.be')
+        user = api.user.get(username=TEST_USER_NAME)
+        user.setMemberProperties(mapping={'email': 'cadam@imio.be'})
+        request = self.layer['request']
+        IStatusMessage(request).show()  # drain prior messages
+
+        sent = self._submit_reset_request(TEST_USER_NAME)
+
+        self.assertEqual(
+            0, len(sent),
+            'The mail was handed to MailHost despite the KeyError raised '
+            'while formatting its body.')
+        self.assertIsNone(
+            request.response.getHeader('Location'),
+            'The handler redirected the caller away from the form; an '
+            'anonymous caller lands on the login form instead of reading '
+            'the error message.')
+        messages = [m.message for m in IStatusMessage(request).show()]
+        self.assertEqual(
+            [u'Request for bar-code reset is failed! An unexpected error '
+             u'occurred.'],
+            messages,
+            'The caller was not told about the formatting failure on a '
+            'page they can actually see, or the exception escaped '
+            'unhandled.')
+
     def test_an_unreachable_mail_server_reports_the_same_failure(self):
         """BUG-07 (D-09): a refused connection is not an SMTP-protocol
         failure -- it raises ``socket.error``, which is not an

@@ -135,7 +135,21 @@ class RequestBarCodeResetForm(form.SchemaForm):
                         _("An email with instructions on resetting your bar-code is sent successfully."),
                         'info'
                         )
-                except (SMTPException, socket.error):
+                except (SMTPException, socket.error, KeyError, IndexError):
+                    # KeyError/IndexError (WR-01): `mail_text.format(...)` above
+                    # re-substitutes into a string that TAL has already rendered,
+                    # so admin-/user-controlled text (``email_from_name``, a
+                    # username, a member email) can carry a literal `{...}` that
+                    # `str.format()` reads as a field reference. A malformed field
+                    # (lone `{`) raises `ValueError`, already caught by the outer
+                    # `except ValueError:` below -- but a well-formed, unknown one
+                    # (`{oo}`, or a stray positional `{}`) raises `KeyError` or
+                    # `IndexError`, which is not an `SMTPException`/`socket.error`
+                    # and would otherwise escape to a bare error page for an
+                    # anonymous caller. Keep these here rather than widening the
+                    # outer `except ValueError:` -- they belong to the
+                    # `.format()` call, not to the `host.send()` failure modes
+                    # that clause exists for.
                     logger.exception("Bar-code reset request failed to send for %r", username)
                     reason = _("An unexpected error occurred.")
             except ValueError:
