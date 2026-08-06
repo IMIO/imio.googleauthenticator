@@ -70,7 +70,13 @@ profile, and the enrollment page hands the user a secret they can actually use.
   3. A user who finishes MFA setup ends up on the site home page, not on their own profile page.
   4. The enrollment page shows the TOTP secret as selectable text beside the QR code, and it can
      be copied into a password manager or a desktop TOTP client that then produces accepted codes.
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — BUG-07: a refused or unreachable mail server reports in-page, not as an error page
+- [ ] 09-02-PLAN.md — BUG-08: the profile field description offers no link that acts on the viewing administrator
+- [ ] 09-03-PLAN.md — UX-01 + UX-02: enrollment exits to the home page, and shows the secret as copyable text
+- [ ] 09-04-PLAN.md — phase gate: full suite, coverage and lint over the merged phase, changelog, TOTP-client UAT
 
 **Notes**:
 - BUG-07 first, and in this phase rather than with the notifications: Phase 12 adds three new
