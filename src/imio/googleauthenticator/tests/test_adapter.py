@@ -123,6 +123,36 @@ class TestEnhancedUserDataPanelAdapter(unittest.TestCase, BaseTest):
                 '{0} is not declared in portal_memberdata, so '
                 'setMemberProperties will silently pop it.'.format(name))
 
+    def test_enable_flag_description_offers_no_wrong_account_links(self):
+        """BUG-08: ``enable_two_factor_authentication``'s description must
+        carry no link to either two-factor view.
+
+        ``CustomizedUserDataPanel.__init__``'s ``omit()`` call covers only
+        ``@@personal-information``, so ``@@user-information`` -- the form an
+        administrator uses to view *another* user's profile -- is the only
+        renderer of this description at all. Neither
+        ``@@setup-two-factor-authentication`` nor
+        ``@@disable-two-factor-authentication`` accepts a target user from
+        the request; both act on ``api.user.get_current()``. A link here
+        would let an administrator disable or reset their own second factor
+        while believing they acted on the viewed user's account.
+        """
+        description = IEnhancedUserDataSchema[
+            'enable_two_factor_authentication'].description
+
+        self.assertNotIn(
+            '@@setup-two-factor-authentication', description,
+            'The description still links to the setup view, which acts on '
+            "the viewer's own account, not the profile being viewed.")
+        self.assertNotIn(
+            '@@disable-two-factor-authentication', description,
+            'The description still links to the disable view, which acts '
+            "on the viewer's own account, not the profile being viewed.")
+        self.assertNotIn(
+            '<a ', description,
+            'The description still carries anchor markup after the links '
+            'were meant to be removed.')
+
 
 class TestCameFromAdapter(unittest.TestCase, BaseTest):
     """BUG-06: ``CameFromAdapter.getCameFrom()`` must quote what it reads
