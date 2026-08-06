@@ -81,7 +81,7 @@ hard dependency of enabling or disabling a second factor.
       re-raises the same exception type, which the enclosing `except ValueError` cannot catch.
       Recorded as CR-01 in `08-REVIEW.md`; predates the fork; currently untested and uncovered
 
-- [ ] **BUG-08**: When an administrator views another user's profile
+- [x] **BUG-08**: When an administrator views another user's profile
       (`/@@user-information?userid=<other>`), the `enable_two_factor_authentication` field
       description does not offer the `@@setup-two-factor-authentication` and
       `@@disable-two-factor-authentication` links. Today it does, and neither view accepts a
@@ -187,7 +187,7 @@ ended at Phase 8.
 | NOTF-06 | Phase 12 | Pending |
 | NOTF-07 | Phase 12 | Pending |
 | BUG-07 | Phase 9 | Complete |
-| BUG-08 | Phase 9 | Pending |
+| BUG-08 | Phase 9 | Complete |
 | UX-01 | Phase 9 | Pending |
 | UX-02 | Phase 9 | Pending |
 | I18N-01 | Phase 13 | Pending |

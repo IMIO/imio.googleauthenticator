@@ -74,13 +74,13 @@ profile, and the enrollment page hands the user a secret they can actually use.
   3. A user who finishes MFA setup ends up on the site home page, not on their own profile page.
   4. The enrollment page shows the TOTP secret as selectable text beside the QR code, and it can
      be copied into a password manager or a desktop TOTP client that then produces accepted codes.
-**Plans**: 1/4 plans executed
+**Plans**: 2/4 plans executed
 
 Plans:
 **Wave 1**
 
 - [x] 09-01-PLAN.md — BUG-07: a refused or unreachable mail server reports in-page, not as an error page
-- [ ] 09-02-PLAN.md — BUG-08: the profile field description offers no link that acts on the viewing administrator
+- [x] 09-02-PLAN.md — BUG-08: the profile field description offers no link that acts on the viewing administrator
 - [ ] 09-03-PLAN.md — UX-01 + UX-02: enrollment exits to the home page, and shows the secret as copyable text
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -307,7 +307,7 @@ Phases execute in numeric order: 9 → 10 → 11 → 12 → 13
 | 6. Recovery Codes | v1.0 | 3/3 | Complete | 2026-08-04 |
 | 7. Coexistence with imio.dms.mail | v1.0 | 4/4 | Complete | 2026-08-05 |
 | 8. Coverage Instrument and Test Layers | v1.0 | 5/5 | Complete | 2026-08-06 |
-| 9. Mail Path and Profile-Page Correctness | v1.1 | 1/4 | In Progress|  |
+| 9. Mail Path and Profile-Page Correctness | v1.1 | 2/4 | In Progress|  |
 | 10. Global Enforcement and Enrollment | v1.1 | 0/TBD | Not started | - |
 | 11. Re-authentication Before MFA Changes | v1.1 | 0/TBD | Not started | - |
 | 12. MFA Change Notifications | v1.1 | 0/TBD | Not started | - |

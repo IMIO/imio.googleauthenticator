@@ -5,15 +5,15 @@ milestone_name: Enrollment Control and Account Safety
 current_phase: 09
 current_phase_name: Mail Path and Profile-Page Correctness
 status: executing
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-08-06T12:31:47.726Z"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-08-06T12:39:21.934Z"
 last_activity: 2026-08-06
 last_activity_desc: Phase 09 execution started
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -29,11 +29,11 @@ See: .planning/PROJECT.md (updated 2026-08-06)
 ## Current Position
 
 Phase: 09 (Mail Path and Profile-Page Correctness) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-08-06 — Phase 09 execution started
 
-Progress: [███░░░░░░░] 25% of v1.1
+Progress: [█████░░░░░] 50% of v1.1
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ this file stays a digest.*
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 09 P01 | 25min | 2 tasks | 2 files |
+| Phase 09 P02 | 20min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,12 @@ build on the decision rather than merely know it happened.
   `(SMTPException, socket.error)`, deleted the re-raise, and moved the success `IStatusMessage`
   call inside the inner `try:` so a send failure cannot also fire the success message. This is
   the failure shape Phase 12's three additional senders should copy.
+
+- **[Phase 9 → Phase 13]** BUG-08: removed both wrong-account links from
+  `enable_two_factor_authentication`'s description outright rather than making it conditional —
+  the field is the only renderer on `@@user-information`, and a static schema description cannot
+  vary per viewer without real machinery (D-14). The shortened description orphans the old msgid
+  in the `.po`/`.pot` catalogues, accepted as a Phase 13 (I18N-02) input, not fixed here (D-16).
 
 ### Pending Todos
 
@@ -179,8 +186,8 @@ that v1.1 picks up are now mapped to phases and repeated under Blockers above.
 
 ## Session Continuity
 
-Last session: 2026-08-06T12:31:47.717Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-08-06T12:39:21.924Z
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
