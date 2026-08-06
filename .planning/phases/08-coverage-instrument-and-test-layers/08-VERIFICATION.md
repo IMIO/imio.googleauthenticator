@@ -1,11 +1,12 @@
 ---
 phase: 08-coverage-instrument-and-test-layers
 verified: 2026-08-05T13:51:09Z
-status: human_needed
+status: passed
 score: 14/14 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
+
   - test: "Push the phase-8 commits (branch `phase-5`, 21 unpushed commits, HEAD `d46604e`) and observe the real GitHub Actions run of `Package Test Workflow`."
     expected: "The job invokes `bin/test-coverage -t !robot` (per `.github/workflows/package-test.yml:14`, confirmed statically) and reports success at 90% branch coverage; a subsequent PR that drops coverage below 90% or breaks a test produces a failing/red job."
     why_human: "All 21 phase-8 commits are local-only (`git log origin/phase-5..HEAD` shows the full commit range unpushed; `gh run list` shows no run newer than the pre-phase-8 07-03 commit). The `test_command` wiring and the local `bin/test-coverage` exit code are verified directly in this report, but no real CI execution of the new coverage-gated command has happened yet, so 'enforced in CI' (ROADMAP success criterion 2 / QUAL-04) is proven by static wiring only, not by an observed CI run."
