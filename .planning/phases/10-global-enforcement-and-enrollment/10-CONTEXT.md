@@ -39,9 +39,10 @@ time an administrator installs onto a populated site. Success criteria 1 and 2 a
   unchanged and still applies to second-factor checks at login. Recorded as Out of Scope in
   `REQUIREMENTS.md` and reaffirmed by the roadmap note dated 2026-08-06: "enrollment is never
   blocked unless the package is uninstalled" is about **enrollment only**.
-- A site-wide un-enroll action. The disable-for-all-users path in `browser/controlpanel.py` is
-  commented out and only writes a debug log line; `REQUIREMENTS.md` records leaving it that way as
-  defensible under MFA-17 and says to revisit only if an operator actually needs it.
+- Building a *new* site-wide un-enroll action. `REQUIREMENTS.md` records leaving that alone as
+  defensible under MFA-17. **Correction, found by research after this section was first written:**
+  an existing site-wide un-enroll view is live, not commented out — see D-14 below. What is
+  commented out is a block in `browser/controlpanel.py`, not the standalone view.
 
 </domain>
 
@@ -161,6 +162,64 @@ time an administrator installs onto a populated site. Success criteria 1 and 2 a
 - **D-11:** **`show_disable_two_factor_authentication_link` gets the mirror treatment:** offered
   only when the user is enrolled **and** the global setting is off. It currently requires the
   global setting to be True, which is exactly the case where MFA-16 says disabling must be refused.
+
+### Added after research — findings the first pass did not anticipate
+
+- **D-14:** **A live, ungated site-wide un-enroll view exists.**
+  `browser/disable_two_factor_authentication_for_all_users.py` is 31 lines, fully live, and clears
+  the enable flag, seed and reset token for **every** account with no check on `globally_enabled`
+  at all. An earlier draft of this document said this path was commented out; that was wrong, and
+  the wrong sentence has been corrected in the Deferred section. Whether this phase gates that view
+  is an operator scope decision — recorded here so it is not mistaken for nonexistent by anyone
+  reading only the requirements.
+
+- **D-15:** **The "Regenerate recovery codes" portal action must not lose its visibility when
+  global enforcement is on.** `profiles/default/actions.xml:41-52` gives
+  `regenerate_recovery_codes` the `available_expr`
+  `portal/@@show-disable-two-factor-authentication-link` — deliberately reusing the disable link's
+  condition, with a comment at lines 33-39 saying why ("rather than adding a fourth SettingsHelper
+  method for the same boolean"). D-11 changes that condition to require the global setting to be
+  **off**, which would hide "Regenerate recovery codes" from exactly the users under global
+  enforcement. That is a regression this phase must not ship. The action needs its own condition:
+  visible when the user is enrolled, independent of the global setting. The comment in
+  `actions.xml` explaining the old reuse must be updated at the same time, not left contradicting
+  the new code.
+
+- **D-18:** **The site-wide un-enroll view is gated in this phase too — operator decision,
+  2026-08-06.** `browser/disable_two_factor_authentication_for_all_users.py` gets the same
+  `globally_enabled` refusal that D-08 adds to the single-user view. Reason the operator was given
+  and accepted: shipping a refusal that stops one user turning their own second factor off, while
+  leaving a one-click "disable for everyone" reachable, makes the enforcement incoherent. It is a
+  small change to a 31-line view and it reuses the refusal that D-08 is already writing.
+  This slightly widens the phase beyond MFA-16 as literally worded (which speaks only of a user's
+  own second factor). Recorded as a deliberate widening, not scope creep, so the verifier does not
+  read it as unplanned work. Rejected: leaving it and recording a Future Requirement; and deleting
+  the view outright, which has a larger blast radius across ZCML, actions, and any control-panel
+  link.
+
+- **D-16:** **The enrollment page is not reachable by a user whose session cookie was just
+  cleared, and that must be fixed for MFA-19 to work at all.** Research found that
+  `@@setup-two-factor-authentication` (`SetupForm`) has no way to identify a user from a signed
+  URL: it returns 401 and hides the QR code for any anonymous request. The login path clears the
+  `__ac` cookie before redirecting, so a user sent there by D-05 arrives anonymous and sees
+  nothing. `browser/forms/token.py` already solves this exact problem for the code-entry page,
+  using an `auth_user` request parameter, `validate_user_data`, and `_setupSession`. The enrollment
+  target needs the same treatment. Without it, MFA-19 still locks people out — just by a different
+  route than the one D-06 was worried about.
+  Whether that means extending `SetupForm` or adding a separate view is at the implementer's
+  discretion; research flagged a blast-radius risk against `tests/test_user_setup.py` for the
+  extend-in-place option.
+
+- **D-17:** **D-06 is settled in favour of mechanism (b): a new member-data property recording
+  that enrollment was completed.** Research rejected mechanism (a) — signing an enrollment URL for
+  a user with no seed — because the user's seed supplies the per-user entropy in the signing key,
+  and removing it collapses that key to a browser hash plus a site-wide secret shared across every
+  unenrolled user. Bounding that risk would mean auditing the internals of the pinned `ska 1.7.5`
+  library, which is out of proportion to declaring one property.
+  The property follows the precedent already used for the lockout and replay counters: declared in
+  `profiles/default/memberdata_properties.xml`, **not** exposed on the user-facing schema or the
+  adapter. It needs a set/get round-trip test, because `MutablePropertySheet.setProperties`
+  silently discards undeclared keys with no error.
 
 ### Claude's Discretion
 
