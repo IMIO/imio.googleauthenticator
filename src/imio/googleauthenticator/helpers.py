@@ -16,6 +16,7 @@ from ska import validate_signed_request_data
 from urllib import quote
 from urllib import unquote
 from urlparse import urlparse
+from xml.sax.saxutils import escape
 from zope.component import getUtility
 from zope.globalrequest import getRequest
 from zope.i18n import translate
@@ -350,13 +351,22 @@ def get_token_description(user=None, overwrite_secret=False):
         user = api.user.get_current()
 
     secret = get_or_create_secret(user, overwrite=overwrite_secret)
+    # WR-02: this return value is assigned as a z3c.form field description
+    # and rendered with ``tal:content="structure description"`` -- i.e.
+    # unescaped. Both interpolated values are escaped defensively here,
+    # independent of the upstream invariant that today's base64/base32
+    # alphabets happen to contain no HTML metacharacter. ``escape()``'s
+    # default entity map does not cover ``"``; ``url`` lands inside a
+    # double-quoted ``src="..."`` attribute, so its quotes are escaped too.
     return (
         '<div><img src="{url}" alt="QR Code" /></div>'
         '<p>{label} <code>{secret}</code></p>'
     ).format(
-        url=get_barcode_image(get_username(user), get_domain_name(request), secret),
+        url=escape(
+            get_barcode_image(get_username(user), get_domain_name(request), secret),
+            {'"': '&quot;'}),
         label=_(u'Setup key:'),
-        secret=secret,
+        secret=escape(secret),
     )
 
 

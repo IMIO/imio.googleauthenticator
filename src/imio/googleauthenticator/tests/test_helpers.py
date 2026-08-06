@@ -14,6 +14,7 @@ from imio.googleauthenticator.helpers import get_ip_ranges
 from imio.googleauthenticator.helpers import get_or_create_secret
 from imio.googleauthenticator.helpers import get_secret
 from imio.googleauthenticator.helpers import get_ska_secret_key
+from imio.googleauthenticator.helpers import get_token_description
 from imio.googleauthenticator.helpers import validate_bar_code_reset_token
 from imio.googleauthenticator.helpers import validate_token
 from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
@@ -302,6 +303,35 @@ class TestSeedEncryption(unittest.TestCase, BaseTest):
         self.assertEqual(first, second)
         self.assertEqual(
             stored, user.getProperty('two_factor_authentication_secret'))
+
+    def test_get_token_description_escapes_html_metacharacters_in_secret(self):
+        """WR-02: ``get_token_description``'s return value is assigned as a
+        z3c.form field description and rendered with
+        ``tal:content="structure description"`` (unescaped). Today the
+        interpolated ``secret`` is safe only because
+        ``generate_secret()``'s base32 alphabet happens to contain no HTML
+        metacharacter -- nothing in ``get_token_description`` itself
+        enforces that. Patches ``get_or_create_secret`` to return a value
+        that violates the invariant, standing in for a future code path
+        (an imported legacy seed, a different encoding) that could produce
+        one for real.
+        """
+        user = api.user.get_current()
+
+        original = helpers.get_or_create_secret
+        helpers.get_or_create_secret = (
+            lambda user, overwrite=False: '<script>alert(1)</script>')
+        try:
+            description = get_token_description(user=user)
+        finally:
+            helpers.get_or_create_secret = original
+
+        self.assertNotIn(
+            '<script>alert(1)</script>', description,
+            'The malicious secret reached the returned HTML unescaped.')
+        self.assertIn(
+            '&lt;script&gt;alert(1)&lt;/script&gt;', description,
+            'The secret was not escaped at the point of interpolation.')
 
     def test_seed_encryption_fails_closed(self):
         """SEC-03 enrollment half: encrypt_seed/generate_secret refuse with
