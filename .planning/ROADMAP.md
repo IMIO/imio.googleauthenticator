@@ -47,7 +47,7 @@ Phase working directories are archived under `milestones/v1.0-phases/`.
 **Milestone Goal:** Make enrollment do what the settings say it does, and make every change to a
 user's second factor safe, announced, and readable in French.
 
-- [ ] **Phase 9: Mail Path and Profile-Page Correctness** - The standing defects and usability gaps on the paths the rest of the milestone builds on
+- [x] **Phase 9: Mail Path and Profile-Page Correctness** - The standing defects and usability gaps on the paths the rest of the milestone builds on (completed 2026-08-06)
 - [ ] **Phase 10: Global Enforcement and Enrollment** - `globally_enabled` covers accounts that predate the install, and nobody is asked for a code from an app they never set up
 - [ ] **Phase 11: Re-authentication Before MFA Changes** - The account's own password stands in front of enabling, disabling and regenerating
 - [ ] **Phase 12: MFA Change Notifications** - The user is emailed on every second-factor change, and a mail failure never costs them the change
@@ -307,7 +307,7 @@ Phases execute in numeric order: 9 → 10 → 11 → 12 → 13
 | 6. Recovery Codes | v1.0 | 3/3 | Complete | 2026-08-04 |
 | 7. Coexistence with imio.dms.mail | v1.0 | 4/4 | Complete | 2026-08-05 |
 | 8. Coverage Instrument and Test Layers | v1.0 | 5/5 | Complete | 2026-08-06 |
-| 9. Mail Path and Profile-Page Correctness | v1.1 | 4/4 | In Progress|  |
+| 9. Mail Path and Profile-Page Correctness | v1.1 | 4/4 | Complete    | 2026-08-06 |
 | 10. Global Enforcement and Enrollment | v1.1 | 0/TBD | Not started | - |
 | 11. Re-authentication Before MFA Changes | v1.1 | 0/TBD | Not started | - |
 | 12. MFA Change Notifications | v1.1 | 0/TBD | Not started | - |

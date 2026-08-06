@@ -1,19 +1,15 @@
 ---
-status: testing
+status: passed
 phase: 09-mail-path-and-profile-page-correctness
 source: [09-VERIFICATION.md]
 started: 2026-08-06T13:40:00Z
-updated: 2026-08-06T13:40:00Z
+updated: 2026-08-06T13:55:00Z
+completed: 2026-08-06T13:55:00Z
 ---
 
 ## Current Test
 
-number: 1
-name: A real TOTP client fed the displayed base32 secret produces codes the site accepts
-expected: |
-  The site accepts the code that a real desktop TOTP client or password manager produced
-  from the base32 setup key copied as text from the enrollment page.
-awaiting: user response
+none — all tests complete
 
 ## Tests
 
@@ -35,7 +31,16 @@ client against a live instance. It is not automatable in this suite. Plan 09-04 
 blocked rather than passed — no human operator drove it, and `bin/instance` in this environment
 has no `IMIO_GOOGLEAUTHENTICATOR_SEED_KEY` set. This is a known open gap, not a code defect.
 
-result: [pending]
+result: PASSED (operator, 2026-08-06). The operator enrolled by copying the base32 setup key
+text into a TOTP application rather than scanning the QR code, and the site accepted the codes
+that application produced.
+
+Two further checks were made on the same running instance and also passed:
+  - The "Continue to the home page" link on the recovery-codes page landed on the site home
+    page (UX-01, success criterion 3).
+  - Viewing a member's profile as an administrator, the two-step-verification field description
+    no longer shows the links that would have acted on the administrator's own account
+    (BUG-08, success criterion 2).
 
 ### 2. Sign-off on two judgment-tier prohibitions
 
@@ -60,14 +65,18 @@ why_human: Both are declared `verification: unverified` / `status: flagged-unver
 PLAN frontmatter. They are judgment-tier items that this workflow routes to human sign-off
 rather than an automated gate.
 
-result: [pending]
+result: PASSED (operator, 2026-08-06). Signed off on the evidence above, which was re-confirmed
+live at sign-off time: `git diff --stat 867280f..HEAD -- src/imio/googleauthenticator/pas_plugin.py`
+returned empty, `_dont_swallow_my_exceptions = True` is still at `pas_plugin.py:160`, and
+`get_token_description()` contains exactly one `get_or_create_secret` call with no `logger`
+call and no `setMemberProperties` / `setProperty` write.
 
 ## Summary
 
 total: 2
-passed: 0
+passed: 2
 issues: 0
-pending: 2
+pending: 0
 skipped: 0
 blocked: 0
 

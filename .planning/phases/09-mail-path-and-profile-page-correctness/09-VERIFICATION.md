@@ -1,8 +1,10 @@
 ---
 phase: 09-mail-path-and-profile-page-correctness
 verified: 2026-08-06T13:37:51Z
-status: human_needed
-score: 8/9 must-haves verified
+status: passed
+score: 9/9 must-haves verified
+human_validated: 2026-08-06
+human_validated_by: operator
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
@@ -37,9 +39,27 @@ profile, and the enrollment page hands the user a secret they can actually use.
 | 6 | UX-01: `user_setup.py`'s success path is untouched — `redirect_url` still stays `None`, T-03-23 refusal redirect untouched (D-03) | ✓ VERIFIED | `git diff 867280f..HEAD -- src/imio/googleauthenticator/browser/forms/user_setup.py` is empty — zero lines changed. |
 | 7 | UX-02: the enrollment page's `qr_code` field description carries the base32 secret as selectable text beside the QR, produced from exactly one `get_or_create_secret()` call | ✓ VERIFIED | `helpers.py:353` — single `secret = get_or_create_secret(user, overwrite=overwrite_secret)` call, reused for both `get_barcode_image(...)` (line 366) and the `<code>{secret}</code>` text (line 369-370). `bin/test -t test_setup_form_shows_the_secret_as_selectable_text` — pass (run live). |
 | 8 | UX-02: the rendered secret and QR URL are HTML-escaped at the point of interpolation (review-fix WR-02), and only the base32 secret is shown, not the `otpauth://` URI | ✓ VERIFIED | `helpers.py:365-370` — `escape(get_barcode_image(...), {'"': '&quot;'})` and `escape(secret)`; the `otpauth://` string only appears inside `get_barcode_image()`'s QR-image construction (helpers.py:239), never in the returned description text. `bin/test -t test_get_token_description_escapes_html_metacharacters_in_secret` — pass (run live). |
-| 9 | UX-02 (full criterion 4, second half): a real desktop TOTP client fed the displayed secret produces codes the site accepts | ⬜ NOT AUTOMATABLE — human verification required | 09-04-SUMMARY.md and 09-VALIDATION.md both record this as **blocked, not passed** — no human operator drove a real TOTP client, and `bin/instance` in this environment lacks `IMIO_GOOGLEAUTHENTICATOR_SEED_KEY`. Correctly not claimed as passed by the executor. |
+| 9 | UX-02 (full criterion 4, second half): a real desktop TOTP client fed the displayed secret produces codes the site accepts | ✓ VERIFIED (human, 2026-08-06) | The operator enrolled by copying the base32 setup key text into a TOTP application — not by scanning the QR code — and the site accepted the codes that application produced. This is the exact path UX-02 exists to enable. |
 
-**Score:** 8/9 truths verified programmatically; 1 requires human execution (never claimed passed by the phase itself).
+**Score:** 9/9 truths verified — 8 programmatically, 1 by human execution on a running instance.
+
+### Human validation performed 2026-08-06
+
+The operator ran the manual checks recorded in `09-UAT.md` against a live instance and reported
+all three passing:
+
+1. **The copied secret works in a real client (UX-02, criterion 4).** Enrolled by copying the
+   base32 setup key as text into a TOTP application; the site accepted the resulting codes.
+2. **The post-enrollment link goes to the home page (UX-01, criterion 3).** The
+   "Continue to the home page" link on the recovery-codes page landed on the site home page.
+3. **The wrong-account links are gone (BUG-08, criterion 2).** Viewing a member's profile as an
+   administrator, the two-step-verification field description no longer offers the links that
+   would have acted on the administrator's own account.
+
+The two judgment-tier prohibitions were signed off on direct evidence: `pas_plugin.py` has a
+zero-line diff for the whole phase with `_dont_swallow_my_exceptions = True` still at line 160,
+and `get_token_description()` calls `get_or_create_secret` exactly once with no logging and no
+property write.
 
 ### Required Artifacts
 
