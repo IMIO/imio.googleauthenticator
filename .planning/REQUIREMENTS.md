@@ -23,10 +23,10 @@ unchanged and still applies to second-factor checks at login.
       present a second factor at login when `globally_enabled` is on
 
 - [x] **MFA-16**: With `globally_enabled` on, a user cannot turn their own second factor off
-- [ ] **MFA-17**: With `globally_enabled` off, a user can enroll themselves in a second factor
+- [x] **MFA-17**: With `globally_enabled` off, a user can enroll themselves in a second factor
       from their own profile
 
-- [ ] **MFA-18**: The enrollment flow is reachable whenever the package is installed, whatever
+- [x] **MFA-18**: The enrollment flow is reachable whenever the package is installed, whatever
       the global setting says
 
 - [x] **MFA-19**: A user who was enrolled by the global setting rather than by their own action
@@ -175,8 +175,8 @@ ended at Phase 8.
 |-------------|-------|--------|
 | MFA-15 | Phase 10 | Complete |
 | MFA-16 | Phase 10 | Complete |
-| MFA-17 | Phase 10 | Pending |
-| MFA-18 | Phase 10 | Pending |
+| MFA-17 | Phase 10 | Complete |
+| MFA-18 | Phase 10 | Complete |
 | MFA-19 | Phase 10 | Complete |
 | SEC-09 | Phase 11 | Pending |
 | SEC-10 | Phase 11 | Pending |
