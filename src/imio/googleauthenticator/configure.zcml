@@ -49,6 +49,13 @@
         <depends name="plone.app.registry"/>
     </genericsetup:importStep>
 
+    <genericsetup:importStep
+        name="imio.googleauthenticator.uninstall"
+        title="imio.googleauthenticator uninstall steps"
+        description="Removes the google_auth PAS plugin, which no GenericSetup profile node can do."
+        handler="imio.googleauthenticator.setuphandlers.uninstallVarious"
+        />
+
     <!-- -*- extra stuff goes here -*- -->
 
     <adapter

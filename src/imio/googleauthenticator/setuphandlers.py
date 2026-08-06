@@ -95,3 +95,67 @@ def setupVarious(context):
 
     pas = portal.acl_users
     _add_plugin(pas)
+
+
+def _remove_plugin(pas, pluginid=PAS_ID):
+    """
+    Remove the imio.googleauthenticator PAS plugin from acl_users, and
+    deactivate it from every plugin type it was registered in.
+
+    The guard below is what makes applying the uninstall profile twice a
+    no-op instead of an AttributeError from _delObject on a missing id --
+    the same "already there / already gone" idempotency _add_plugin's own
+    installed-check gives the install path.
+
+    pas._delObject(pluginid) is the whole removal. PluggableAuthService's
+    _delOb (PluggableAuthService.py:454-465) calls
+    plugins.removePluginById(id), which (Products/PluginRegistry/
+    PluginRegistry.py:320-327) deactivates the plugin from every plugin
+    type it is configured in -- IAuthenticationPlugin, IChallengePlugin,
+    and any other interface it provides -- before the object itself is
+    deleted. Do not add a separate deactivatePlugin loop here: it would be
+    redundant with what _delOb already does, and would run against an
+    object that then gets deleted anyway.
+    """
+    if pluginid not in pas.objectIds():
+        return
+    pas._delObject(pluginid)
+
+
+def uninstallVarious(context):
+    """
+    @param context: Products.GenericSetup.context.DirectoryImportContext instance
+
+    Widens the uninstall profile to actually reverse installation
+    (COEX-06 / v1.0-MILESTONE-AUDIT.md Gap 2): a GenericSetup profile can
+    remove a configlet, a browser layer, a local utility and a registry
+    record declaratively, but it cannot remove a PAS plugin object -- that
+    needs a handler, same as install needed one for _add_plugin. Leaving
+    the plugin behind means it keeps intercepting every login after the
+    add-on is believed uninstalled, and it unpickles as
+    OFS.Uninstalled.Broken inside acl_users if the egg is later removed
+    from the Python environment.
+
+    This handler does NOT touch memberdata. The eight
+    memberdata_properties.xml declarations and any enrolled user's stored
+    seed are a deliberate exclusion from this uninstall profile -- see the
+    scope_boundary note in this quick task's PLAN.md and
+    test_uninstall_keeps_enrolled_user_data: removing them would destroy
+    every enrolled user's encrypted seed and recovery-code hashes with no
+    recovery path, and an uninstall is often temporary.
+    """
+    # Mirrors setupVarious's own gate: presence of a data file that exists
+    # only in profiles/uninstall/, not its content. Without this gate the
+    # handler is a registered import step that fires on every profile
+    # import in the whole Zope process (applyProfile's
+    # runAllImportStepsFromProfile runs every registered step, not only
+    # the ones the target profile "owns") and would delete google_auth
+    # from any site that installs anything at all -- the same
+    # instance-wide-subscriber class of defect as COEX-10.
+    if context.readDataFile('imio.googleauthenticator.uninstall.txt') is None:
+        # Not our uninstall profile
+        return
+
+    portal = context.getSite()
+    pas = portal.acl_users
+    _remove_plugin(pas)

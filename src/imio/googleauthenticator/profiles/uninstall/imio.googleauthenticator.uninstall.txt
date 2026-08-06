@@ -1,0 +1,3 @@
+This text file can contain any content - its presence, not its content, is
+what tells uninstallVarious this is imio.googleauthenticator's own uninstall
+profile and not some other product's.

@@ -619,6 +619,79 @@ class TestSetupHandlers(unittest.TestCase, BaseTest):
             'COEX-06: re-applying the default profile must re-register '
             '{0!r}'.format(css_id))
 
+    def test_uninstall_removes_pas_plugin(self):
+        """T-gfr-06 (COEX-06 widening, quick task 260806-gfr): applying
+        ``imio.googleauthenticator:uninstall`` removes the ``google_auth``
+        PAS plugin from ``acl_users`` and deactivates it from every plugin
+        type it was registered in -- the defect this quick task exists to
+        close. Today the plugin survives an uninstall and keeps
+        intercepting every login, then unpickles as
+        ``OFS.Uninstalled.Broken`` once the egg is removed.
+
+        Five assertion groups, per WR-03.
+        """
+        # (a) non-vacuity: the plugin is present before the uninstall, or
+        # its absence below proves nothing.
+        self.assertIn(
+            PAS_ID, self.pas.objectIds(),
+            'Non-vacuity control: {0!r} must be registered in acl_users '
+            'before the uninstall, or its absence below proves '
+            'nothing'.format(PAS_ID))
+
+        # (b) applying the uninstall profile removes the plugin object and
+        # deactivates it from every plugin type -- pas._delObject(PAS_ID)
+        # routes to PluggableAuthService._delOb, which calls
+        # plugins.removePluginById(id) before the object goes.
+        applyProfile(self.portal, 'imio.googleauthenticator:uninstall')
+        self.assertNotIn(
+            PAS_ID, self.pas.objectIds(),
+            'T-gfr-06: the uninstall profile must remove {0!r} from '
+            'acl_users'.format(PAS_ID))
+        self.assertNotIn(
+            PAS_ID, self.pas.plugins.listPluginIds(IAuthenticationPlugin),
+            'T-gfr-06: {0!r} must be deactivated from every plugin type it '
+            'was registered in'.format(PAS_ID))
+
+        # (c) idempotency: applying the uninstall profile a second time
+        # must not raise -- the objectIds() guard in _remove_plugin is what
+        # makes this a no-op instead of an AttributeError on a missing
+        # object -- and must leave the plugin still absent.
+        applyProfile(self.portal, 'imio.googleauthenticator:uninstall')
+        self.assertNotIn(
+            PAS_ID, self.pas.objectIds(),
+            'T-gfr-06: applying the uninstall profile twice must not '
+            'resurrect {0!r}'.format(PAS_ID))
+
+        # (d) reversibility: re-applying the default profile puts the
+        # plugin back, first among IAuthenticationPlugin (MFA-03) -- an
+        # uninstall followed by a reinstall is a working site, not a
+        # half-registered one. This also restores the installed state this
+        # layer's other tests expect.
+        applyProfile(self.portal, 'imio.googleauthenticator:default')
+        self.assertIn(
+            PAS_ID, self.pas.objectIds(),
+            'T-gfr-06: re-applying the default profile must restore '
+            '{0!r}'.format(PAS_ID))
+        self.assertEqual(
+            PAS_ID,
+            self.pas.plugins.listPlugins(IAuthenticationPlugin)[0][0],
+            'T-gfr-06: re-applying the default profile must restore '
+            '{0!r} to first position'.format(PAS_ID))
+
+        # (e) T-gfr-01, setupVarious/uninstallVarious mutual isolation:
+        # both handlers run on every profile import in the process
+        # (applyProfile's runAllImportStepsFromProfile runs every
+        # registered import step, not only the ones the target profile
+        # "owns"), and each gates on a data file that exists only in its
+        # own profile directory. If uninstallVarious's gate were satisfied
+        # by the default profile's directory, step (d) above would have
+        # undone _add_plugin's work in the same call instead of restoring
+        # the plugin. Symmetrically, if setupVarious's gate were satisfied
+        # by the uninstall profile's directory, step (b) above would have
+        # recreated the plugin instead of removing it. Both directions are
+        # already exercised by the sequence above; (d) and (b) are the
+        # assertions that would go red if either gate were wrong.
+
     def _replay_dms_mail_reposition(self, registry):
         """Replay ``imio.dms.mail``'s own reposition entry for the stock
         ``popupforms.js`` resource -- ``imio/dms/mail/profiles/default/
