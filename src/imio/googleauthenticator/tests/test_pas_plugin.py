@@ -369,6 +369,16 @@ class TestPas(unittest.TestCase, BaseTest):
         property (drift/replay) -- it is checked for absence from
         pas_plugin.py/subscribers.py here too, but has no positive control
         since nothing in helpers.py references it yet.
+
+        Extended again (gap fix following plan 10-01) to cover the
+        enrollment-completion property ``two_factor_authentication_enrolled``
+        and its sole writer ``mark_enrollment_completed`` (both from
+        helpers.py). ``has_completed_enrollment``, the paired *read*
+        helper, is deliberately NOT added to ``helper_function_names``:
+        it legitimately appears in pas_plugin.py (the login path reads
+        enrollment status to decide where to route the user), so adding
+        it would make this test fail against a correct design. Only the
+        write side belongs in the guard.
         """
         package_dir = os.path.dirname(imio.googleauthenticator.__file__)
 
@@ -392,6 +402,7 @@ class TestPas(unittest.TestCase, BaseTest):
             'two_factor_authentication_last_interval',
             'two_factor_authentication_recovery_codes_salt',
             'two_factor_authentication_recovery_codes_hashes',
+            'two_factor_authentication_enrolled',
         )
         helper_function_names = (
             'is_account_locked',
@@ -400,6 +411,9 @@ class TestPas(unittest.TestCase, BaseTest):
             'generate_recovery_codes',
             'validate_recovery_code',
             'validate_second_factor',
+            # has_completed_enrollment (the paired read helper) is
+            # deliberately excluded here -- see this method's docstring.
+            'mark_enrollment_completed',
         )
 
         for name in property_names + helper_function_names:
@@ -436,6 +450,10 @@ class TestPas(unittest.TestCase, BaseTest):
             ('validate_second_factor', token_source, 'token.py'),
             ('generate_recovery_codes', user_setup_source, 'user_setup.py'),
             ('validate_recovery_code', helpers_source, 'helpers.py'),
+            ('two_factor_authentication_enrolled',
+                helpers_source, 'helpers.py'),
+            ('mark_enrollment_completed',
+                user_setup_source, 'user_setup.py'),
         )
         for name, source, label in positive_controls:
             self.assertIn(
