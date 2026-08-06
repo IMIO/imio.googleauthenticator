@@ -9,6 +9,7 @@ from plone import api
 from plone.app.testing import TEST_USER_NAME
 from Products.MailHost.MailHost import MailBase
 from Products.statusmessages.interfaces import IStatusMessage
+from smtplib import SMTPRecipientsRefused
 
 import unittest2 as unittest
 
@@ -54,6 +55,28 @@ class TestRequestBarCodeReset(unittest.TestCase, BaseTest):
             MailBase._send = original_send
 
         return sent
+
+    def _submit_reset_request_with_failing_send(self, username, exception):
+        """Raising sibling of ``_submit_reset_request``.
+
+        Identical to that harness except that the patched ``_send`` raises
+        ``exception`` instead of appending the message to a captured list --
+        this drives the mail-failure path through the real form handler
+        rather than the success path.
+        """
+        def _raise(inner_self, mfrom, mto, messageText, immediate=False):
+            raise exception
+
+        original_send = MailBase._send
+        MailBase._send = _raise
+        try:
+            request = self.layer['request']
+            request.form['form.widgets.username'] = username
+            request.form['form.buttons.submit'] = u'Submit'
+            form = RequestBarCodeResetForm(self.portal, request)
+            form.update()
+        finally:
+            MailBase._send = original_send
 
     def test_reset_email_survives_a_non_ascii_sender_name(self):
         """A reset request must not die on an accented character.
@@ -137,3 +160,44 @@ class TestRequestBarCodeReset(unittest.TestCase, BaseTest):
                 'bar_code_reset_token'),
             'bar_code_reset_token was not written, so the handler did not '
             'reach the send step at all.')
+
+    def test_a_refused_recipient_reports_in_page_not_an_error_page(self):
+        """BUG-07: a mail server that refuses the recipient must report
+        through this form's shared failure path, not escape as an unhandled
+        exception into a framework error page.
+
+        Asserted on the full drained message list, not with ``assertIn``,
+        because a fix that widens the ``except`` without also moving the
+        success message inside the inner ``try:`` would fire both messages
+        on the same request (RESEARCH.md Pitfall 1) and ``assertIn`` alone
+        would not catch that.
+        """
+        self.portal.manage_changeProperties(
+            email_from_name='iMio', email_from_address='noreply@imio.be')
+        user = api.user.get(username=TEST_USER_NAME)
+        user.setMemberProperties(mapping={'email': 'cadam@imio.be'})
+        request = self.layer['request']
+        IStatusMessage(request).show()  # drain prior messages
+
+        self._submit_reset_request_with_failing_send(
+            TEST_USER_NAME,
+            SMTPRecipientsRefused(
+                {'cadam@imio.be': (550, 'Recipient address rejected')}))
+
+        self.assertIsNone(
+            request.response.getHeader('Location'),
+            'The handler redirected the caller away from the form; an '
+            'anonymous caller lands on the login form instead of reading '
+            'the error message.')
+        messages = [m.message for m in IStatusMessage(request).show()]
+        self.assertEqual(
+            [u'Request for bar-code reset is failed! An unexpected error '
+             u'occurred.'],
+            messages,
+            'The caller was not told about the send failure on a page they '
+            'can actually see, or was also told the send succeeded.')
+        self.assertTrue(
+            api.user.get(username=TEST_USER_NAME).getProperty(
+                'bar_code_reset_token'),
+            'bar_code_reset_token was rolled back on a send failure -- '
+            'D-12 says it should not be.')
