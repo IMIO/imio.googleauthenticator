@@ -21,8 +21,19 @@
   </p>
 
   <p>
-    <a tal:attributes="href string:${context/absolute_url}/@@personal-information"
-       i18n:translate="">Continue to your profile</a>
+    <!-- UX-01/D-02: "home page" resolves the same way as this package's
+         portal actions (profiles/default/actions.xml, three uses of
+         globals_view/navigationRootUrl) -- but that name is bound only in
+         the CMF action-expression context and main_template's
+         global_defines, neither of which this standalone template (no
+         metal:use-macro, rendered directly through
+         self.recovery_codes_template()) ever gets. Traverse @@plone on
+         context instead: same view, same navigationRootUrl method, same
+         value, correct inside a subsite -- just spelled in the namespace
+         this template actually has. Do not "align" this back to
+         globals_view; it raises a TAL NameError here. -->
+    <a tal:attributes="href string:${context/@@plone/navigationRootUrl}"
+       i18n:translate="">Continue to the home page</a>
   </p>
 
 </div>
