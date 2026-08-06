@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Enrollment Control and Account Safety
-current_phase: 9
+current_phase: 09
 current_phase_name: Mail Path and Profile-Page Correctness
 status: executing
-stopped_at: Phase 9 context gathered
-last_updated: "2026-08-06T12:20:54.147Z"
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-08-06T12:31:47.726Z"
 last_activity: 2026-08-06
-last_activity_desc: v1.1 roadmap created, Phases 9-13, 19/19 requirements mapped
+last_activity_desc: Phase 09 execution started
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -24,16 +24,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-06)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
-**Current focus:** Phase 9 — Mail Path and Profile-Page Correctness. The v1.1 roadmap exists (Phases 9-13, 19 requirements, all mapped); no phase is planned yet.
+**Current focus:** Phase 09 — Mail Path and Profile-Page Correctness
 
 ## Current Position
 
-Phase: 9 of 13 (Mail Path and Profile-Page Correctness) — first v1.1 phase
-Plan: — (none yet)
+Phase: 09 (Mail Path and Profile-Page Correctness) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-08-06 — v1.1 roadmap created, Phases 9-13, 19/19 requirements mapped
+Last activity: 2026-08-06 — Phase 09 execution started
 
-Progress: [░░░░░░░░░░] 0% of v1.1
+Progress: [███░░░░░░░] 25% of v1.1
 
 ## Performance Metrics
 
@@ -65,6 +65,11 @@ Progress: [░░░░░░░░░░] 0% of v1.1
 *Updated after each plan completion. The full 30-row per-plan table from v1.0 is preserved in
 git history and in each phase's `*-SUMMARY.md`; it was collapsed here at the v1.1 roadmap so
 this file stays a digest.*
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 09 P01 | 25min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -98,6 +103,11 @@ build on the decision rather than merely know it happened.
 
 - **[Phase 8 → all]** `bin/code-analysis` exits 0 and the pre-commit hook passes without
   `--no-verify`. CI runs `bin/test-coverage -t '!robot'` with `--fail-under=90`.
+
+- **[Phase 9 → Phase 12]** BUG-07: widened `request_bar_code_reset.py`'s mail-send catch to
+  `(SMTPException, socket.error)`, deleted the re-raise, and moved the success `IStatusMessage`
+  call inside the inner `try:` so a send failure cannot also fire the success message. This is
+  the failure shape Phase 12's three additional senders should copy.
 
 ### Pending Todos
 
@@ -169,9 +179,9 @@ that v1.1 picks up are now mapped to phases and repeated under Blockers above.
 
 ## Session Continuity
 
-Last session: 2026-08-06T11:34:08.837Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-mail-path-and-profile-page-correctness/09-CONTEXT.md
+Last session: 2026-08-06T12:31:47.717Z
+Stopped at: Completed 09-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 

@@ -172,6 +172,15 @@ None — no external service configuration required.
 - Phase 12 can copy this failure shape (widened tuple catch, no re-raise, reused generic message, success-message-inside-try:) verbatim when it attaches three more senders to this mail path.
 - No blockers introduced. BUG-08, UX-01, UX-02 (Plans 02-04 of this phase) are independent and touch disjoint files.
 
+## Self-Check: PASSED
+
+- FOUND: `src/imio/googleauthenticator/browser/forms/request_bar_code_reset.py`
+- FOUND: `src/imio/googleauthenticator/tests/test_request_bar_code_reset.py`
+- FOUND: `.planning/phases/09-mail-path-and-profile-page-correctness/09-01-SUMMARY.md`
+- FOUND commit: `d65826b` (test — RED)
+- FOUND commit: `9b0d5d6` (fix — GREEN)
+- FOUND commit: `a35592a` (test — socket.error arm)
+
 ---
 *Phase: 09-mail-path-and-profile-page-correctness*
 *Completed: 2026-08-06*
