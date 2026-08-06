@@ -29,12 +29,15 @@ human-validated. Phase 10 is planned as 6 plans in 3 waves and is now executing.
 
 ## Current Position
 
-Phase: 10 (Global Enforcement and Enrollment) — EXECUTING
-Plan: 6 of 6
-Status: Phase complete — ready for verification
+Phase: 10 (Global Enforcement and Enrollment) — IMPLEMENTED, NOT YET VERIFIED
+Plan: 6 of 6 executed
+Status: All six plans implemented and committed. Automated gates green (165 tests, 0 failures;
+92% branch coverage against a 90% floor; `bin/code-analysis` exit 0). Two manual checks deferred
+by the operator on 2026-08-06 — see "Deferred Verification" below. The phase-goal verifier and the
+code review have NOT been run for this phase.
 Last activity: 2026-08-06 — Phase 10 execution started
 
-Progress: [██████████] 100% of v1.1 (1 of 5 phases complete)
+Progress: [████░░░░░░] 1 of 5 phases complete (Phase 9). Phase 10 is implemented but not verified.
 
 ## Performance Metrics
 
@@ -215,6 +218,20 @@ None yet.
 | 260806-fsp | Wire the lockout counter into the enrollment form's TOTP check — closes 06-REVIEW.md CR-01 (CRITICAL) / v1.0 audit Gap 1 | 2026-08-06 | 8acfd42 | [260806-fsp-wire-lockout-counter-into-enrollment-for](./quick/260806-fsp-wire-lockout-counter-into-enrollment-for/) |
 | 260806-gfr | Widen the uninstall profile to reverse the PAS plugin, local utility, actions, browser layer, configlet and registry records — closes v1.0 audit Gap 2 (COEX-06) | 2026-08-06 | 29fbeff | [260806-gfr-widen-the-uninstall-profile-to-reverse-w](./quick/260806-gfr-widen-the-uninstall-profile-to-reverse-w/) |
 
+## Deferred Verification
+
+Phases whose implementation is finished but whose verification is not. These are skipped when
+`/gsd-autonomous` is re-entered; resume each through the command in the last column.
+
+| Phase | State | Why | Resume |
+|-------|-------|-----|--------|
+| 10 | verification_deferred_human | Two checks need a running Plone instance and a person: installing onto a site that already has accounts, and confirming the four settings combinations each leave a reachable enrollment route. Operator chose to defer both on 2026-08-06. Full steps in `.planning/phases/10-global-enforcement-and-enrollment/10-UAT.md`. | `/gsd-verify-work 10` |
+
+**Also outstanding for Phase 10, separate from the manual checks:** the code review
+(`/gsd-code-review 10`) and the phase-goal verifier have not been run. Phase 9's code review found
+two real defects, so this is not a formality. Phase 10 has no `10-VERIFICATION.md` and therefore
+cannot be marked complete.
+
 ## Deferred Items
 
 Deferred by explicit decision at the v1.0 close, 2026-08-06. Full detail in
@@ -243,13 +260,28 @@ Resume file: None
 
 ## Operator Next Steps
 
-- `/gsd-plan-phase 9` to plan the first v1.1 phase. Phase 9 has four independent corrections
-  (BUG-07, BUG-08, UX-01, UX-02) and is the cheapest phase in the milestone.
+Updated 2026-08-06 after the autonomous run stopped at the operator's request.
 
-- Five open questions are recorded at the end of `.planning/REQUIREMENTS.md` and are deliberately
-  unanswered. Questions 4 and 5 must be settled before Phase 9 (question 4 decides whether UX-02
-  stays in Phase 9 or moves to Phase 11); question 3 before Phase 10; questions 1 and 2 before
-  Phase 11. `/gsd-discuss-phase` is where they get answered.
+1. **Run Phase 10's code review** — `/gsd-code-review 10`. Not yet run. Phase 9's code review found
+   two real defects (an unhandled exception that would still have reached a bare error page, and an
+   unescaped interpolation into HTML that renders unescaped), so this is not a formality.
+
+2. **Run Phase 10's two manual checks** — `/gsd-verify-work 10`. Both need a running Plone instance
+   with `IMIO_GOOGLEAUTHENTICATOR_SEED_KEY` set. Steps are written out in
+   `.planning/phases/10-global-enforcement-and-enrollment/10-UAT.md`. Phase 10 cannot be marked
+   complete until it has a `10-VERIFICATION.md`.
+
+3. **Then continue the milestone** — `/gsd-autonomous --from 11` for Phases 11 (password
+   re-authentication before MFA changes), 12 (notification emails) and 13 (French translations),
+   followed by the milestone audit and cleanup.
+
+- Of the five open questions at the end of `.planning/REQUIREMENTS.md`, **three are now answered**:
+  question 4 (UX-02 stays in Phase 9) and question 5 (the fix is the schema field description) were
+  settled during Phase 9's discussion; question 3 (where global enforcement is checked) was settled
+  during Phase 10's discussion — the operator chose install-time enrollment over changing the login
+  check. **Questions 1 and 2 remain open** and belong to Phase 11: whether a password
+  re-authentication is good for one action or a short window, and whether a failed re-authentication
+  feeds the same lockout counter as wrong codes.
 
 - Outside this repository: get the `IMIO_GOOGLEAUTHENTICATOR_SEED_KEY` `concat::fragment` shipped
   in `industrialisation`. Nothing here can be deployed until it is, and v1.1 does not change that.
