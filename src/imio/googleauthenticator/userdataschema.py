@@ -73,12 +73,16 @@ class IEnhancedUserDataSchema(IUserDataSchema):
     accessor for them -- and would make a user's own lockout deadline
     form-writable. See ``tests/test_adapter.py``.
     """
+    # BUG-08: the two links this description used to carry (setup and
+    # disable) were removed deliberately. @@user-information -- the
+    # administrator-viewing-another-user form -- is the only renderer of
+    # this description (CustomizedUserDataPanel.omit() above covers only
+    # @@personal-information), and neither target view acts on the viewed
+    # user -- both act on api.user.get_current(). The resulting orphaned
+    # msgid is a known Phase 13 catalogue-rebuild input, not a defect.
     enable_two_factor_authentication = Bool(
         title=_('Enable two-step verification.'),
-        description=_("""Enable/disable the two-step verification. Click <a href=\"@@setup-two-factor-authentication\"> """
-                      """here</a> to set it up or <a href=\"@@disable-two-factor-authentication\">here</a> to """
-                      """disable it."""
-            ),
+        description=_('Enable/disable the two-step verification.'),
         required=False
         )
 
