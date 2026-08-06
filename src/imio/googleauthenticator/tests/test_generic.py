@@ -406,6 +406,14 @@ class TestGeneric(unittest.TestCase, BaseTest):
         link to a user who has never enrolled, a misleading offer of a
         security control's state, the same class of defect T-03-23 and
         T-03-21 already documented in this package.
+
+        D-15 (phase 10 plan 04): available_expr used to reuse
+        show-disable-two-factor-authentication-link, deliberately. That
+        reuse was undone because D-11 changed the disable condition to
+        require the global setting to be off, which would have hidden this
+        action from exactly the users under global enforcement -- so this
+        now asserts the action's own show-regenerate-recovery-codes-link
+        condition instead.
         """
         portal_actions = getToolByName(self.portal, 'portal_actions')
         user_category = portal_actions.user
@@ -420,10 +428,10 @@ class TestGeneric(unittest.TestCase, BaseTest):
             'RECOV-06: regeneration must reuse the setup form -- there is '
             'no dedicated regeneration view.')
         self.assertIn(
-            'show-disable-two-factor-authentication-link',
+            'show-regenerate-recovery-codes-link',
             action.available_expr,
-            'RECOV-06: regeneration must reuse the existing enrolled-user '
-            'availability view, not a new one.')
+            'D-15: regeneration must use its own availability view, not '
+            'the disable link\'s condition.')
 
     def test_no_restrictedTraverse_left_in_browser_code(self):
         """COEX-04: no view under ``browser/`` may reach a template through

@@ -34,17 +34,25 @@
        form validates a currently valid TOTP code before it writes, so a
        user holding only a recovery code cannot mint a fresh set from one.
        No dedicated regeneration view exists or should be added; that
-       device-possession check is the gate. available_expr reuses the same
-       view as disable_two_factor_authentication above (globally enabled
-       and this user has enrolled) rather than adding a fourth
-       SettingsHelper method for the same boolean. -->
+       device-possession check is the gate.
+       D-15: available_expr used to reuse disable_two_factor_authentication's
+       view above, deliberately, "rather than adding a fourth SettingsHelper
+       method for the same boolean". That reuse was undone: D-11 changed the
+       disable condition to require the global setting to be off, which is
+       precisely the case where "Regenerate recovery codes" must still be
+       offered: a user under global enforcement who never asked to disable
+       anything would otherwise have silently lost the ability to regenerate
+       their own codes as a side effect of the MFA-16 fix. This now points at
+       its own SettingsHelper method, keyed on completed enrollment with no
+       global-setting term. Do not re-collapse the two conditions to save a
+       method. -->
   <object name="regenerate_recovery_codes" meta_type="CMF Action" i18n:domain="imio.googleauthenticator" insert-before="logout">
    <property name="title" i18n:translate="">Regenerate recovery codes</property>
    <property name="description" i18n:translate=""></property>
    <property
       name="url_expr">string:${globals_view/navigationRootUrl}/@@setup-two-factor-authentication</property>
    <property name="icon_expr"></property>
-   <property name="available_expr">portal/@@show-disable-two-factor-authentication-link</property>
+   <property name="available_expr">portal/@@show-regenerate-recovery-codes-link</property>
    <property name="permissions">
     <element value="View"/>
    </property>
