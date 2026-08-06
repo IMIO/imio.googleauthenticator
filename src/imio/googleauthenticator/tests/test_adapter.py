@@ -8,6 +8,9 @@ from imio.googleauthenticator.adapter import EnhancedUserDataPanelAdapter
 from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
 from imio.googleauthenticator.tests.base import BaseTest
 from imio.googleauthenticator.userdataschema import IEnhancedUserDataSchema
+from plone import api
+from plone.app.testing import login
+from plone.app.testing import TEST_USER_NAME
 from plone.app.users.userdataschema import IUserDataSchema
 from Products.CMFCore.utils import getToolByName
 from zope.schema import getFieldNames
@@ -15,16 +18,22 @@ from zope.schema import getFieldNames
 import unittest2 as unittest
 
 
-# The three counters plan 05-01 introduced, plus the two recovery-code
-# properties plan 06-01 introduced. Named here only to pin the decision that
+# Internal member-data-only state this package has added across several
+# plans: the three counters plan 05-01 introduced, the two recovery-code
+# properties plan 06-01 introduced, and the enrollment-completion property
+# plan 10-01 introduced (D-17). Named here only to pin the decision that
 # they are memberdata, not form fields -- the test above this list works off
-# the schema itself and needs no such enumeration.
-LOCKOUT_STATE_PROPERTIES = (
+# the schema itself and needs no such enumeration. Renamed from
+# LOCKOUT_STATE_PROPERTIES (plan 10-05): the category this tuple pins is
+# "internal state," not "lockout state" specifically, and the enrollment-
+# completion property is not a lockout counter.
+INTERNAL_MEMBERDATA_PROPERTIES = (
     'two_factor_authentication_failed_attempts',
     'two_factor_authentication_locked_until',
     'two_factor_authentication_last_interval',
     'two_factor_authentication_recovery_codes_salt',
     'two_factor_authentication_recovery_codes_hashes',
+    'two_factor_authentication_enrolled',
     )
 
 
@@ -80,8 +89,9 @@ class TestEnhancedUserDataPanelAdapter(unittest.TestCase, BaseTest):
             'These schema fields have no adapter accessor, so any profile '
             'form rendering them raises AttributeError: {0}'.format(missing))
 
-    def test_lockout_state_is_memberdata_only_and_never_a_form_field(self):
-        """The replay and lockout counters must not be schema fields.
+    def test_internal_state_is_memberdata_only_and_never_a_form_field(self):
+        """The replay/lockout counters and the enrollment-completion flag
+        must not be schema fields.
 
         They are internal state written only by ``helpers.py`` through
         ``setMemberProperties``, and read only through ``getProperty``. What
@@ -96,32 +106,63 @@ class TestEnhancedUserDataPanelAdapter(unittest.TestCase, BaseTest):
         review flagged: as schema fields they were plain writable ``Int``s
         whose only barrier against a user editing their own
         ``two_factor_authentication_locked_until`` to 0 was one view's
-        ``omit()`` call. A field that does not exist needs no barrier.
+        ``omit()`` call. A field that does not exist needs no barrier. For
+        ``two_factor_authentication_enrolled`` specifically (D-17), a
+        form-writable version would let a user claim completed enrollment
+        while holding a seed they never actually saw.
         """
         schema_fields = getFieldNames(IEnhancedUserDataSchema)
 
-        leaked = [name for name in LOCKOUT_STATE_PROPERTIES
+        leaked = [name for name in INTERNAL_MEMBERDATA_PROPERTIES
                   if name in schema_fields]
         self.assertEqual(
             [], leaked,
-            'Lockout state is back on the user-profile schema, which both '
+            'Internal state is back on the user-profile schema, which both '
             'breaks @@user-information and makes it form-writable: '
             '{0}'.format(leaked))
 
-    def test_lockout_state_still_persists_as_memberdata(self):
+    def test_internal_state_still_persists_as_memberdata(self):
         """Non-vacuity control for the test above: proves removing the schema
         fields did not remove the properties themselves. Without this, an
         accidental deletion of the ``memberdata_properties.xml`` entries would
-        leave the assertion above passing while every counter silently stopped
-        persisting -- the exact failure mode that file exists to prevent.
+        leave the assertion above passing while every one of them silently
+        stopped persisting -- the exact failure mode that file exists to
+        prevent.
         """
         memberdata = getToolByName(self.portal, 'portal_memberdata')
 
-        for name in LOCKOUT_STATE_PROPERTIES:
+        for name in INTERNAL_MEMBERDATA_PROPERTIES:
             self.assertTrue(
                 memberdata.hasProperty(name),
                 '{0} is not declared in portal_memberdata, so '
                 'setMemberProperties will silently pop it.'.format(name))
+
+    def test_enrollment_completion_property_round_trips_as_a_bool(self):
+        """D-17, and the standing constraint that every new member-data
+        property needs a set/get round-trip test: ``hasProperty`` (used by
+        the test above) is not a round trip -- an undeclared property is
+        silently popped by ``MutablePropertySheet.setProperties`` with no
+        error, so reading back the declared default instead of the written
+        value is exactly the failure this test exists to catch.
+        """
+        login(self.portal, TEST_USER_NAME)
+        user = api.user.get_current()
+        previous = user.getProperty('two_factor_authentication_enrolled')
+        try:
+            user.setMemberProperties(
+                mapping={'two_factor_authentication_enrolled': True})
+            value = user.getProperty('two_factor_authentication_enrolled')
+            self.assertEqual(True, value)
+            self.assertIsInstance(value, bool)
+
+            user.setMemberProperties(
+                mapping={'two_factor_authentication_enrolled': False})
+            value = user.getProperty('two_factor_authentication_enrolled')
+            self.assertEqual(False, value)
+            self.assertIsInstance(value, bool)
+        finally:
+            user.setMemberProperties(
+                mapping={'two_factor_authentication_enrolled': previous})
 
     def test_enable_flag_description_offers_no_wrong_account_links(self):
         """BUG-08: ``enable_two_factor_authentication``'s description must

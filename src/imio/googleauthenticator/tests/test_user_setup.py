@@ -19,6 +19,7 @@ import os
 import time
 import transaction
 import unittest2 as unittest
+import urllib
 
 
 # ``updateFields`` rewrites ``barcode_field.field.description`` in place on
@@ -825,3 +826,130 @@ class TestEnrollmentRedirect(unittest.TestCase, BaseTest):
             'a user holding a seed they never saw must be routed to the '
             'enrollment page, not asked for a code from it')
         self.assertNotIn('@@google-authenticator-token', browser.url)
+
+    def test_enrollment_page_refuses_an_invalid_signature(self):
+        """T-10-20/MFA-19 empty probe (second half): a resolvable auth_user
+        whose signature does not validate must render no QR code, must not
+        accept a submitted token, must change no account's member data, and
+        must never leak a second account's seed into the response. This is
+        the resolvable-but-tampered variant --
+        test_enrollment_page_refuses_an_unresolvable_or_absent_auth_user
+        above only covers the absent/unresolvable auth_user branch, which
+        exercises a different code path (_resolve_signed_user's early
+        return, not validate_signed_request_data).
+        """
+        request = self.layer['request']
+
+        username = 'tampered-signature-user'
+        user = api.user.create(
+            email='tampered-signature-user@example.com',
+            username=username,
+            password='Secret0123!')
+        transaction.commit()
+
+        other_username = 'seed-must-not-leak-user'
+        other_user = api.user.create(
+            email='seed-must-not-leak-user@example.com',
+            username=other_username,
+            password='Secret0123!')
+        other_secret = helpers.get_or_create_secret(
+            other_user, overwrite=True)
+        transaction.commit()
+
+        # A genuinely signed URL -- sign_user_data() mints a seed for
+        # `user` as a side effect (D-02), which is why the mutation
+        # assertions below compare state from *after* this call, not from
+        # before it: this call's own side effect is not what is under
+        # test.
+        signed_url = helpers.sign_user_data(
+            request=request, user=user,
+            url='@@setup-two-factor-authentication')
+        transaction.commit()
+
+        prefix, separator, signature_value = signed_url.partition(
+            'signature=')
+        self.assertTrue(
+            separator,
+            'precondition: sign_user_data must produce a signature '
+            'parameter, or this test tampers with nothing')
+        self.assertNotIn(
+            '&', signature_value,
+            'precondition: signature must be the last query parameter, '
+            'or flipping its first character would corrupt a different '
+            'one instead')
+        tampered_char = 'A' if signature_value[0] != 'A' else 'B'
+        tampered_url = (
+            prefix + separator + tampered_char + signature_value[1:])
+        self.assertNotEqual(
+            tampered_url, signed_url,
+            'precondition: the tampering must actually change the URL')
+
+        signed_user = api.user.get(username=username)
+        seed_before = signed_user.getProperty(
+            'two_factor_authentication_secret')
+        enabled_before = signed_user.getProperty(
+            'enable_two_factor_authentication')
+        enrolled_before = signed_user.getProperty(
+            'two_factor_authentication_enrolled')
+
+        browser = self._get_browser()
+        browser.open('{0}/{1}'.format(self.portal_url, tampered_url))
+
+        self.assertNotIn(
+            'alt="QR Code"', browser.contents,
+            'T-10-20: a tampered signature must not render the QR code')
+        self.assertNotIn(
+            other_secret, browser.contents,
+            "T-10-20: a tampered signature for one account must never "
+            "leak another account's seed into the response")
+
+        # Submit a token on the page -- it still renders, since the view
+        # is public and updateFields()'s user-is-None branch simply skips
+        # the QR, it does not refuse the GET. handleSubmit sets a real
+        # 401 once the submission is evaluated; per
+        # test_challenge.py::test_no_body_leak_over_http's documented
+        # precedent, Browser.getControl(...).click() re-raises any
+        # mechanize.HTTPError unconditionally and never consults
+        # raiseHttpErrors at all -- submitting the encoded POST directly
+        # through Browser.open() instead routes through the code path
+        # that actually honours the switch.
+        browser.raiseHttpErrors = False
+        post_data = urllib.urlencode({
+            'form.widgets.token': '000000',
+            # A real browser POST always submits the qr_code text input
+            # too, even though nothing ever fills it in -- an empty
+            # string, not an absent key, or z3c.form's Fields.extract()
+            # falls back to the field's own (differently-typed) missing
+            # value (see test_reset_bar_code.py:548-552 for the same
+            # note against the sibling reset form).
+            'form.widgets.qr_code': '',
+            'form.buttons.verify': 'Verify',
+        })
+        browser.open(
+            '{0}/{1}'.format(self.portal_url, tampered_url), post_data)
+
+        self.assertIn(
+            'Invalid data. The enrollment link is invalid or has expired.',
+            browser.contents,
+            'T-10-20: an error status message must be rendered for a '
+            'resolvable auth_user with an invalid signature')
+        self.assertNotIn(
+            'successfully enabled', browser.contents,
+            'T-10-20: a tampered signature must never be accepted, even '
+            'with a submitted token')
+        self.assertNotIn(
+            other_secret, browser.contents,
+            "T-10-20: the submission response must not leak another "
+            "account's seed either")
+
+        refetched_user = api.user.get(username=username)
+        self.assertEqual(
+            seed_before,
+            refetched_user.getProperty('two_factor_authentication_secret'),
+            'a tampered-signature request must change no member data')
+        self.assertEqual(
+            enabled_before,
+            refetched_user.getProperty('enable_two_factor_authentication'))
+        self.assertEqual(
+            enrolled_before,
+            refetched_user.getProperty('two_factor_authentication_enrolled'))
