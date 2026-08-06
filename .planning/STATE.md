@@ -133,10 +133,15 @@ None yet.
 
 [Issues that affect future work]
 
-- **Now mapped, was open — Phase 9 (BUG-07):** `browser/forms/request_bar_code_reset.py:112-113`
-  catches `SMTPRecipientsRefused` and re-raises the same exception type, which the enclosing
-  `except ValueError` cannot catch. Those two lines are uncovered. Phase 12 adds three more
-  senders to this path, so it is fixed first.
+- **RESOLVED 2026-08-06 in Phase 9 (BUG-07):** `browser/forms/request_bar_code_reset.py` used to
+  catch `SMTPRecipientsRefused` and re-raise the same exception type, which the enclosing
+  `except ValueError` could not catch. The catch is now
+  `except (SMTPException, socket.error, KeyError, IndexError):` with no re-raise, and the success
+  status message moved inside the same inner `try:` so a failed send cannot also report success.
+  `KeyError`/`IndexError` were added by the Phase 9 code review (finding WR-01): the mail body's
+  `.format()` call runs on already-TAL-rendered text, so an administrator display name containing
+  `{Team}` would otherwise have escaped as an unhandled exception. Phase 12 adds three more
+  senders to this path and inherits this failure shape.
 
 - **Now mapped, was open — Phase 10 (MFA-15..19, was MFA-14):** `globally_enabled` does not
   enroll accounts that existed when the add-on was installed. The login gate reads each user's
