@@ -5,15 +5,15 @@ milestone_name: Enrollment Control and Account Safety
 current_phase: 10
 current_phase_name: Global Enforcement and Enrollment
 status: executing
-stopped_at: Completed 09-04-PLAN.md
-last_updated: "2026-08-06T15:21:59.817Z"
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-08-06T16:15:46.762Z"
 last_activity: 2026-08-06
-last_activity_desc: Phase 09 complete, transitioned to Phase 10
+last_activity_desc: Phase 10 execution started
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 10
-  completed_plans: 4
+  completed_plans: 5
   percent: 20
 ---
 
@@ -25,16 +25,16 @@ See: .planning/PROJECT.md (updated 2026-08-06)
 
 **Core value:** A second factor that actually holds for in-site users, and that can be deployed alongside `imio.dms.mail` without colliding with it.
 **Current focus:** Phase 10 — Global Enforcement and Enrollment. Phase 9 is complete and
-human-validated. Phase 10 is planned (6 plans, 3 waves) and ready to execute.
+human-validated. Phase 10 is planned as 6 plans in 3 waves and is now executing.
 
 ## Current Position
 
-Phase: 10 — Global Enforcement and Enrollment
-Plan: Not started (6 plans planned, 3 waves)
+Phase: 10 (Global Enforcement and Enrollment) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
-Last activity: 2026-08-06 — Phase 09 complete and human-validated; Phase 10 discussed and planned
+Last activity: 2026-08-06 — Phase 10 execution started
 
-Progress: [██░░░░░░░░] 20% of v1.1 (1 of 5 phases complete)
+Progress: [█████░░░░░] 50% of v1.1 (1 of 5 phases complete)
 
 ## Performance Metrics
 
@@ -74,6 +74,7 @@ this file stays a digest.*
 | Phase 09 P02 | 20min | 1 tasks | 2 files |
 | Phase 09 P03 | 25min | 2 tasks | 3 files |
 | Phase 09 P04 | ~20min | 2 tasks | 1 files |
+| Phase 10 P01 | ~2h | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -143,6 +144,9 @@ build on the decision rather than merely know it happened.
   copying the base32 setup key as text into a TOTP application, and the site accepted the codes it
   produced. The operator also confirmed the recovery-codes page's home-page link and the absence of
   the wrong-account links on `@@user-information`.
+
+- [Phase ?]: testing.py's shared layer resets globally_enabled and the fixture user's flag right after profile install, because the schema default (True) + new install-time bulk enrollment would otherwise auto-enrol the shared test fixture user for the whole suite
+- [Phase ?]: ISetupForm['qr_code'].description is process-wide mutable schema-field state, same hazard test_reset_bar_code.py already documents for IResetBarCodeForm -- TestEnrollmentRedirect now resets it in setUp the same way
 
 ### Pending Todos
 
@@ -219,8 +223,8 @@ that v1.1 picks up are now mapped to phases and repeated under Blockers above.
 
 ## Session Continuity
 
-Last session: 2026-08-06T13:00:28.192Z
-Stopped at: Completed 09-04-PLAN.md
+Last session: 2026-08-06T16:15:46.751Z
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

@@ -19,7 +19,7 @@ Decision taken 2026-08-06: "enrollment is never blocked unless the package is un
 about **enrollment only**. The failed-attempt lockout shipped in v1.0 (MFA-08..MFA-13) is
 unchanged and still applies to second-factor checks at login.
 
-- [ ] **MFA-15**: A user whose account existed before this add-on was installed is required to
+- [x] **MFA-15**: A user whose account existed before this add-on was installed is required to
       present a second factor at login when `globally_enabled` is on
 
 - [ ] **MFA-16**: With `globally_enabled` on, a user cannot turn their own second factor off
@@ -29,7 +29,7 @@ unchanged and still applies to second-factor checks at login.
 - [ ] **MFA-18**: The enrollment flow is reachable whenever the package is installed, whatever
       the global setting says
 
-- [ ] **MFA-19**: A user who was enrolled by the global setting rather than by their own action
+- [x] **MFA-19**: A user who was enrolled by the global setting rather than by their own action
       is shown the enrollment page (QR code and secret) before being asked for a code, instead of
       being asked for a code from an application they never set up
 
@@ -173,11 +173,11 @@ ended at Phase 8.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MFA-15 | Phase 10 | Pending |
+| MFA-15 | Phase 10 | Complete |
 | MFA-16 | Phase 10 | Pending |
 | MFA-17 | Phase 10 | Pending |
 | MFA-18 | Phase 10 | Pending |
-| MFA-19 | Phase 10 | Pending |
+| MFA-19 | Phase 10 | Complete |
 | SEC-09 | Phase 11 | Pending |
 | SEC-10 | Phase 11 | Pending |
 | SEC-11 | Phase 11 | Pending |
