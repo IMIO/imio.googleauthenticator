@@ -17,6 +17,7 @@ from Products.CMFCore.utils import getToolByName
 from Products.PluggableAuthService.interfaces.plugins import IAuthenticationPlugin
 from zope.component import getUtility
 from zope.i18n import translate
+from zope.schema import Bool
 from zope.schema import Int
 
 import imio.googleauthenticator
@@ -68,6 +69,24 @@ class TestGeneric(unittest.TestCase, BaseTest):
         registry.forInterface(IGoogleAuthenticatorSettings)  # raises KeyError if any record missing
 
         self.assertIn(IGoogleAuthenticatorLayer, registered_layers())
+
+    def test_globally_enabled_schema_default_is_true(self):
+        """WR-03: testing.py's layer forces globally_enabled = False right
+        after applyProfile() (deliberate test-isolation, documented there),
+        so nearly every test in this suite runs against that override, not
+        the schema's own default. This pins the schema-level default
+        directly against the IGoogleAuthenticatorSettings field, so a
+        future edit to that default cannot drift silently -- asserted
+        against the field's declared default, not a live registry read
+        (which would only ever observe the layer's override).
+        """
+        field = IGoogleAuthenticatorSettings['globally_enabled']
+        self.assertIsInstance(field, Bool)
+        self.assertTrue(
+            field.default,
+            'WR-03: IGoogleAuthenticatorSettings.globally_enabled must '
+            'default to True -- this is the production default, distinct '
+            'from the test layer\'s own runtime override.')
 
     def test_control_panel_view(self):
         browser = self._get_browser()
