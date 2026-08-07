@@ -55,6 +55,7 @@ class SettingsHelper(BrowserView):
         The following conditions shall be met for True to be returned:
 
         - User has enabled the two factor authentication for his account.
+        - User has completed second-factor enrollment.
         - In app settings, the globally enable two factor authentication is set to False.
 
         :return bool:
@@ -68,8 +69,18 @@ class SettingsHelper(BrowserView):
         # browser/disable_two_factor_authentication.py (plan 10-03), because
         # a hidden link is still a working bookmarked URL (D-09, the mirror
         # of the case Phase 9 settled as BUG-08).
+        #
+        # WR-02: has_completed_enrollment(user) added so an install-time
+        # bulk-enrolled account (enable=True, enrolled=False) does not show
+        # this link at the same time as "Enable two-step verification" once
+        # globally_enabled is off -- two contradictory actions for the same
+        # unfinished setup. Does not strand anyone: such an account still
+        # sees the "Enable" link (show_enable_two_factor_authentication_link
+        # is keyed only on enrollment, not this flag), and this link
+        # reappears once enrollment completes.
         return (
             has_enabled_two_factor_authentication(user) and
+            has_completed_enrollment(user) and
             not is_two_factor_authentication_globally_enabled()
         )
 

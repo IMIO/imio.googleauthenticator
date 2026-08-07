@@ -124,6 +124,14 @@ class TestSettingsHelper(unittest.TestCase, BaseTest):
         Three-way negative coverage is what distinguishes a correct
         condition from one that is merely True in the one case a
         happy-path test checks.
+
+        WR-02: a 5th cell added -- enabled=True, enrolled=False,
+        globally_enabled=False. The four cells above always keep
+        `enrolled` equal to the enable flag, so none of them can catch a
+        `show_disable_two_factor_authentication_link` that ignores
+        enrollment entirely; this cell is exactly the install-time
+        bulk-enrolled state that produced both "Enable" and "Disable"
+        links at once before the WR-02 fix.
         """
         self._set_state(globally_enabled=False, enabled=True, enrolled=True)
         _e1, disable, _r1 = self._conditions()
@@ -144,6 +152,20 @@ class TestSettingsHelper(unittest.TestCase, BaseTest):
         _e4, disable, _r4 = self._conditions()
         self.assertFalse(
             disable, 'globally_enabled on, flag unset: must be refused.')
+
+        self._set_state(globally_enabled=False, enabled=True, enrolled=False)
+        enable, disable, _r5 = self._conditions()
+        self.assertFalse(
+            disable,
+            'WR-02: globally_enabled off, flag set, enrollment NOT '
+            'completed: the disable link must be refused -- an '
+            'unfinished install-time enrollment must not offer '
+            '"Disable" alongside "Enable" for the same account.')
+        self.assertTrue(
+            enable,
+            'WR-02: the same account must still be offered the '
+            '"Enable" link, so it is not stranded with neither action '
+            'visible.')
 
     def test_regenerate_link_survives_global_enforcement(self):
         """D-15: enrollment completed, globally_enabled on -- the
