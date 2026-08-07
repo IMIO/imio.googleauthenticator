@@ -49,7 +49,13 @@ class DisableTwoFactorAuthentication(BrowserView):
             mapping={
                 'enable_two_factor_authentication': False,
                 'two_factor_authentication_secret': '',
-                'bar_code_reset_token': ''
+                'bar_code_reset_token': '',
+                # CR-01: routing (pas_plugin.authenticateCredentials) uses
+                # this flag alone to decide enrollment vs. code-entry.
+                # Leaving it True here means a later re-enable (single,
+                # bulk, or profile-reapply) sends the account straight to
+                # the code-entry page for a secret it never saw.
+                'two_factor_authentication_enrolled': False,
                 }
             )
 

@@ -1,6 +1,7 @@
 from cryptography.fernet import Fernet
 from imio.googleauthenticator import helpers
 from imio.googleauthenticator import pas_plugin
+from imio.googleauthenticator.browser.disable_two_factor_authentication import DisableTwoFactorAuthentication
 from imio.googleauthenticator.helpers import get_or_create_secret
 from imio.googleauthenticator.setuphandlers import PAS_ID
 from imio.googleauthenticator.testing import IMIO_GOOGLEAUTHENTICATOR_FUNCTIONAL_TESTING
@@ -614,6 +615,62 @@ class TestPas(unittest.TestCase, BaseTest):
                 request.other.get(pas_plugin.REQUEST_KEY_ENROLLMENT_NEEDED),
                 'D-06: once enrollment is recorded complete, the same '
                 'account must be routed to the code-entry page instead')
+        finally:
+            setRequest(None)
+
+    def test_disable_then_reenable_does_not_lock_the_user_out_of_login(self):
+        """CR-01 regression, end to end: a user completes enrollment,
+        disables their own second factor through the real view
+        (@@disable-two-factor-authentication, allowed while
+        globally_enabled is off -- the default under this layer's
+        fixture), and is then re-enabled in bulk
+        (enable_two_factor_authentication_for_users, the single-click
+        path CR-01 names as reaching the same lockout most directly).
+        Before the CR-01/WR-01 fix, disable() left
+        two_factor_authentication_enrolled untouched, so the re-enabled
+        account was routed straight to the code-entry page for a secret
+        it had never seen -- an unrecoverable login lockout. This asserts
+        the actual routing decision
+        (pas_plugin.REQUEST_KEY_ENROLLMENT_NEEDED), the same signal
+        test_routing_decision_reads_enrollment_completion_not_seed_presence
+        above already uses, not merely that a property was cleared.
+        """
+        login(self.portal, TEST_USER_NAME)
+        user = api.user.get_current()
+        user.setMemberProperties(mapping={
+            'enable_two_factor_authentication': True,
+            'two_factor_authentication_secret': 'placeholder-secret',
+        })
+        helpers.mark_enrollment_completed(user)
+        self.assertTrue(
+            helpers.has_completed_enrollment(user),
+            'precondition: enrollment must be recorded complete before '
+            'disable() runs below, or this test cannot distinguish the '
+            'fix from a no-op.')
+
+        request = self.layer['request']
+        view = DisableTwoFactorAuthentication(self.portal, request)
+        view.disable()
+        self.assertFalse(
+            helpers.has_enabled_two_factor_authentication(
+                api.user.get(username=TEST_USER_NAME)),
+            'precondition: disable() must actually have disabled the '
+            'account, or the re-enable step below proves nothing.')
+
+        helpers.enable_two_factor_authentication_for_users(
+            [api.user.get(username=TEST_USER_NAME)])
+
+        setRequest(request)
+        plugin = self.pas[PAS_ID]
+        try:
+            credentials = {
+                'login': TEST_USER_NAME, 'password': TEST_USER_PASSWORD}
+            plugin.authenticateCredentials(credentials)
+            self.assertTrue(
+                request.other.get(pas_plugin.REQUEST_KEY_ENROLLMENT_NEEDED),
+                'CR-01: a disabled-then-re-enabled account must be '
+                'routed back through enrollment, not the code-entry '
+                'page for a secret it has never seen.')
         finally:
             setRequest(None)
 

@@ -1144,8 +1144,21 @@ def disable_two_factor_authentication_for_users(users=None):
         try:
             # get_or_create_secret(user)
             if has_enabled_two_factor_authentication(user):
-                user.setMemberProperties(
-                    mapping={'enable_two_factor_authentication': False})
+                # CR-01/WR-01: bring this bulk path in line with
+                # DisableTwoFactorAuthentication.disable() (the
+                # single-user view) -- clear the stored seed and reset
+                # token too, not just the enable flag, and clear the
+                # enrollment-completion flag so a later re-enable routes
+                # back through enrollment instead of the code-entry page.
+                # This guard only prevents *new* stale state; an account
+                # already left stale by a bulk disable before this fix
+                # is not retroactively cleaned up here.
+                user.setMemberProperties(mapping={
+                    'enable_two_factor_authentication': False,
+                    'two_factor_authentication_secret': '',
+                    'bar_code_reset_token': '',
+                    'two_factor_authentication_enrolled': False,
+                    })
         except Exception as e:
             logger.debug(str(e))
 
