@@ -145,15 +145,29 @@ blocked: 0
   severity: blocker
   test: 1
   requirement: MFA-15
-  artifacts: []
-  missing: []
+  root_cause: "The login plugin raises KeyError before it checks anything. authenticateCredentials calls is_whitelisted_client() first, which reaches get_app_settings(), which calls plone.registry forInterface() and raises because the site has no record for the max_failed_attempts settings field. Proven from /srv/src/server.dmsmail/var/log/instance1.log line 1207155, timestamp 260807 152305. The record is missing because max_failed_attempts was added to the settings interface on 2026-07-31 (commit bb528fe) while the GenericSetup profile version has never changed from 1000 and no upgrade step exists, so a site installed before that date never gains the record. This is a fail-open failure: the second factor is skipped rather than the login refused."
+  debug_session: ".planning/debug/10-settings-record-missing-breaks-login-plugin.md"
+  artifacts:
+    - path: "src/imio/googleauthenticator/profiles/default/metadata.xml"
+      issue: "Profile version is 1000 and has never been bumped, so no registry or member-data change reaches an already-installed site"
+    - path: "src/imio/googleauthenticator/helpers.py"
+      issue: "get_app_settings raises on an incomplete registry; the login plugin then fails open"
+    - path: "src/imio/googleauthenticator/configure.zcml"
+      issue: "Install step declares no dependency on memberdata-properties (separate confirmed defect, see 10-install-enrollment-not-applied.md)"
+  missing:
+    - "Bump the GenericSetup profile version in profiles/default/metadata.xml"
+    - "Create an upgrades package with an upgrade step that re-imports the registry and memberdata-properties steps"
+    - "Decide deliberately what the login plugin does when the settings registry is incomplete, so it cannot fail open"
+    - "Add <depends name=\"memberdata-properties\"/> to the install step, plus a test asserting the dependency is declared"
 
 - gap_id: G-10-1b
   truth: "A user enrolled by the site-wide setting rather than by their own action is shown the enrollment page (QR code and secret) before being asked for a code"
-  status: failed
-  reason: "User reported: For new users, the OTP is asked but they can reset it"
-  severity: blocker
+  status: not_reproduced
+  reason: "User reported: For new users, the OTP is asked but they can reset it. A dedicated investigation could NOT reproduce this: it created an account and drove a real login through both redirect paths, and both times the user correctly reached the enrollment page with a valid signed link. On a site where the login plugin raises on every request (gap G-10-1a) nobody would be asked for a code at all, so this observation cannot have come from the same site state. Needs its own reproduction before any fix is attempted."
+  severity: unknown
   test: 1
   requirement: MFA-19
+  debug_session: ".planning/debug/10-enrollment-routing-lands-on-code-entry.md"
   artifacts: []
-  missing: []
+  missing:
+    - "A reproduction on a site whose settings registry is complete, so the login plugin actually runs"
